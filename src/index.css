@@ -1,0 +1,24 @@
+@import "./design/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tailwind's preflight resets html/body colours; restore the token values. */
+@layer base {
+  html {
+    background: var(--bg-base);
+    color: var(--text-primary);
+  }
+
+  body {
+    font-size: var(--text-sm);
+    line-height: var(--leading-sm);
+    font-weight: var(--weight-body);
+  }
+
+  #root {
+    height: 100vh;
+    height: 100dvh;
+  }
+}
