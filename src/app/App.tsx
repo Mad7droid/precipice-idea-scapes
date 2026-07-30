@@ -1,3 +1,4 @@
+import { DevObjects } from "@/routes/dev/objects";
 import { Link, useRoute } from "./router";
 
 const DEV_ROUTES: Array<[string, string]> = [
@@ -10,6 +11,7 @@ const DEV_ROUTES: Array<[string, string]> = [
 export function App() {
   const route = useRoute();
 
+  if (route === "/dev/objects") return <DevObjects />;
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
 
   return (
