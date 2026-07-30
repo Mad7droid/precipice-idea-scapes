@@ -1,6 +1,8 @@
 import { DevCanvas } from "@/routes/dev/canvas";
 import { DevObjects } from "@/routes/dev/objects";
+import { DevPersistence } from "@/routes/dev/persistence";
 import { Link, useRoute } from "./router";
+import { ToastHost } from "./ToastHost";
 
 const DEV_ROUTES: Array<[string, string]> = [
   ["/dev/objects", "Object plugins — all types, both themes, 1× and 0.4×"],
@@ -10,10 +12,20 @@ const DEV_ROUTES: Array<[string, string]> = [
 ];
 
 export function App() {
+  return (
+    <>
+      <Routes />
+      <ToastHost />
+    </>
+  );
+}
+
+function Routes() {
   const route = useRoute();
 
   if (route === "/dev/objects") return <DevObjects />;
   if (route === "/dev/canvas") return <DevCanvas />;
+  if (route === "/dev/persistence") return <DevPersistence />;
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
 
   return (
