@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Precipice — Design Language</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ash-0:#FFFFFF;--ash-25:#FCFBF9;--ash-50:#F7F5F1;--ash-100:#F0EDE7;--ash-150:#E7E3DB;
+  --ash-200:#DCD7CD;--ash-300:#C4BDB0;--ash-400:#9E958A;--ash-500:#786F63;--ash-600:#5A5248;
+  --ash-700:#423C34;--ash-800:#2B2721;--ash-850:#221E1A;--ash-900:#1E1B17;--ash-925:#191613;
+  --ash-950:#141210;--ash-1000:#0D0C0A;
+  --signal-50:#FFF3EB;--signal-100:#FFE0CC;--signal-200:#FFBE99;--signal-300:#FF9760;
+  --signal-400:#FF7033;--signal-500:#FA500F;--signal-600:#DB3D05;--signal-700:#B02F06;
+  --signal-800:#83250A;--signal-900:#5C1C09;
+  --brand-1:#FFD800;--brand-2:#FFAF00;--brand-3:#FF8205;--brand-4:#FA500F;--brand-5:#E10500;
+
+  --font-ui:"Inter",ui-sans-serif,system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --r-sm:6px;--r-md:8px;--r-lg:12px;--r-xl:16px;--r-2xl:20px;--r-full:9999px;
+  --dur-fast:130ms;--dur-base:190ms;--ease-out:cubic-bezier(0.16,1,0.3,1);
+  --spring-node:cubic-bezier(0.34,1.4,0.52,1);
+}
+:root{
+  color-scheme:light;
+  --bg-canvas:var(--ash-100);--bg-base:var(--ash-50);--bg-surface:var(--ash-25);
+  --bg-raised:var(--ash-0);--bg-inset:var(--ash-100);
+  --bg-hover:rgba(30,27,23,.04);--bg-selected:var(--signal-50);
+  --text-primary:var(--ash-900);--text-secondary:var(--ash-600);--text-tertiary:var(--ash-400);
+  --text-on-accent:#fff;
+  --border-subtle:rgba(30,27,23,.06);--border-default:rgba(30,27,23,.10);--border-strong:rgba(30,27,23,.18);
+  --accent:var(--signal-500);--accent-hover:var(--signal-600);--accent-ring:rgba(250,80,15,.45);
+  --success:#3F7D4E;--danger:#C33A2E;--info:#4A6FA5;--warning:#C9930C;
+  --obj-note:var(--ash-400);--obj-journey:#4E8C86;--obj-wireframe:#5B6BAE;
+  --obj-persona:#A85F5A;--obj-metric:#6E8C3F;--obj-risk:var(--signal-500);
+  --shadow-sm:0 1px 2px rgba(30,27,23,.05);
+  --shadow-md:0 2px 8px rgba(30,27,23,.07),0 1px 2px rgba(30,27,23,.04);
+  --shadow-lg:0 8px 28px rgba(30,27,23,.10);
+  --canvas-dot:rgba(30,27,23,.10);--edge-stroke:var(--ash-300);
+}
+.dark{
+  color-scheme:dark;
+  --bg-canvas:var(--ash-950);--bg-base:var(--ash-925);--bg-surface:var(--ash-850);
+  --bg-raised:var(--ash-800);--bg-inset:var(--ash-950);
+  --bg-hover:rgba(237,233,225,.05);--bg-selected:rgba(250,80,15,.14);
+  --text-primary:#EDE9E1;--text-secondary:#A79E92;--text-tertiary:var(--ash-500);
+  --text-on-accent:#1E1B17;
+  --border-subtle:rgba(237,233,225,.07);--border-default:rgba(237,233,225,.12);--border-strong:rgba(237,233,225,.20);
+  --accent:var(--signal-400);--accent-hover:var(--signal-300);--accent-ring:rgba(255,112,51,.50);
+  --success:#5FA872;--danger:#F07A6D;--info:#7C9BD0;--warning:#E3A82B;
+  --obj-note:var(--ash-500);--obj-journey:#6FB3AC;--obj-wireframe:#8794D4;
+  --obj-persona:#C98A85;--obj-metric:#96B368;--obj-risk:var(--signal-400);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+  --shadow-md:0 2px 10px rgba(0,0,0,.45);
+  --shadow-lg:0 12px 36px rgba(0,0,0,.55);
+  --canvas-dot:rgba(237,233,225,.09);--edge-stroke:var(--ash-700);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font-ui);font-size:13px;line-height:20px;
+  background:var(--bg-base);color:var(--text-primary);
+  -webkit-font-smoothing:antialiased;
+  transition:background var(--dur-base) var(--ease-out),color var(--dur-base) var(--ease-out);
+}
+.wrap{max-width:1080px;margin:0 auto;padding:64px 32px 120px}
+.mono{font-family:var(--font-mono);font-weight:500;font-size:11px;line-height:16px;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--text-tertiary)}
+h1{font-size:34px;line-height:40px;letter-spacing:-.024em;font-weight:600;margin-bottom:8px}
+h2{font-size:20px;line-height:28px;letter-spacing:-.014em;font-weight:600}
+.sub{color:var(--text-secondary);font-size:15px;line-height:24px;max-width:60ch}
+section{margin-top:72px}
+.head{display:flex;align-items:baseline;gap:12px;padding-bottom:16px;margin-bottom:24px;
+  border-bottom:1px solid var(--border-subtle)}
+.grid{display:grid;gap:16px}
+.card{background:var(--bg-surface);border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow-sm)}
+
+/* toggle */
+.bar{position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;
+  align-items:center;padding:14px 32px;background:var(--bg-base);
+  border-bottom:1px solid var(--border-subtle);backdrop-filter:blur(8px)}
+.seg{display:flex;background:var(--bg-inset);border-radius:var(--r-full);padding:3px;gap:2px}
+.seg button{font:inherit;font-weight:500;border:0;background:transparent;color:var(--text-secondary);
+  padding:5px 14px;border-radius:var(--r-full);cursor:pointer;
+  transition:all var(--dur-fast) var(--ease-out)}
+.seg button[aria-pressed=true]{background:var(--bg-raised);color:var(--text-primary);box-shadow:var(--shadow-sm)}
+.seg button:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px}
+
+/* swatches */
+.ramp{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px}
+.sw{border-radius:var(--r-sm);height:56px;border:1px solid var(--border-subtle);
+  display:flex;align-items:flex-end;padding:6px}
+.sw span{font-family:var(--font-mono);font-size:9px;letter-spacing:.02em;opacity:.75}
+.semantic{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.srow{display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--r-md);
+  background:var(--bg-surface);border:1px solid var(--border-subtle)}
+.chipc{width:28px;height:28px;border-radius:var(--r-sm);border:1px solid var(--border-default);flex:none}
+.srow div{min-width:0}
+.srow b{display:block;font-weight:500;font-size:12px}
+
+/* type */
+.tspec{display:flex;align-items:baseline;gap:20px;padding:10px 0;border-bottom:1px solid var(--border-subtle)}
+.tspec .k{width:180px;flex:none}
+
+/* components */
+.btn{font:inherit;font-weight:500;border:0;border-radius:var(--r-md);padding:8px 14px;
+  cursor:pointer;transition:all var(--dur-fast) var(--ease-out)}
+.btn-primary{background:var(--accent);color:var(--text-on-accent)}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-ghost{background:transparent;color:var(--text-primary)}
+.btn-ghost:hover{background:var(--bg-hover)}
+.btn-outline{background:var(--bg-surface);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--border-default)}
+.btn-outline:hover{background:var(--bg-raised)}
+.btn:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px}
+.chip{font:inherit;font-weight:500;background:var(--bg-surface);color:var(--text-primary);
+  border:1px solid var(--border-subtle);border-radius:var(--r-full);padding:7px 14px;cursor:pointer;
+  transition:all var(--dur-fast) var(--ease-out)}
+.chip:hover{background:var(--bg-raised);box-shadow:var(--shadow-sm)}
+
+/* canvas mock */
+.canvas{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--r-lg);
+  padding:28px;background-image:radial-gradient(var(--canvas-dot) 1px,transparent 1px);
+  background-size:18px 18px;position:relative;overflow:hidden}
+.nodes{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.node{background:var(--bg-surface);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);
+  width:212px;overflow:hidden;border:1px solid var(--border-subtle);
+  animation:nodeEnter var(--dur-base) var(--spring-node) both}
+.node.sel{box-shadow:0 0 0 2px var(--accent),var(--shadow-md)}
+.node .bar-t{height:2px}
+.node .body{padding:12px 14px}
+.node h3{font-size:13px;font-weight:500;margin-bottom:4px}
+.node p{font-size:12px;line-height:18px;color:var(--text-secondary)}
+.node .id{padding:0 14px 10px}
+.steps{list-style:none;font-size:12px;line-height:19px;color:var(--text-secondary);margin-top:4px}
+.steps li{display:flex;gap:8px}
+.steps i{font-style:normal;font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);width:14px;flex:none}
+.wf{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-top:6px}
+.wf div{background:var(--bg-inset);border-radius:3px;height:12px}
+.wf div.tall{height:26px}
+@keyframes nodeEnter{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+
+/* composer + ribbon */
+.dock{max-width:640px;margin:22px auto 0}
+.ribbon{background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--r-lg);
+  padding:9px 12px;margin-bottom:8px;box-shadow:var(--shadow-md);
+  display:flex;flex-direction:column;gap:3px}
+.rline{display:flex;gap:8px;align-items:center;animation:rl var(--dur-fast) var(--ease-out) both}
+.rline em{font-style:normal;color:var(--text-secondary);text-transform:none;letter-spacing:0}
+@keyframes rl{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.composer{background:var(--bg-inset);border:1px solid var(--border-default);border-radius:var(--r-2xl);
+  padding:14px 14px 10px;box-shadow:var(--shadow-md);transition:border-color var(--dur-fast) var(--ease-out)}
+.composer:focus-within{border-color:var(--accent)}
+.composer .ph{color:var(--text-tertiary);font-size:15px;line-height:24px}
+.crow{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.tools{display:flex;gap:4px}
+.tool{width:28px;height:28px;border-radius:var(--r-sm);border:0;background:transparent;
+  color:var(--text-tertiary);cursor:pointer;display:grid;place-items:center;
+  transition:all var(--dur-fast) var(--ease-out)}
+.tool:hover{background:var(--bg-hover);color:var(--text-primary)}
+.send{width:30px;height:30px;border-radius:var(--r-full);border:0;background:var(--accent);
+  color:var(--text-on-accent);cursor:pointer;display:grid;place-items:center}
+
+.mark{width:44px;height:44px;border-radius:var(--r-md);overflow:hidden;display:grid;
+  grid-template-rows:repeat(5,1fr)}
+.mark i{display:block}
+.note{color:var(--text-tertiary);font-size:12px;line-height:18px;margin-top:12px;max-width:64ch}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="mono">Precipice · design language v1</span>
+  <div class="seg" role="group" aria-label="Theme">
+    <button id="b-light" aria-pressed="true">Light</button>
+    <button id="b-dark" aria-pressed="false">Dark</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div style="display:flex;gap:16px;align-items:center;margin-bottom:14px">
+    <div class="mark">
+      <i style="background:var(--brand-1)"></i><i style="background:var(--brand-2)"></i>
+      <i style="background:var(--brand-3)"></i><i style="background:var(--brand-4)"></i>
+      <i style="background:var(--brand-5)"></i>
+    </div>
+    <div><h1>Precipice</h1></div>
+  </div>
+  <p class="sub">Warm neutrals, one loud accent used sparingly, elevation as lightness in both
+  modes, and monospace reserved strictly for machine truth. Toggle the theme — nothing here
+  is an inversion.</p>
+
+  <!-- NEUTRALS -->
+  <section>
+    <div class="head"><h2>Ash</h2><span class="mono">warm neutral · ~35° · low chroma</span></div>
+    <div class="ramp">
+      <div class="sw" style="background:var(--ash-25)"><span style="color:#1E1B17">25</span></div>
+      <div class="sw" style="background:var(--ash-50)"><span style="color:#1E1B17">50</span></div>
+      <div class="sw" style="background:var(--ash-100)"><span style="color:#1E1B17">100</span></div>
+      <div class="sw" style="background:var(--ash-150)"><span style="color:#1E1B17">150</span></div>
+      <div class="sw" style="background:var(--ash-200)"><span style="color:#1E1B17">200</span></div>
+      <div class="sw" style="background:var(--ash-300)"><span style="color:#1E1B17">300</span></div>
+      <div class="sw" style="background:var(--ash-400)"><span style="color:#1E1B17">400</span></div>
+      <div class="sw" style="background:var(--ash-500)"><span style="color:#fff">500</span></div>
+      <div class="sw" style="background:var(--ash-600)"><span style="color:#fff">600</span></div>
+      <div class="sw" style="background:var(--ash-700)"><span style="color:#fff">700</span></div>
+      <div class="sw" style="background:var(--ash-800)"><span style="color:#fff">800</span></div>
+      <div class="sw" style="background:var(--ash-900)"><span style="color:#fff">900</span></div>
+      <div class="sw" style="background:var(--ash-950)"><span style="color:#fff">950</span></div>
+    </div>
+    <p class="note">Cool greys read clinical. This ramp is shifted warm, which is the single
+    decision doing the most work in the whole system.</p>
+  </section>
+
+  <!-- ACCENT -->
+  <section>
+    <div class="head"><h2>Signal</h2><span class="mono">high chroma · ~2% coverage</span></div>
+    <div class="ramp">
+      <div class="sw" style="background:var(--signal-50)"><span style="color:#5C1C09">50</span></div>
+      <div class="sw" style="background:var(--signal-100)"><span style="color:#5C1C09">100</span></div>
+      <div class="sw" style="background:var(--signal-200)"><span style="color:#5C1C09">200</span></div>
+      <div class="sw" style="background:var(--signal-300)"><span style="color:#5C1C09">300</span></div>
+      <div class="sw" style="background:var(--signal-400)"><span style="color:#fff">400 · dark</span></div>
+      <div class="sw" style="background:var(--signal-500)"><span style="color:#fff">500 · light</span></div>
+      <div class="sw" style="background:var(--signal-600)"><span style="color:#fff">600</span></div>
+      <div class="sw" style="background:var(--signal-700)"><span style="color:#fff">700</span></div>
+      <div class="sw" style="background:var(--signal-800)"><span style="color:#fff">800</span></div>
+      <div class="sw" style="background:var(--signal-900)"><span style="color:#fff">900</span></div>
+    </div>
+    <p class="note">Vivid, not clay. A muted terracotta near #D97757 is the current default of
+    AI-generated design and reads as a tell. The accent lightens to 400 in dark mode so it
+    doesn't vibrate against near-black.</p>
+  </section>
+
+  <!-- SEMANTIC -->
+  <section>
+    <div class="head"><h2>Semantic</h2><span class="mono">what components consume</span></div>
+    <div class="semantic">
+      <div class="srow"><div class="chipc" style="background:var(--bg-canvas)"></div><div><b>bg-canvas</b><span class="mono">the table</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--bg-base)"></div><div><b>bg-base</b><span class="mono">app shell</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--bg-surface)"></div><div><b>bg-surface</b><span class="mono">panels · nodes</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--bg-raised)"></div><div><b>bg-raised</b><span class="mono">popovers</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--obj-journey)"></div><div><b>obj-journey</b><span class="mono">dusty teal</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--obj-wireframe)"></div><div><b>obj-wireframe</b><span class="mono">dusty indigo</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--obj-persona)"></div><div><b>obj-persona</b><span class="mono">clay rose · reserved</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--obj-metric)"></div><div><b>obj-metric</b><span class="mono">olive · reserved</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--success)"></div><div><b>success</b><span class="mono">desaturated</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--danger)"></div><div><b>danger</b><span class="mono">crimson, not orange</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--info)"></div><div><b>info</b><span class="mono">dusty blue</span></div></div>
+      <div class="srow"><div class="chipc" style="background:var(--warning)"></div><div><b>warning</b><span class="mono">use sparingly</span></div></div>
+    </div>
+    <p class="note">Elevation ascends in lightness in both modes. The canvas is the one
+    deliberate exception — it sits deeper than the panels on it, so nodes read as paper on a table.</p>
+  </section>
+
+  <!-- TYPE -->
+  <section>
+    <div class="head"><h2>Type</h2><span class="mono">inter · jetbrains mono · no third face</span></div>
+    <div class="tspec"><span class="k mono">3xl · 34/40 · −.024</span><span style="font-size:34px;line-height:40px;letter-spacing:-.024em;font-weight:600">Start a Scape</span></div>
+    <div class="tspec"><span class="k mono">2xl · 26/32 · −.020</span><span style="font-size:26px;line-height:32px;letter-spacing:-.02em;font-weight:600">Mobile app redesign</span></div>
+    <div class="tspec"><span class="k mono">xl · 20/28 · −.014</span><span style="font-size:20px;line-height:28px;letter-spacing:-.014em;font-weight:600">Onboarding journey</span></div>
+    <div class="tspec"><span class="k mono">lg · 17/26</span><span style="font-size:17px;line-height:26px;letter-spacing:-.008em;font-weight:500">Inspector</span></div>
+    <div class="tspec"><span class="k mono">base · 15/24</span><span style="font-size:15px;line-height:24px">Prose inside an object reads at fifteen.</span></div>
+    <div class="tspec"><span class="k mono">sm · 13/20 · default</span><span>Default UI text. This app runs tighter than most.</span></div>
+    <div class="tspec"><span class="k mono">xs · 12/18</span><span style="font-size:12px;line-height:18px;color:var(--text-secondary)">Metadata and captions.</span></div>
+    <div class="tspec"><span class="k mono">2xs · mono</span><span class="mono">obj_7f3a · CreateObject · claude-sonnet-4-6</span></div>
+    <p class="note">Mono is reserved for machine truth — ids, action names, model names,
+    timestamps, keybindings. Never prose, never headings. The type system teaches the
+    architecture: actions are real, nameable, inspectable things.</p>
+  </section>
+
+  <!-- CONTROLS -->
+  <section>
+    <div class="head"><h2>Controls</h2><span class="mono">radius 8 · dur 130 · ease-out</span></div>
+    <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary">Generate</button>
+      <button class="btn btn-outline">Export</button>
+      <button class="btn btn-ghost">Cancel</button>
+      <span style="width:16px"></span>
+      <button class="chip">User journey</button>
+      <button class="chip">Personas</button>
+      <button class="chip">Architecture</button>
+    </div>
+  </section>
+
+  <!-- CANVAS -->
+  <section>
+    <div class="head"><h2>Canvas</h2><span class="mono">nodes · ribbon · composer</span></div>
+    <div class="canvas">
+      <div class="nodes">
+        <div class="node sel">
+          <div class="bar-t" style="background:var(--obj-journey)"></div>
+          <div class="body">
+            <h3>Account opening</h3>
+            <ul class="steps">
+              <li><i>01</i>Download and open</li>
+              <li><i>02</i>Enter phone number</li>
+              <li><i>03</i>Verify identity</li>
+              <li><i>04</i>Link a bank account</li>
+            </ul>
+            <p style="margin-top:6px;color:var(--text-tertiary)">+3 more</p>
+          </div>
+          <div class="id"><span class="mono">journey · obj_7f3a</span></div>
+        </div>
+
+        <div class="node" style="animation-delay:90ms">
+          <div class="bar-t" style="background:var(--obj-wireframe)"></div>
+          <div class="body">
+            <h3>Verify identity</h3>
+            <div class="wf">
+              <div style="grid-column:span 12"></div>
+              <div class="tall" style="grid-column:span 12"></div>
+              <div style="grid-column:span 7"></div>
+              <div style="grid-column:span 5"></div>
+              <div style="grid-column:span 12;background:var(--accent);opacity:.85"></div>
+            </div>
+          </div>
+          <div class="id"><span class="mono">wireframe · obj_91c4</span></div>
+        </div>
+
+        <div class="node" style="animation-delay:180ms">
+          <div class="bar-t" style="background:var(--obj-note)"></div>
+          <div class="body">
+            <h3>Open question</h3>
+            <p>Do we need document upload before or after the bank link? Compliance says
+            before; the drop-off data says otherwise.</p>
+          </div>
+          <div class="id"><span class="mono">note · obj_2de8</span></div>
+        </div>
+      </div>
+
+      <div class="dock">
+        <div class="ribbon">
+          <div class="rline mono" style="animation-delay:0ms"><em style="color:var(--text-tertiary)">CreateObject</em> · journey · <em>“Account opening”</em></div>
+          <div class="rline mono" style="animation-delay:110ms"><em style="color:var(--text-tertiary)">CreateObject</em> · wireframe · <em>“Verify identity”</em></div>
+          <div class="rline mono" style="animation-delay:220ms"><em style="color:var(--text-tertiary)">ConnectObjects</em> · obj_7f3a → obj_91c4</div>
+          <div class="rline mono" style="animation-delay:330ms;color:var(--text-primary)">18 actions · 2 skipped · <span style="color:var(--accent)">undo</span></div>
+        </div>
+        <div class="composer">
+          <div class="ph">Describe what you want to think through…</div>
+          <div class="crow">
+            <div class="tools">
+              <button class="tool" title="Scope">◇</button>
+              <button class="tool" title="Model">◈</button>
+              <button class="tool" title="Attach">＋</button>
+            </div>
+            <button class="send" aria-label="Send">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">The generation ribbon is the signature element. Actions land one at a
+    time, each node scales in from 0.96 with the one permitted spring, edges draw 60ms
+    after. When it finishes, the ribbon collapses to a single line whose undo reverses the
+    entire transaction — because every action carries the same txId.</p>
+  </section>
+</div>
+
+<script>
+  const root = document.documentElement;
+  const bl = document.getElementById('b-light'), bd = document.getElementById('b-dark');
+  function set(dark){
+    root.classList.toggle('dark', dark);
+    bl.setAttribute('aria-pressed', String(!dark));
+    bd.setAttribute('aria-pressed', String(dark));
+  }
+  bl.onclick = () => set(false);
+  bd.onclick = () => set(true);
+  set(window.matchMedia('(prefers-color-scheme: dark)').matches);
+</script>
+</body>
+</html>

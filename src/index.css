@@ -1,0 +1,41 @@
+@import "./design/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tailwind's preflight resets html/body colours; restore the token values. */
+@layer base {
+  html {
+    background: var(--bg-base);
+    color: var(--text-primary);
+  }
+
+  body {
+    font-size: var(--text-sm);
+    line-height: var(--leading-sm);
+    font-weight: var(--weight-body);
+  }
+
+  #root {
+    height: 100vh;
+    height: 100dvh;
+  }
+}
+
+@layer components {
+  /*
+   * Level of detail on the canvas.
+   *
+   * At 0.4x zoom, 12px body text renders at ~5px and turns to mush. The canvas sets
+   * data-lod="low" on the node layer below a zoom threshold; anything a plugin tags with
+   * `lod-body` drops out rather than degrading.
+   *
+   * This is the one contract between the canvas and object plugins that is expressed in CSS
+   * rather than in a src/core type — it exists precisely so plugins need no zoom awareness
+   * and no import from src/canvas.
+   */
+  [data-lod="low"] .lod-body {
+    display: none;
+  }
+}

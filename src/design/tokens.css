@@ -1,0 +1,276 @@
+/* ==========================================================================
+   Precipice — Design Tokens
+   FROZEN. Do not add, rename or edit values without integrator approval.
+
+   Tier 1 (primitives) are never used directly by components.
+   Tier 2 (semantic) is what components consume.
+   ========================================================================== */
+
+:root {
+  /* ---------- Tier 1: primitives ---------- */
+
+  /* Ash — warm neutral ramp, ~35deg hue, low chroma */
+  --ash-0:    #FFFFFF;
+  --ash-25:   #FCFBF9;
+  --ash-50:   #F7F5F1;
+  --ash-100:  #F0EDE7;
+  --ash-150:  #E7E3DB;
+  --ash-200:  #DCD7CD;
+  --ash-300:  #C4BDB0;
+  --ash-400:  #9E958A;
+  --ash-500:  #786F63;
+  --ash-600:  #5A5248;
+  --ash-700:  #423C34;
+  --ash-800:  #2B2721;
+  --ash-850:  #221E1A;
+  --ash-900:  #1E1B17;
+  --ash-925:  #191613;
+  --ash-950:  #141210;
+  --ash-1000: #0D0C0A;
+
+  /* Signal — vivid accent orange. High chroma, low coverage. */
+  --signal-50:  #FFF3EB;
+  --signal-100: #FFE0CC;
+  --signal-200: #FFBE99;
+  --signal-300: #FF9760;
+  --signal-400: #FF7033;
+  --signal-500: #FA500F;
+  --signal-600: #DB3D05;
+  --signal-700: #B02F06;
+  --signal-800: #83250A;
+  --signal-900: #5C1C09;
+
+  /* Brand gradient — empty-state mark and app icon ONLY. Never on UI chrome. */
+  --brand-1: #FFD800;
+  --brand-2: #FFAF00;
+  --brand-3: #FF8205;
+  --brand-4: #FA500F;
+  --brand-5: #E10500;
+
+  /* Object type hues */
+  --type-journey-light:   #4E8C86;
+  --type-journey-dark:    #6FB3AC;
+  --type-wireframe-light: #5B6BAE;
+  --type-wireframe-dark:  #8794D4;
+  --type-persona-light:   #A85F5A;
+  --type-persona-dark:    #C98A85;
+  --type-metric-light:    #6E8C3F;
+  --type-metric-dark:     #96B368;
+
+  /* Status */
+  --success-light: #3F7D4E;  --success-dark: #5FA872;
+  --danger-light:  #C33A2E;  --danger-dark:  #F07A6D;
+  --info-light:    #4A6FA5;  --info-dark:    #7C9BD0;
+  --warning-light: #C9930C;  --warning-dark: #E3A82B;
+
+  /* ---------- Non-themed primitives ---------- */
+
+  --font-ui:   "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-2xs:  11px;  --leading-2xs:  16px;  --tracking-2xs:   0.04em;
+  --text-xs:   12px;  --leading-xs:   18px;  --tracking-xs:    0;
+  --text-sm:   13px;  --leading-sm:   20px;  --tracking-sm:    0;
+  --text-base: 15px;  --leading-base: 24px;  --tracking-base:  0;
+  --text-lg:   17px;  --leading-lg:   26px;  --tracking-lg:   -0.008em;
+  --text-xl:   20px;  --leading-xl:   28px;  --tracking-xl:   -0.014em;
+  --text-2xl:  26px;  --leading-2xl:  32px;  --tracking-2xl:  -0.020em;
+  --text-3xl:  34px;  --leading-3xl:  40px;  --tracking-3xl:  -0.024em;
+
+  --weight-body: 400;
+  --weight-ui:   500;
+  --weight-emph: 600;
+
+  --r-xs: 4px;  --r-sm: 6px;   --r-md: 8px;   --r-lg: 12px;
+  --r-xl: 16px; --r-2xl: 20px; --r-full: 9999px;
+
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;  --space-4: 16px;
+  --space-5: 20px;  --space-6: 24px;  --space-8: 32px;  --space-10: 40px;
+  --space-12: 48px; --space-16: 64px; --space-24: 96px;
+
+  --dur-instant: 80ms;
+  --dur-fast:    130ms;
+  --dur-base:    190ms;
+  --dur-slow:    280ms;
+  --dur-canvas:  420ms;
+
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --spring-node:   cubic-bezier(0.34, 1.4, 0.52, 1);
+
+  --z-canvas: 0;
+  --z-panel: 10;
+  --z-composer: 20;
+  --z-popover: 30;
+  --z-toast: 40;
+  --z-modal: 50;
+}
+
+/* ==========================================================================
+   Tier 2: semantic — LIGHT
+   Elevation ascends in lightness. The canvas is the one deliberate exception:
+   it sits deeper than the panels on it, so nodes read as paper on a table.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --bg-canvas:       var(--ash-100);
+  --bg-base:         var(--ash-50);
+  --bg-surface:      var(--ash-25);
+  --bg-raised:       var(--ash-0);
+  --bg-inset:        var(--ash-100);
+
+  --bg-hover:        rgba(30, 27, 23, 0.04);
+  --bg-active:       rgba(30, 27, 23, 0.07);
+  --bg-selected:     var(--signal-50);
+
+  --text-primary:    var(--ash-900);
+  --text-secondary:  var(--ash-600);
+  --text-tertiary:   var(--ash-400);
+  --text-inverse:    var(--ash-25);
+  --text-accent:     var(--signal-600);
+  --text-on-accent:  #FFFFFF;
+
+  --border-subtle:   rgba(30, 27, 23, 0.06);
+  --border-default:  rgba(30, 27, 23, 0.10);
+  --border-strong:   rgba(30, 27, 23, 0.18);
+  --border-focus:    var(--signal-500);
+
+  --accent:          var(--signal-500);
+  --accent-hover:    var(--signal-600);
+  --accent-active:   var(--signal-700);
+  --accent-subtle:   var(--signal-50);
+  --accent-ring:     rgba(250, 80, 15, 0.45);
+
+  --success: var(--success-light);
+  --danger:  var(--danger-light);
+  --info:    var(--info-light);
+  --warning: var(--warning-light);
+
+  --obj-note:      var(--ash-400);
+  --obj-journey:   var(--type-journey-light);
+  --obj-wireframe: var(--type-wireframe-light);
+  --obj-persona:   var(--type-persona-light);
+  --obj-metric:    var(--type-metric-light);
+  --obj-risk:      var(--signal-500);
+
+  --shadow-sm: 0 1px 2px rgba(30, 27, 23, 0.05);
+  --shadow-md: 0 2px 8px rgba(30, 27, 23, 0.07), 0 1px 2px rgba(30, 27, 23, 0.04);
+  --shadow-lg: 0 8px 28px rgba(30, 27, 23, 0.10);
+
+  --canvas-dot: rgba(30, 27, 23, 0.10);
+  --edge-stroke: var(--ash-300);
+  --edge-stroke-active: var(--signal-500);
+}
+
+/* ==========================================================================
+   Tier 2: semantic — DARK
+   Not an inversion. Elevation still ascends. Accent lightens. Shadows recede.
+   ========================================================================== */
+
+.dark {
+  color-scheme: dark;
+
+  --bg-canvas:       var(--ash-950);
+  --bg-base:         var(--ash-925);
+  --bg-surface:      var(--ash-850);
+  --bg-raised:       var(--ash-800);
+  --bg-inset:        var(--ash-950);
+
+  --bg-hover:        rgba(237, 233, 225, 0.05);
+  --bg-active:       rgba(237, 233, 225, 0.09);
+  --bg-selected:     rgba(250, 80, 15, 0.14);
+
+  --text-primary:    #EDE9E1;
+  --text-secondary:  #A79E92;
+  --text-tertiary:   var(--ash-500);
+  --text-inverse:    var(--ash-900);
+  --text-accent:     var(--signal-300);
+  --text-on-accent:  #1E1B17;
+
+  --border-subtle:   rgba(237, 233, 225, 0.07);
+  --border-default:  rgba(237, 233, 225, 0.12);
+  --border-strong:   rgba(237, 233, 225, 0.20);
+  --border-focus:    var(--signal-400);
+
+  --accent:          var(--signal-400);
+  --accent-hover:    var(--signal-300);
+  --accent-active:   var(--signal-200);
+  --accent-subtle:   rgba(250, 80, 15, 0.16);
+  --accent-ring:     rgba(255, 112, 51, 0.50);
+
+  --success: var(--success-dark);
+  --danger:  var(--danger-dark);
+  --info:    var(--info-dark);
+  --warning: var(--warning-dark);
+
+  --obj-note:      var(--ash-500);
+  --obj-journey:   var(--type-journey-dark);
+  --obj-wireframe: var(--type-wireframe-dark);
+  --obj-persona:   var(--type-persona-dark);
+  --obj-metric:    var(--type-metric-dark);
+  --obj-risk:      var(--signal-400);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.55);
+
+  --canvas-dot: rgba(237, 233, 225, 0.09);
+  --edge-stroke: var(--ash-700);
+  --edge-stroke-active: var(--signal-400);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+html {
+  font-family: var(--font-ui);
+  font-optical-sizing: auto;
+  font-feature-settings: "cv05" 1, "cv11" 1, "ss03" 1;
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+body {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-body);
+}
+
+/* Machine truth only: ids, action names, model names, timestamps, keybindings. */
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-2xs);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* Reads on any surface: accent ring outside, base-coloured ring inside. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--bg-base);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 1ms;
+    --dur-fast:    1ms;
+    --dur-base:    1ms;
+    --dur-slow:    1ms;
+    --dur-canvas:  1ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
