@@ -1,5 +1,7 @@
 # Precipice
 
+Copyright © 2026 Madhav M Nair. All rights reserved.
+
 Precipice is a canvas-based workspace for turning product ideas into connected,
 editable artifacts. The long-term goal is to make it easy to explore a product
 concept as a living map of notes, journeys, wireframes, and AI-generated actions.
