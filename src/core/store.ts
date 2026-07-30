@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Action, ActionPayload } from "./actions";
+import { NON_UNDOABLE_ACTIONS, type Action, type ActionPayload } from "./actions";
 import { newTxId } from "./ids";
 import { applyAction } from "./reducer";
 import type { ObjectId, Scape, TxId } from "./types";
@@ -58,6 +58,12 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
     const { state, inverse } = applyAction(scape, action);
     if (!inverse) return false;
+
+    // Camera moves are applied and logged, but never become an undo step.
+    if (NON_UNDOABLE_ACTIONS.has(action.type)) {
+      set({ scape: state, actionLog: [...get().actionLog, action] });
+      return true;
+    }
 
     const top = undoStack[undoStack.length - 1];
     let nextUndo: Transaction[];

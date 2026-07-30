@@ -64,6 +64,30 @@ describe("undo groups on txId", () => {
   });
 });
 
+describe("camera moves are not edits", () => {
+  it("applies and logs SetViewState but never pushes an undo step", () => {
+    store().dispatchTx([{ type: "SetViewState", viewState: { x: 10, y: 20, zoom: 0.68 } }]);
+
+    expect(store().scape!.viewState).toEqual({ x: 10, y: 20, zoom: 0.68 });
+    // Persistence still needs to see it — the viewport survives a refresh.
+    expect(store().actionLog.map((a) => a.type)).toEqual(["SetViewState"]);
+    expect(store().undoStack).toHaveLength(0);
+  });
+
+  it("leaves Cmd+Z reversing the last real edit, not the last pan", () => {
+    store().dispatchTx([{ type: "CreateObject", id: "a", objectType: "note", title: "A" }]);
+    // The user pans around for a while before pressing undo.
+    store().dispatchTx([{ type: "SetViewState", viewState: { x: 1, y: 1, zoom: 0.5 } }]);
+    store().dispatchTx([{ type: "SetViewState", viewState: { x: 2, y: 2, zoom: 0.6 } }]);
+
+    expect(store().undoStack).toHaveLength(1);
+    store().undo();
+    expect(store().scape!.objects["a"]).toBeUndefined();
+    // The camera stays where the user left it.
+    expect(store().scape!.viewState).toEqual({ x: 2, y: 2, zoom: 0.6 });
+  });
+});
+
 describe("redo", () => {
   it("round-trips through undo and back", () => {
     store().dispatchTx([

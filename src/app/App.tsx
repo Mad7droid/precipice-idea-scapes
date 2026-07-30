@@ -1,3 +1,4 @@
+import { DevCanvas } from "@/routes/dev/canvas";
 import { DevObjects } from "@/routes/dev/objects";
 import { Link, useRoute } from "./router";
 
@@ -12,6 +13,7 @@ export function App() {
   const route = useRoute();
 
   if (route === "/dev/objects") return <DevObjects />;
+  if (route === "/dev/canvas") return <DevCanvas />;
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
 
   return (

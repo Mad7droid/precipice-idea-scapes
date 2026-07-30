@@ -197,6 +197,15 @@ export const AI_ACTION_TYPES = [
 
 export type AiActionType = (typeof AI_ACTION_TYPES)[number];
 
+/**
+ * Actions that move the camera rather than change the document.
+ *
+ * They are applied and they are persisted — the viewport should survive a refresh — but they
+ * never push an undo entry. Panning is not an edit, and Cmd+Z after a pan must reverse the
+ * last thing you actually changed, not scroll the canvas back.
+ */
+export const NON_UNDOABLE_ACTIONS: ReadonlySet<ActionType> = new Set<ActionType>(["SetViewState"]);
+
 /** One-line summary for the generation ribbon and the action log. */
 export function describeAction(action: Action): string {
   switch (action.type) {
