@@ -1,5 +1,5 @@
 import { allPlugins, summarize } from "@/core/registry";
-import type { ObjectId, Scape, ScapeObject } from "@/core/types";
+import type { ObjectId, Scape } from "@/core/types";
 
 /**
  * Turning a Scape into something the model can read.
