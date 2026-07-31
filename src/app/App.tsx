@@ -1,7 +1,9 @@
+import { DevAi } from "@/routes/dev/ai";
 import { DevCanvas } from "@/routes/dev/canvas";
 import { DevObjects } from "@/routes/dev/objects";
 import { DevPersistence } from "@/routes/dev/persistence";
 import { Link, useRoute } from "./router";
+import { Shell } from "./Shell";
 import { ToastHost } from "./ToastHost";
 
 const DEV_ROUTES: Array<[string, string]> = [
@@ -26,22 +28,10 @@ function Routes() {
   if (route === "/dev/objects") return <DevObjects />;
   if (route === "/dev/canvas") return <DevCanvas />;
   if (route === "/dev/persistence") return <DevPersistence />;
+  if (route === "/dev/ai") return <DevAi />;
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
 
-  return (
-    <div className="grid h-full place-items-center bg-canvas">
-      <div className="text-center">
-        <h1 className="text-3xl text-fg">Precipice</h1>
-        <p className="mt-2 text-fg-secondary">The workspace is not wired up yet.</p>
-        <Link
-          to="/dev"
-          className="mono mt-6 inline-block rounded-full bg-surface px-4 py-2 text-fg-secondary"
-        >
-          Dev harnesses
-        </Link>
-      </div>
-    </div>
-  );
+  return <Shell />;
 }
 
 function DevIndex({ route }: { route: string }) {
