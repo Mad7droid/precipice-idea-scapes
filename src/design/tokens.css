@@ -272,6 +272,21 @@ body {
   box-shadow: 0 0 0 1px var(--bg-base);
 }
 
+/*
+ * For controls that render their own focus treatment — a border that turns accent, or a
+ * parent well that lights up around them.
+ *
+ * Suppressing only the outline is not enough and is the bug this exists to prevent: the
+ * rule above pairs the accent ring with a base-coloured companion ring drawn as a
+ * box-shadow, and `outline: none` leaves that companion behind. It then renders as a
+ * hard-edged, square-cornered 1px rectangle in a colour that matches neither the field nor
+ * the surface, sitting inside the control's own rounded border.
+ */
+.focus-self:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-instant: 1ms;

@@ -29,7 +29,7 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") setEditing(null);
         }}
-        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg outline-none"
+        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
       />
     );
   }
@@ -46,7 +46,7 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(null);
         }}
-        className="nodrag nopan mt-1.5 w-full resize-none rounded-sm border border-focus bg-raised px-1 text-xs text-fg-secondary outline-none"
+        className="nodrag nopan mt-1.5 w-full resize-none rounded-sm border border-focus bg-raised px-1 text-xs text-fg-secondary focus-self"
         rows={3}
       />
     );

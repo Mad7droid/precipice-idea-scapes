@@ -129,7 +129,7 @@ function PrimitiveRow({
             aria-label={`Element ${index + 1} kind`}
             value={primitive.kind}
             onChange={(e) => onChange({ ...primitive, kind: e.target.value as PrimitiveKind })}
-            className="rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg focus:border-focus focus:outline-none"
+            className="rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg focus:border-focus focus-self"
           >
             {PRIMITIVE_KINDS.map((kind) => (
               <option key={kind} value={kind}>
@@ -151,7 +151,7 @@ function PrimitiveRow({
                 setSpanError(raw !== clamped ? "Span must be between 1 and 12 — clamped." : undefined);
                 onChange({ ...primitive, span: clamped });
               }}
-              className="w-14 rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg focus:border-focus focus:outline-none"
+              className="w-14 rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg focus:border-focus focus-self"
             />
           </label>
         </div>

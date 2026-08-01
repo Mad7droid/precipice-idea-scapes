@@ -80,7 +80,8 @@ export function Composer({
         }}
         placeholder={placeholder}
         aria-label="Prompt"
-        className="w-full resize-none bg-transparent px-4 pt-3 text-base text-fg placeholder:text-fg-tertiary focus:outline-none disabled:opacity-50"
+        // The well around it is what lights up on focus, so the field itself draws nothing.
+        className="focus-self w-full resize-none bg-transparent px-4 pt-3 text-base text-fg placeholder:text-fg-tertiary disabled:opacity-50"
       />
 
       {/* Icon row, inside the well. */}
@@ -167,7 +168,7 @@ function Select({
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
-      className="mono cursor-pointer rounded-full border border-subtle bg-transparent px-2.5 py-1 normal-case tracking-normal text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg focus:outline-none disabled:opacity-40"
+      className="mono cursor-pointer rounded-full border border-subtle bg-transparent px-2.5 py-1 normal-case tracking-normal text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg disabled:opacity-40"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value} title={option.title}>

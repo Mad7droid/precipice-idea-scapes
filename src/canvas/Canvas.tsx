@@ -378,7 +378,9 @@ function CanvasSurface({
       // Plugins tag low-priority content `lod-body`; below the threshold it drops out rather
       // than rendering as unreadable mush.
       data-lod={zoom < LOD_THRESHOLD ? "low" : "high"}
-      className="relative h-full w-full bg-canvas outline-none"
+      // A focus ring around the entire viewport reads as a rendering fault, and selection is
+      // what actually communicates focus here.
+      className="focus-self relative h-full w-full bg-canvas"
     >
       <ReactFlow
         nodes={visibleNodes}

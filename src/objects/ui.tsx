@@ -80,7 +80,7 @@ export function Field({
 
 const FIELD_CLASS =
   "w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg " +
-  "placeholder:text-fg-tertiary focus:border-focus focus:outline-none";
+  "placeholder:text-fg-tertiary focus:border-focus focus-self";
 
 export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${FIELD_CLASS} ${props.className ?? ""}`} />;

@@ -100,7 +100,7 @@ export function Sidebar({
                       if (e.key === "Enter") e.currentTarget.blur();
                       if (e.key === "Escape") setRenamingId(null);
                     }}
-                    className="min-w-0 flex-1 rounded-sm border border-focus bg-raised px-2 py-1.5 text-fg outline-none"
+                    className="min-w-0 flex-1 rounded-sm border border-focus bg-raised px-2 py-1.5 text-fg focus-self"
                   />
                 ) : (
                   <button

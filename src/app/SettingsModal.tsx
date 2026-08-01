@@ -52,7 +52,7 @@ export function SettingsModal({
               void settingsRepository.set(SETTING_KEYS.apiKey, next);
             }}
             placeholder="sk-ant-…"
-            className="mono w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg placeholder:text-fg-tertiary focus:border-focus focus:outline-none"
+            className="mono w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg placeholder:text-fg-tertiary focus:border-focus focus-self"
           />
         </label>
         <p className="mt-1.5 text-xs text-fg-tertiary">
@@ -70,7 +70,7 @@ export function SettingsModal({
               setModelId(next);
               void settingsRepository.set(SETTING_KEYS.model, next);
             }}
-            className="mono w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg focus:border-focus focus:outline-none"
+            className="mono w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg focus:border-focus focus-self"
           >
             {MODELS.map((m) => (
               <option key={m.id} value={m.id} title={m.hint}>

@@ -35,7 +35,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") setEditing(null);
           }}
-          className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg outline-none"
+          className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
         />
       ) : (
         <h4
@@ -73,7 +73,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                           if (e.key === "Enter") e.currentTarget.blur();
                           if (e.key === "Escape") setEditing(null);
                         }}
-                        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-fg-secondary outline-none"
+                        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-fg-secondary focus-self"
                       />
                     ) : (
                       <span

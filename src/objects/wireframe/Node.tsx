@@ -32,7 +32,7 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") setEditingTitle(false);
           }}
-          className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg outline-none"
+          className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
         />
       ) : (
         <h4
