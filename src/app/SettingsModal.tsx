@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
-import { SETTING_KEYS } from "@/core/types";
+import { SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
 import { DEFAULT_MODEL, MODELS } from "@/ai/provider";
+import { ThemeControl } from "./ThemeControl";
 
-export function SettingsModal({ onClose }: { onClose: () => void }) {
+export function SettingsModal({
+  onClose,
+  theme,
+  onThemeChange,
+}: {
+  onClose: () => void;
+  theme: ThemePreference;
+  onThemeChange: (next: ThemePreference) => void;
+}) {
   const [apiKey, setApiKey] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
 
@@ -26,6 +35,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         aria-label="Settings"
       >
         <h2 className="text-lg text-fg">Settings</h2>
+
+        <div className="mt-4">
+          <span className="mb-1 block text-xs text-fg-secondary">Theme</span>
+          <ThemeControl value={theme} onChange={onThemeChange} />
+        </div>
 
         <label className="mt-4 block">
           <span className="mb-1 block text-xs text-fg-secondary">Anthropic API key</span>
