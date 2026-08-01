@@ -48,6 +48,8 @@
   --brand-5: #E10500;
 
   /* Object type hues */
+  --type-note-light:      #8A6A3D;
+  --type-note-dark:       #C6A268;
   --type-journey-light:   #4E8C86;
   --type-journey-dark:    #6FB3AC;
   --type-wireframe-light: #5B6BAE;
@@ -111,9 +113,18 @@
    Tier 2: semantic — LIGHT
    Elevation ascends in lightness. The canvas is the one deliberate exception:
    it sits deeper than the panels on it, so nodes read as paper on a table.
+
+   `:root.light` is an explicit opt-in twin of `:root`, for the rare case a surface needs to
+   force light regardless of the ambient theme without hand-restating every token.
+
+   Both theme selectors are pinned to `:root` deliberately. React Flow puts its own `light`
+   (or `dark`) class on the canvas container, so an unscoped `.light` would match that div
+   and re-declare the entire light palette for every node inside it — the whole canvas would
+   stay light while the rest of the app went dark.
    ========================================================================== */
 
-:root {
+:root,
+:root.light {
   color-scheme: light;
 
   --bg-canvas:       var(--ash-100);
@@ -149,7 +160,9 @@
   --info:    var(--info-light);
   --warning: var(--warning-light);
 
-  --obj-note:      var(--ash-400);
+  /* Note used to be a neutral grey, which made it indistinguishable from every other card
+     at a glance. A type needs its own hue to be identifiable at low zoom. */
+  --obj-note:      var(--type-note-light);
   --obj-journey:   var(--type-journey-light);
   --obj-wireframe: var(--type-wireframe-light);
   --obj-persona:   var(--type-persona-light);
@@ -170,7 +183,7 @@
    Not an inversion. Elevation still ascends. Accent lightens. Shadows recede.
    ========================================================================== */
 
-.dark {
+:root.dark {
   color-scheme: dark;
 
   --bg-canvas:       var(--ash-950);
@@ -206,7 +219,7 @@
   --info:    var(--info-dark);
   --warning: var(--warning-dark);
 
-  --obj-note:      var(--ash-500);
+  --obj-note:      var(--type-note-dark);
   --obj-journey:   var(--type-journey-dark);
   --obj-wireframe: var(--type-wireframe-dark);
   --obj-persona:   var(--type-persona-dark);
