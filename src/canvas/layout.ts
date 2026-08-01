@@ -12,6 +12,21 @@ import type { ObjectId, Scape } from "@/core/types";
 export const NODE_WIDTH = 220;
 
 /**
+ * Per-type card widths.
+ *
+ * 220px suits a note or a journey — a title and a short list. It is far too narrow for a
+ * wireframe, which is a twelve-column screen layout: at 220px a column is 15px wide, so
+ * every label truncates to nothing and the mockup stops being readable as a screen.
+ */
+const NODE_WIDTHS: Record<string, number> = {
+  wireframe: 340,
+};
+
+export function widthFor(type: string): number {
+  return NODE_WIDTHS[type] ?? NODE_WIDTH;
+}
+
+/**
  * Fallback heights, used before React Flow has measured a node — which is always the case
  * for objects that were created moments ago by a streaming generation.
  */
@@ -37,12 +52,17 @@ export function layoutPositions(
   const graph = new dagre.graphlib.Graph();
   graph.setGraph({
     rankdir: direction,
-    // Generous enough that a 220px card never touches its neighbour, tight enough that a
-    // twelve-object scape still fits on one screen at 1x.
-    nodesep: 48,
-    ranksep: 96,
-    marginx: 32,
-    marginy: 32,
+    // Loose on purpose. The earlier, tighter numbers fit more on screen but produced a wall
+    // of cards with edges threading between them, which is the state people describe as
+    // "cluttered" — the cost of scrolling is much lower than the cost of not being able to
+    // read the thing at all.
+    nodesep: 72,
+    ranksep: 160,
+    marginx: 48,
+    marginy: 48,
+    // Fewer edge crossings than the default network-simplex on the wide, shallow graphs
+    // this app tends to produce.
+    ranker: "tight-tree",
   });
   graph.setDefaultEdgeLabel(() => ({}));
 
@@ -51,7 +71,7 @@ export function layoutPositions(
     if (!object) continue;
     const size = measured[id];
     graph.setNode(id, {
-      width: size?.width ?? NODE_WIDTH,
+      width: size?.width ?? widthFor(object.type),
       height: size?.height ?? FALLBACK_HEIGHT[object.type] ?? DEFAULT_HEIGHT,
     });
   }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useReactFlow, type Viewport } from "@xyflow/react";
 import { useScapeStore } from "@/core/store";
 import type { ObjectId } from "@/core/types";
-import { NODE_WIDTH } from "./layout";
+import { widthFor } from "./layout";
 
 const VIEWPORT_DEBOUNCE_MS = 500;
 /** Matches --dur-canvas. Fly-to and layout reflow move at the same speed on purpose. */
@@ -40,7 +40,7 @@ export function useFocusObject() {
       const scape = useScapeStore.getState().scape;
       const object = scape?.objects[id];
       if (!object) return;
-      setCenter(object.x + NODE_WIDTH / 2, object.y + 60, {
+      setCenter(object.x + widthFor(object.type) / 2, object.y + 60, {
         zoom: Math.max(getZoom(), 0.8),
         duration: prefersReducedMotion() ? 0 : CANVAS_DURATION_MS,
       });

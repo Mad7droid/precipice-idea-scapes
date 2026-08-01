@@ -5,7 +5,7 @@ import { useScapeStore } from "@/core/store";
 import type { Scape } from "@/core/types";
 import { render } from "@/test/react";
 import { mergeFlowNodes, toFlowEdges, toFlowNodes } from "./edges";
-import { layoutAction, layoutPositions, NODE_WIDTH } from "./layout";
+import { layoutAction, layoutPositions, widthFor } from "./layout";
 import { ObjectNode } from "./ObjectNode";
 
 const store = () => useScapeStore.getState();
@@ -22,7 +22,7 @@ describe("layout", () => {
       id,
       x1: p.x,
       y1: p.y,
-      x2: p.x + NODE_WIDTH,
+      x2: p.x + widthFor(scape.objects[id].type),
       y2: p.y + (heights[scape.objects[id].type] ?? 130),
     }));
 
@@ -79,7 +79,10 @@ describe("edges derive from relationships", () => {
     const scape = store().scape!;
     const edges = toFlowEdges(scape, []);
     expect(edges.map((e) => e.id).sort()).toEqual(Object.keys(scape.relationships).sort());
-    expect(edges.find((e) => e.id === "r-new")?.label).toBe("informs");
+    // Labels ride on the edges currently being asked about, not on all of them at once —
+    // every label drawn at all times is the single densest thing on a busy canvas.
+    expect(edges.find((e) => e.id === "r-new")?.label).toBeUndefined();
+    expect(toFlowEdges(scape, ["brief"]).find((e) => e.id === "r-new")?.label).toBe("informs");
   });
 
   it("matches after an edge is removed", () => {
@@ -88,6 +91,29 @@ describe("edges derive from relationships", () => {
     const edges = toFlowEdges(scape, []);
     expect(edges.map((e) => e.id)).not.toContain("r-brief-happy");
     expect(edges.map((e) => e.id).sort()).toEqual(Object.keys(scape.relationships).sort());
+  });
+
+  it("draws nothing in `none` mode, and only the selection's edges in `selected`", () => {
+    const scape = store().scape!;
+    expect(toFlowEdges(scape, [], "none")).toEqual([]);
+    expect(toFlowEdges(scape, ["brief"], "none")).toEqual([]);
+
+    const focused = toFlowEdges(scape, ["brief"], "selected");
+    expect(focused.length).toBeGreaterThan(0);
+    for (const edge of focused) {
+      expect([edge.source, edge.target]).toContain("brief");
+    }
+    expect(focused.length).toBeLessThan(toFlowEdges(scape, ["brief"], "all").length);
+  });
+
+  it("drops edges attached to a hidden object type", () => {
+    const scape = store().scape!;
+    const hidden = toFlowEdges(scape, [], "all", new Set(["wireframe"]));
+    for (const edge of hidden) {
+      expect(scape.objects[edge.source].type).not.toBe("wireframe");
+      expect(scape.objects[edge.target].type).not.toBe("wireframe");
+    }
+    expect(hidden.length).toBeLessThan(toFlowEdges(scape, [], "all").length);
   });
 
   it("drops edges whose endpoints no longer exist rather than rendering a dangling line", () => {
