@@ -3,3 +3,6 @@ dist
 .DS_Store
 *.local
 .context
+
+# Machine-local Conductor config. `*.local` above does not match `settings.local.toml`.
+.conductor/settings.local.toml

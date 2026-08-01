@@ -15,6 +15,7 @@ import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
 import { Sidebar } from "./Sidebar";
 import { SettingsModal } from "./SettingsModal";
+import { useTheme } from "./theme";
 
 /** First line of the brief, clipped — a readable label in the sidebar without asking the
  * user to name anything up front. */
@@ -33,9 +34,17 @@ export function Shell() {
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [scope, setScope] = useState<Scope>("scape");
   const [booted, setBooted] = useState(false);
+  const [theme, setTheme, resolvedTheme] = useTheme();
 
   const autosave = useRef<AutosaveHandle | null>(null);
   const commands = useRef<CanvasCommands | null>(null);
+  const inspector = useRef<HTMLElement | null>(null);
+
+  /** Enter / double-click on a node land here — the inspector is already open via selection,
+   * so the useful thing left to do is jump focus straight into its first editable field. */
+  const focusInspector = () => {
+    inspector.current?.querySelector<HTMLElement>("input, textarea")?.focus();
+  };
 
   const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
 
@@ -97,6 +106,19 @@ export function Shell() {
     await refreshScapes();
   };
 
+  const renameScape = async (id: string, name: string) => {
+    await scapeRepository.rename(id, name);
+    if (scape?.id === id) useScapeStore.getState().loadScape({ ...scape, name });
+    await refreshScapes();
+    notify.success("Renamed.");
+  };
+
+  const duplicateScape = async (id: string) => {
+    await scapeRepository.duplicate(id);
+    await refreshScapes();
+    notify.success("Duplicated.");
+  };
+
   /** Shared by the empty-state prompt and the docked composer: creates a scape on first send. */
   const handleSend = async (request: string) => {
     let active = scape;
@@ -132,18 +154,22 @@ export function Shell() {
         onOpen={(id) => void openScape(id)}
         onNew={newScape}
         onDelete={(id) => void deleteScape(id)}
+        onRename={(id, name) => void renameScape(id, name)}
+        onDuplicate={(id) => void duplicateScape(id)}
         onImported={(id) => void openScape(id).then(refreshScapes)}
         onExport={() => scape && downloadScape(scape)}
         onOpenSettings={() => setSettingsOpen(true)}
+        theme={theme}
+        onThemeChange={setTheme}
       />
 
       <div className="relative min-w-0 flex-1">
         {scape ? (
           <Canvas
             onReady={(c) => (commands.current = c)}
-            onOpenInspector={() => {
-              /* Selection already drives the inspector panel; nothing extra to open. */
-            }}
+            onOpenInspector={focusInspector}
+            isGenerating={generation.state.status === "streaming"}
+            colorMode={resolvedTheme}
           />
         ) : (
           <EmptyState onSend={(text) => void handleSend(text)} busy={generation.state.status === "streaming"} />
@@ -179,7 +205,21 @@ export function Shell() {
       </div>
 
       {selectedObject && plugin && (
-        <aside className="z-panel w-[320px] shrink-0 overflow-auto border-l border-subtle bg-surface p-4">
+        <aside
+          ref={inspector}
+          className="z-panel w-[320px] shrink-0 overflow-auto border-l border-subtle bg-surface p-4"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-fg-secondary">{plugin.label}</span>
+            <button
+              type="button"
+              aria-label="Close inspector"
+              onClick={() => commands.current?.clearSelection()}
+              className="grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            >
+              ✕
+            </button>
+          </div>
           <plugin.Inspector
             object={selectedObject}
             dispatch={(payload: ActionPayload) => dispatchTx([payload])}
@@ -187,7 +227,13 @@ export function Shell() {
         </aside>
       )}
 
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsModal
+          onClose={() => setSettingsOpen(false)}
+          theme={theme}
+          onThemeChange={setTheme}
+        />
+      )}
     </div>
   );
 }

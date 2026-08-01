@@ -28,8 +28,10 @@ const plugin: ObjectPlugin<WireframeData> = {
     );
   },
   aiHint:
-    "A low-fidelity screen layout: a stack of boxes, text blocks, inputs, buttons and lists " +
-    "on a 12-column grid. Use it when the answer is a specific screen rather than a flow.",
+    "A low-fidelity screen layout on a 12-column grid, built from heading, text, box, image, " +
+    "avatar, input, button, checkbox, toggle, badge, list and divider elements. Use it when " +
+    "the answer is a specific screen rather than a flow. Always label elements with the real " +
+    "words on the screen — \"Continue\", not \"button\" — because the label is what renders.",
 };
 
 export default plugin;
