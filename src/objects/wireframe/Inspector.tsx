@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
 import { Field, IconButton, SectionHeader, TextInput, useDebouncedText } from "../ui";
@@ -19,6 +20,7 @@ export function WireframeInspector({
   dispatch: (payload: ActionPayload) => void;
 }) {
   const primitives = ((object.data as Partial<WireframeData>).primitives ?? []).filter(Boolean);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const commit = (next: Primitive[]) =>
     dispatch({ type: "UpdateObject", id: object.id, patch: { data: { primitives: next } } });
@@ -28,7 +30,7 @@ export function WireframeInspector({
   );
 
   const move = (from: number, to: number) => {
-    if (to < 0 || to >= primitives.length) return;
+    if (from === to || to < 0 || to >= primitives.length) return;
     const next = [...primitives];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
@@ -48,7 +50,23 @@ export function WireframeInspector({
       ) : (
         <ul className="space-y-2">
           {primitives.map((p, i) => (
-            <li key={p.id} className="rounded-md border border-subtle bg-surface p-2">
+            <li
+              key={p.id}
+              draggable
+              onDragStart={() => setDragIndex(i)}
+              onDragEnd={() => setDragIndex(null)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragIndex !== null) move(dragIndex, i);
+                setDragIndex(null);
+              }}
+              className={
+                "rounded-md border border-subtle bg-surface p-2 transition-opacity " +
+                "duration-fast ease-out " +
+                (dragIndex === i ? "opacity-40" : "opacity-100")
+              }
+            >
               <PrimitiveRow
                 index={i}
                 primitive={p}
@@ -101,6 +119,7 @@ function PrimitiveRow({
         : { id: primitive.id, kind: primitive.kind, span: primitive.span },
     ),
   );
+  const [spanError, setSpanError] = useState<string | undefined>(undefined);
 
   return (
     <div className="flex items-start gap-2">
@@ -126,16 +145,17 @@ function PrimitiveRow({
               max={12}
               value={primitive.span}
               aria-label={`Element ${index + 1} span`}
-              onChange={(e) =>
-                onChange({
-                  ...primitive,
-                  span: Math.min(12, Math.max(1, Number(e.target.value) || 1)),
-                })
-              }
+              onChange={(e) => {
+                const raw = Number(e.target.value) || 1;
+                const clamped = Math.min(12, Math.max(1, raw));
+                setSpanError(raw !== clamped ? "Span must be between 1 and 12 — clamped." : undefined);
+                onChange({ ...primitive, span: clamped });
+              }}
               className="w-14 rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg focus:border-focus focus:outline-none"
             />
           </label>
         </div>
+        {spanError && <p className="text-xs text-danger">{spanError}</p>}
         <TextInput
           value={label}
           onChange={(e) => setLabel(e.target.value)}

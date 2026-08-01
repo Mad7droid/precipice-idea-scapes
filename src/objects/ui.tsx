@@ -58,11 +58,22 @@ export function SectionHeader({ children }: { children: React.ReactNode }) {
   return <h3 className="mono mb-2 mt-5 first:mt-0">{children}</h3>;
 }
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  /** Set when the current draft value was rejected or clamped — names what happened, not
+   * just that something went wrong. */
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs text-fg-secondary">{label}</span>
       {children}
+      {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
     </label>
   );
 }
@@ -105,6 +116,43 @@ export function IconButton({
       }
     >
       {children}
+    </button>
+  );
+}
+
+/**
+ * The affordance that turns a truncated card into a complete one.
+ *
+ * Cards stay compact so a whole scape is readable at once, but "+3 more" with no way to see
+ * the other three is a dead end — the content has to be reachable without opening a panel.
+ */
+export function ExpandToggle({
+  expanded,
+  hiddenCount,
+  onToggle,
+  moreLabel = "more",
+  canExpand,
+}: {
+  expanded: boolean;
+  /** How many items are being withheld while collapsed. */
+  hiddenCount: number;
+  onToggle: () => void;
+  moreLabel?: string;
+  /** Force the affordance on when nothing is *counted* as hidden but content is still
+   * clamped — a two-step journey with long details has plenty left to show. */
+  canExpand?: boolean;
+}) {
+  if (!expanded && hiddenCount <= 0 && !canExpand) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className="nodrag mt-1.5 text-xs text-fg-tertiary underline-offset-2 transition-colors duration-instant ease-out hover:text-fg-secondary hover:underline"
+    >
+      {expanded ? "Show less" : hiddenCount > 0 ? `+${hiddenCount} ${moreLabel}` : "Show more"}
     </button>
   );
 }

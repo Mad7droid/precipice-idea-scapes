@@ -1,10 +1,28 @@
 import { z } from "zod";
 
 /**
- * Deliberately tiny. This is a demonstration that structured, editable, AI-generated visual
- * artifacts work — not a design tool. Adding a sixth primitive is how it stops being either.
+ * The vocabulary a low-fidelity screen is drawn from.
+ *
+ * This started at five kinds on the theory that anything more turns a demonstration into a
+ * design tool. In practice five was too few to describe a real screen without every element
+ * collapsing into `box`, so the set now covers the things that actually recur: headings,
+ * media, avatars, the two common form controls, and chips. Existing scapes keep working —
+ * the original five are unchanged and still first.
  */
-export const PRIMITIVE_KINDS = ["box", "text", "input", "button", "list"] as const;
+export const PRIMITIVE_KINDS = [
+  "heading",
+  "text",
+  "box",
+  "image",
+  "avatar",
+  "input",
+  "button",
+  "checkbox",
+  "toggle",
+  "badge",
+  "list",
+  "divider",
+] as const;
 
 export const primitiveSchema = z.object({
   id: z.string().min(1),
