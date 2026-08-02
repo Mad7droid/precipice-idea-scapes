@@ -70,8 +70,8 @@ export function SettingsModal({
             )}
           </div>
           <p className="mt-2 text-xs text-fg-tertiary">
-            Stored only in this browser and sent through the Precipice Worker for generation.
-            Leave blank to use the hosted Worker account, when configured.
+            Required to generate. Stored unencrypted in this browser and forwarded through the
+            Precipice Worker, which keeps no key of its own and stores nothing.
           </p>
         </div>
 

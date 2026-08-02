@@ -24,12 +24,15 @@ appropriate.
 ## Security notes
 
 - Never commit API keys, Cloudflare tokens, `.env` files, or private user data.
-- The hosted app accepts an optional user-owned Anthropic key in Settings. It is
-  stored in the browser's local IndexedDB and forwarded through the Worker for
-  the request; it is not stored by the Worker. The Worker may also use its own
-  server-side credential as a fallback.
-- The Worker restricts browser origins, rejects oversized requests, limits
-  requests per IP window, and returns `Cache-Control: no-store` for upstream AI responses.
+- The hosted app requires a user-owned Anthropic key in Settings. It is stored
+  unencrypted in the browser's local IndexedDB and forwarded through the Worker
+  for the request; the Worker stores nothing.
+- The Worker holds no Anthropic credential of its own. This is deliberate: its
+  only access control is an `Origin` check, which any non-browser client can
+  forge, so a server-side key behind it would be spendable by anyone.
+- The Worker rejects oversized requests, forwards only an allowlist of headers
+  upstream, and returns `Cache-Control: no-store` for upstream AI responses. Its
+  per-IP counter is per-isolate and best-effort, not a dependable rate limit.
 - The development AI harness is intentionally different: it can accept a local
   API key for testing. Use throwaway development credentials and clear local
   browser data when finished.

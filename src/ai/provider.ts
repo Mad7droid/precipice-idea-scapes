@@ -52,14 +52,14 @@ export const anthropicProvider: Provider = {
   label: "Anthropic",
   models: MODELS,
   model(modelId, apiKey) {
-    const usingProxyFallback = apiKey === "proxy";
-    if (!usingProxyFallback && !apiKey?.trim()) throw new MissingApiKeyError();
-    // The browser always talks to our Cloudflare Worker. When a user supplies a key, the
-    // Worker forwards it for this request without storing it; otherwise it can use its own
-    // server-side secret. The key never becomes part of the generated application bundle.
+    if (!apiKey?.trim()) throw new MissingApiKeyError();
+    // The browser always talks to our Cloudflare Worker, which exists to add CORS headers and
+    // nothing else. It forwards this key for this request and stores neither it nor a key of
+    // its own — a hosted key behind a public endpoint is a hosted key anyone can spend.
     const provider = createAnthropic({
-      apiKey: usingProxyFallback ? "server-managed" : apiKey,
-      baseURL: import.meta.env.VITE_AI_PROXY_URL ?? "https://precipice-ai-proxy.precipice.workers.dev",
+      apiKey,
+      baseURL:
+        import.meta.env.VITE_AI_PROXY_URL ?? "https://precipice-ai-proxy.precipice.workers.dev",
     });
     return provider(modelId);
   },
@@ -68,7 +68,10 @@ export const anthropicProvider: Provider = {
 /** Turns provider failures into copy that says what happened and what to do about it. */
 export function describeProviderError(error: unknown): { message: string; detail: string } {
   if (error instanceof MissingApiKeyError) {
-    return { message: "No API key", detail: "Add an Anthropic API key in settings, then try again." };
+    return {
+      message: "No API key",
+      detail: "Add an Anthropic API key in settings, then try again.",
+    };
   }
 
   const raw = error instanceof Error ? error.message : String(error);

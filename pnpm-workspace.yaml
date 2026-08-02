@@ -1,2 +1,7 @@
 allowBuilds:
   esbuild: true
+
+# Transitive via @ai-sdk/*. Not reachable from browser code, but it carries advisories and
+# pinning it forward costs nothing. pnpm 11 reads overrides here, not from package.json.
+overrides:
+  undici: ">=6.27.0"
