@@ -40,6 +40,7 @@ export function Shell() {
 
   const [scapes, setScapes] = useState<ScapeSummary[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [scope, setScope] = useState<Scope>("scape");
   /** Which object types a generation may create. Empty means no constraint. */
@@ -66,8 +67,6 @@ export function Shell() {
     autosave.current = startAutosave(scapeRepository);
 
     void (async () => {
-      // Remove keys saved by older browser builds now that AI auth is server-managed.
-      await settingsRepository.remove(SETTING_KEYS.apiKey);
       await refreshScapes();
       const lastId = await settingsRepository.get<string>(SETTING_KEYS.lastScapeId);
       if (lastId) {
@@ -76,6 +75,8 @@ export function Shell() {
       }
       const savedModel = await settingsRepository.get<string>(SETTING_KEYS.model);
       if (savedModel) setModelId(savedModel);
+      const savedApiKey = await settingsRepository.get<string>(SETTING_KEYS.apiKey);
+      if (savedApiKey) setApiKey(savedApiKey);
       const savedTypes = await settingsRepository.get<string[]>(GENERATE_TYPES_KEY);
       if (Array.isArray(savedTypes)) setTypes(savedTypes);
       setBooted(true);
@@ -144,7 +145,7 @@ export function Shell() {
       await refreshScapes();
     }
 
-    await generation.start(request, "proxy", modelId, types);
+    await generation.start(request, apiKey.trim() || "proxy", modelId, types);
     await refreshScapes();
   };
 
@@ -251,6 +252,11 @@ export function Shell() {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           theme={theme}
+          apiKey={apiKey}
+          onApiKeyChange={(next) => {
+            setApiKey(next);
+            void settingsRepository.set(SETTING_KEYS.apiKey, next);
+          }}
           onThemeChange={setTheme}
         />
       )}

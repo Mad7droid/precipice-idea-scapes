@@ -11,7 +11,7 @@ export interface Provider {
   id: string;
   label: string;
   models: ModelChoice[];
-  /** Throws if the key is missing — callers surface that as "add a key in settings". */
+  /** Throws if a direct key is missing — callers surface that as "add a key in settings". */
   model: (modelId: string, apiKey: string) => LanguageModel;
 }
 
@@ -52,11 +52,13 @@ export const anthropicProvider: Provider = {
   label: "Anthropic",
   models: MODELS,
   model(modelId, apiKey) {
-    if (!apiKey?.trim()) throw new MissingApiKeyError();
-    // The browser talks only to our Cloudflare Worker. The Worker injects the Anthropic
-    // secret server-side; no user API key is accepted or persisted by the web app.
+    const usingProxyFallback = apiKey === "proxy";
+    if (!usingProxyFallback && !apiKey?.trim()) throw new MissingApiKeyError();
+    // The browser always talks to our Cloudflare Worker. When a user supplies a key, the
+    // Worker forwards it for this request without storing it; otherwise it can use its own
+    // server-side secret. The key never becomes part of the generated application bundle.
     const provider = createAnthropic({
-      apiKey: "server-managed",
+      apiKey: usingProxyFallback ? "server-managed" : apiKey,
       baseURL: import.meta.env.VITE_AI_PROXY_URL ?? "https://precipice-ai-proxy.precipice.workers.dev",
     });
     return provider(modelId);

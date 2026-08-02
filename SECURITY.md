@@ -24,8 +24,10 @@ appropriate.
 ## Security notes
 
 - Never commit API keys, Cloudflare tokens, `.env` files, or private user data.
-- The production Anthropic credential is intended to exist only as a secret on
-  the Cloudflare Worker. The frontend should call the Worker, not expose the key.
+- The hosted app accepts an optional user-owned Anthropic key in Settings. It is
+  stored in the browser's local IndexedDB and forwarded through the Worker for
+  the request; it is not stored by the Worker. The Worker may also use its own
+  server-side credential as a fallback.
 - The Worker restricts browser origins, rejects oversized requests, limits
   requests per IP window, and returns `Cache-Control: no-store` for upstream AI responses.
 - The development AI harness is intentionally different: it can accept a local

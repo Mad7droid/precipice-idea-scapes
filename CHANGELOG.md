@@ -22,6 +22,11 @@ milestone is published.
   plus clearer filter, model-selector, and relationship-line control views.
 - Added the MIT license, security guidance, and non-developer setup instructions.
 
+### Fixed
+
+- Restored the production Settings API-key field and wired user-owned keys into
+  generation instead of deleting them during app startup.
+
 ### Security
 
 - Documented the production Worker origin allowlist, request-size limit, rate limit,

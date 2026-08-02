@@ -32,7 +32,9 @@ export default {
       return json({ error: "Not found" }, 404, origin);
     }
     if (!origin || !ALLOWED_ORIGINS.has(origin)) return json({ error: "Origin not allowed" }, 403, origin);
-    if (!env.ANTHROPIC_API_KEY) return json({ error: "Worker is not configured" }, 500, origin);
+    const requestApiKey = request.headers.get("x-api-key")?.trim();
+    const apiKey = requestApiKey || env.ANTHROPIC_API_KEY;
+    if (!apiKey) return json({ error: "Worker is not configured" }, 500, origin);
     const contentLength = Number(request.headers.get("Content-Length") ?? 0);
     if (contentLength > MAX_BODY_BYTES) return json({ error: "Request too large" }, 413, origin);
     const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
@@ -43,7 +45,7 @@ export default {
     const body = await request.arrayBuffer();
     if (body.byteLength > MAX_BODY_BYTES) return json({ error: "Request too large" }, 413, origin);
     const upstreamHeaders = new Headers(request.headers);
-    upstreamHeaders.set("x-api-key", env.ANTHROPIC_API_KEY);
+    upstreamHeaders.set("x-api-key", apiKey);
     upstreamHeaders.set("anthropic-dangerous-direct-browser-access", "true");
     upstreamHeaders.delete("origin");
     upstreamHeaders.delete("referer");

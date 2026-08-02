@@ -119,9 +119,10 @@ Zustand, and the Vercel AI SDK with Anthropic support.
 ## Security and privacy
 
 - Scapes and settings are stored locally in the browser through IndexedDB; the hosted app does not provide a shared server-side scape database.
-- Production AI requests are sent through the Cloudflare Worker at `https://precipice-ai-proxy.precipice.workers.dev`; the Anthropic server secret belongs in the Worker, never in committed source or frontend build output.
+- AI requests are sent through the Cloudflare Worker at `https://precipice-ai-proxy.precipice.workers.dev`; you may supply your own Anthropic key in Settings, where it is stored locally in your browser and forwarded only for generation requests.
+- If no personal key is supplied, the Worker can use its own server-side Anthropic secret when the hosted account is configured; that secret never belongs in committed source or frontend build output.
 - The Worker accepts requests only from the hosted Precipice origin, limits request bodies to 256 KiB, and applies a per-IP request limit.
-- The development AI harness may accept a locally supplied API key. Treat it as development-only and never paste production secrets into screenshots, issues, commits, or chat logs.
+- The development AI harness and the main workspace may accept a locally supplied API key. Treat it as sensitive browser-local data and never paste production secrets into screenshots, issues, commits, or chat logs.
 - Do not commit `.env` files, API keys, Cloudflare tokens, or generated credentials. Use GitHub Actions secrets for deployment credentials.
 - Report suspected vulnerabilities privately through [GitHub’s security advisory form](https://github.com/Mad7droid/precipice-idea-scapes/security/advisories/new). See [SECURITY.md](SECURITY.md) for the reporting policy.
 
