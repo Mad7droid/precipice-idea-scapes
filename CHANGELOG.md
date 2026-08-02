@@ -9,6 +9,25 @@ Changes merged after the latest dated entry should be added here before or with
 the change to `main`. Move the entry to a dated section when a release or public
 milestone is published.
 
+### Changed
+
+- Generation now requires your own Anthropic API key. The hosted Worker no longer
+  falls back to a server-side key, so leaving the field blank prompts for a key
+  instead of silently generating on a shared account.
+
+### Security
+
+- Removed the Worker's server-side Anthropic credential. Its only gate was an
+  `Origin` header, which any non-browser client can forge, leaving the hosted key
+  spendable by anyone who found the public endpoint.
+- The Worker now builds upstream headers from an allowlist rather than inheriting
+  the caller's, so cookies, `Authorization`, and `CF-*` headers are no longer
+  relayed to Anthropic.
+- Added a Content Security Policy and hardening headers to the Pages deployment,
+  with a test that fails if the inline theme script's hash drifts.
+- Added `.env`, `.env.*`, and `.wrangler` to `.gitignore`.
+- Pinned `undici` past its known advisories.
+
 ## 2026-08-02
 
 ### Added

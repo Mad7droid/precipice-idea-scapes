@@ -12,9 +12,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.0",
+    "@ai-sdk/anthropic": "^2.0.92",
     "@xyflow/react": "^12.8.0",
-    "ai": "^5.0.0",
+    "ai": "^5.0.224",
     "dagre": "^0.8.5",
     "dexie": "^4.0.11",
     "react": "^19.1.0",

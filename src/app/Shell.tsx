@@ -92,7 +92,11 @@ export function Shell() {
   // right next to it and a drag's undo shouldn't depend on which panel last had focus.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]")) {
+      if (
+        (event.target as HTMLElement | null)?.closest?.(
+          "input, textarea, select, [contenteditable]",
+        )
+      ) {
         return;
       }
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
@@ -137,6 +141,13 @@ export function Shell() {
 
   /** Shared by the empty-state prompt and the docked composer: creates a scape on first send. */
   const handleSend = async (request: string) => {
+    // Checked before the scape is created, so a missing key doesn't leave an empty scape behind.
+    if (!apiKey.trim()) {
+      notify.error("No API key", "Add an Anthropic API key in settings, then try again.");
+      setSettingsOpen(true);
+      return;
+    }
+
     let active = scape;
     if (!active) {
       active = await scapeRepository.create(titleFromPrompt(request));
@@ -145,7 +156,7 @@ export function Shell() {
       await refreshScapes();
     }
 
-    await generation.start(request, apiKey.trim() || "proxy", modelId, types);
+    await generation.start(request, apiKey.trim(), modelId, types);
     await refreshScapes();
   };
 
@@ -154,8 +165,7 @@ export function Shell() {
     void settingsRepository.set(GENERATE_TYPES_KEY, next);
   };
 
-  const selectedObject =
-    selection.length === 1 && scape ? scape.objects[selection[0]] : undefined;
+  const selectedObject = selection.length === 1 && scape ? scape.objects[selection[0]] : undefined;
   const plugin = selectedObject ? getPlugin(selectedObject.type) : undefined;
 
   if (!booted) return null;

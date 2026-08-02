@@ -4,5 +4,13 @@ dist
 *.local
 .context
 
+# Secrets. `*.local` above does not match `.env`, and the example file is meant to be committed.
+.env
+.env.*
+!.env.example
+
+# Wrangler's local dev state, which caches secrets and request data.
+.wrangler
+
 # Machine-local Conductor config. `*.local` above does not match `settings.local.toml`.
 .conductor/settings.local.toml
