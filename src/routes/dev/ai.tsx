@@ -9,6 +9,7 @@ import { EVALS, formatEvalTable, runEvals, type EvalResult } from "@/ai/evals";
 import { useGeneration } from "@/ai/useGeneration";
 import { Ribbon } from "@/ai/Ribbon";
 import { Composer } from "@/ai/Composer";
+import { Select } from "@/design/Select";
 import { settingsRepository } from "@/persistence/settings";
 
 /**
@@ -20,6 +21,7 @@ export function DevAi() {
   const [apiKey, setApiKey] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [scope, setScope] = useState<"scape" | "selection">("scape");
+  const [types, setTypes] = useState<string[]>([]);
   const [evalResults, setEvalResults] = useState<EvalResult[] | null>(null);
   const [evalRunning, setEvalRunning] = useState(false);
   const evalAbort = useRef<AbortController | null>(null);
@@ -76,18 +78,13 @@ export function DevAi() {
             aria-label="Anthropic API key"
             className="mono w-[280px] rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg"
           />
-          <select
-            aria-label="Model"
+          <Select
+            label="Model"
             value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-            className="mono rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg"
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id} title={m.hint}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+            onChange={setModelId}
+            options={MODELS.map((m) => ({ value: m.id, label: m.label, title: m.hint }))}
+            className="mono"
+          />
           <Command onClick={() => void startRecorded()} disabled={state.status === "streaming"}>
             Replay recorded (no key needed)
           </Command>
@@ -145,13 +142,15 @@ export function DevAi() {
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-2">
           <Ribbon state={state} onCancel={cancel} onUndo={undo} onDismiss={dismiss} />
           <Composer
-            onSend={(request) => void start(request, apiKey, modelId)}
+            onSend={(request) => void start(request, apiKey, modelId, types)}
             onCancel={cancel}
             busy={state.status === "streaming"}
             modelId={modelId}
             onModelChange={setModelId}
             scope={scope}
             onScopeChange={setScope}
+            types={types}
+            onTypesChange={setTypes}
             selectionCount={useScapeStore.getState().selection.length}
             disabled={!apiKey.trim()}
             placeholder={apiKey.trim() ? undefined : "Add an API key above to generate."}

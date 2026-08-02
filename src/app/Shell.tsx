@@ -24,6 +24,15 @@ function titleFromPrompt(prompt: string): string {
   return line.length > 60 ? `${line.slice(0, 59)}…` : line || "Untitled scape";
 }
 
+/**
+ * A browser-local preference, like the theme — how you want to be generated *for* is not
+ * part of the Scape document and should not travel with an export.
+ *
+ * Not in `SETTING_KEYS` because `src/core` is frozen; flagged in NOTES.md to be folded in
+ * the next time core opens.
+ */
+const GENERATE_TYPES_KEY = "ui.generateTypes";
+
 export function Shell() {
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
@@ -33,6 +42,8 @@ export function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [scope, setScope] = useState<Scope>("scape");
+  /** Which object types a generation may create. Empty means no constraint. */
+  const [types, setTypes] = useState<string[]>([]);
   const [booted, setBooted] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
 
@@ -55,6 +66,8 @@ export function Shell() {
     autosave.current = startAutosave(scapeRepository);
 
     void (async () => {
+      // Remove keys saved by older browser builds now that AI auth is server-managed.
+      await settingsRepository.remove(SETTING_KEYS.apiKey);
       await refreshScapes();
       const lastId = await settingsRepository.get<string>(SETTING_KEYS.lastScapeId);
       if (lastId) {
@@ -63,6 +76,8 @@ export function Shell() {
       }
       const savedModel = await settingsRepository.get<string>(SETTING_KEYS.model);
       if (savedModel) setModelId(savedModel);
+      const savedTypes = await settingsRepository.get<string[]>(GENERATE_TYPES_KEY);
+      if (Array.isArray(savedTypes)) setTypes(savedTypes);
       setBooted(true);
     })();
 
@@ -129,15 +144,13 @@ export function Shell() {
       await refreshScapes();
     }
 
-    const apiKey = await settingsRepository.get<string>(SETTING_KEYS.apiKey);
-    if (!apiKey?.trim()) {
-      notify.error("No API key", "Add an Anthropic API key in settings, then try again.");
-      setSettingsOpen(true);
-      return;
-    }
-
-    await generation.start(request, apiKey, modelId);
+    await generation.start(request, "proxy", modelId, types);
     await refreshScapes();
+  };
+
+  const handleTypesChange = (next: string[]) => {
+    setTypes(next);
+    void settingsRepository.set(GENERATE_TYPES_KEY, next);
   };
 
   const selectedObject =
@@ -172,7 +185,12 @@ export function Shell() {
             colorMode={resolvedTheme}
           />
         ) : (
-          <EmptyState onSend={(text) => void handleSend(text)} busy={generation.state.status === "streaming"} />
+          <EmptyState
+            onSend={(text) => void handleSend(text)}
+            busy={generation.state.status === "streaming"}
+            types={types}
+            onTypesChange={handleTypesChange}
+          />
         )}
 
         {scape && (
@@ -197,6 +215,8 @@ export function Shell() {
                 }}
                 scope={scope}
                 onScopeChange={setScope}
+                types={types}
+                onTypesChange={handleTypesChange}
                 selectionCount={selection.length}
               />
             </div>
@@ -238,7 +258,17 @@ export function Shell() {
   );
 }
 
-function EmptyState({ onSend, busy }: { onSend: (text: string) => void; busy: boolean }) {
+function EmptyState({
+  onSend,
+  busy,
+  types,
+  onTypesChange,
+}: {
+  onSend: (text: string) => void;
+  busy: boolean;
+  types: string[];
+  onTypesChange: (types: string[]) => void;
+}) {
   const [scope, setScope] = useState<Scope>("scape");
   return (
     <div className="grid h-full place-items-center px-6">
@@ -256,6 +286,8 @@ function EmptyState({ onSend, busy }: { onSend: (text: string) => void; busy: bo
             onModelChange={() => {}}
             scope={scope}
             onScopeChange={setScope}
+            types={types}
+            onTypesChange={onTypesChange}
             selectionCount={0}
             placeholder='Try: "Design an onboarding flow for a fintech app."'
           />

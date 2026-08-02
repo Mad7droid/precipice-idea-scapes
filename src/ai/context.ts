@@ -171,8 +171,9 @@ function renderDetail(scape: Scape, ids: Set<ObjectId>, budgetTokens: number): s
  * The type catalogue the model chooses from, built from the registry so a new object type
  * becomes available to the AI by existing — no prompt to update, no list to keep in sync.
  */
-export function describeObjectTypes(): string {
+export function describeObjectTypes(allowedTypes: string[] = []): string {
   return allPlugins()
+    .filter((plugin) => allowedTypes.length === 0 || allowedTypes.includes(plugin.type))
     .map((plugin) => `- ${plugin.type}: ${plugin.aiHint}`)
     .join("\n");
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
 import { DEFAULT_MODEL, MODELS } from "@/ai/provider";
+import { Select } from "@/design/Select";
 import { ThemeControl } from "./ThemeControl";
 
 export function SettingsModal({
@@ -13,11 +14,9 @@ export function SettingsModal({
   theme: ThemePreference;
   onThemeChange: (next: ThemePreference) => void;
 }) {
-  const [apiKey, setApiKey] = useState("");
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
 
   useEffect(() => {
-    void settingsRepository.get<string>(SETTING_KEYS.apiKey).then((k) => k && setApiKey(k));
     void settingsRepository.get<string>(SETTING_KEYS.model).then((m) => m && setModelId(m));
   }, []);
 
@@ -41,44 +40,24 @@ export function SettingsModal({
           <ThemeControl value={theme} onChange={onThemeChange} />
         </div>
 
-        <label className="mt-4 block">
-          <span className="mb-1 block text-xs text-fg-secondary">Anthropic API key</span>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => {
-              const next = e.target.value;
-              setApiKey(next);
-              void settingsRepository.set(SETTING_KEYS.apiKey, next);
-            }}
-            placeholder="sk-ant-…"
-            className="mono w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg placeholder:text-fg-tertiary focus:border-focus focus-self"
-          />
-        </label>
-        <p className="mt-1.5 text-xs text-fg-tertiary">
-          Stored in this browser's IndexedDB, in plain text. There is nowhere in a browser to
-          put it that would be meaningfully safer. Real encryption arrives with the desktop
-          app.
+        <p className="mt-4 rounded-md border border-subtle bg-inset p-3 text-xs text-fg-secondary">
+          AI requests are protected by the Cloudflare Worker proxy. Your Anthropic API key is
+          never entered into or stored in this browser.
         </p>
 
-        <label className="mt-4 block">
+        <div className="mt-4 block">
           <span className="mb-1 block text-xs text-fg-secondary">Default model</span>
-          <select
+          <Select
+            label="Default model"
             value={modelId}
-            onChange={(e) => {
-              const next = e.target.value;
+            onChange={(next) => {
               setModelId(next);
               void settingsRepository.set(SETTING_KEYS.model, next);
             }}
-            className="mono w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg focus:border-focus focus-self"
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id} title={m.hint}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={MODELS.map((m) => ({ value: m.id, label: m.label, title: m.hint }))}
+            className="mono w-full"
+          />
+        </div>
 
         <button
           type="button"

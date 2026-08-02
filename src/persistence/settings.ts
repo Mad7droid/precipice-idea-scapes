@@ -27,6 +27,10 @@ export class DexieSettingsRepository implements SettingsRepository {
     }
   }
 
+  async remove(key: string): Promise<void> {
+    await this.database.settings.delete(key);
+  }
+
   async all(): Promise<Record<string, unknown>> {
     const rows = await this.database.settings.toArray();
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));

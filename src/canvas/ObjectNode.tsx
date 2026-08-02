@@ -1,7 +1,9 @@
-import { memo } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
 import { getPlugin } from "@/core/registry";
-import { widthFor } from "./layout";
+import { useScapeStore } from "@/core/store";
+import type { ScapeObject } from "@/core/types";
+import { MAX_OBJECT_WIDTH, MIN_OBJECT_WIDTH, objectWidth } from "./layout";
 import type { ObjectNodeData } from "./edges";
 
 /**
@@ -16,12 +18,13 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
   const { object, justGenerated } = data as unknown as ObjectNodeData;
   const plugin = getPlugin(object.type);
   const colour = plugin ? `var(${plugin.color})` : "var(--border-strong)";
+  const { width, grip } = useResizeGrip(object);
 
   return (
     <div
-      style={{ width: widthFor(object.type) }}
+      style={{ width }}
       className={
-        "overflow-hidden rounded-lg bg-surface shadow-sm " +
+        "group relative overflow-hidden rounded-lg bg-surface shadow-sm " +
         // The one spring the design language allows: a node arriving from the AI stream.
         // Manual creation (duplicate, import, relayout) mounts with no entrance animation.
         (justGenerated ? "animate-node-enter " : "") +
@@ -75,8 +78,102 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         position={Position.Right}
         className="!h-2 !w-2 !border-0 !bg-[var(--border-strong)]"
       />
+
+      {grip}
     </div>
   );
+}
+
+/**
+ * Drag the card's right edge to set its width.
+ *
+ * A card is only as useful as the content you can read on it, and a twelve-column wireframe
+ * needs more room than a note. Width is stored on the object's own `data`, so it survives a
+ * reload and an export, and it is written once on pointer-up — one entry on the undo stack,
+ * not one per frame. Dagre already prefers React Flow's measured width, so a resized card
+ * lays out correctly on the next tidy with nothing else to tell it.
+ */
+function useResizeGrip(object: ScapeObject) {
+  const stored = objectWidth(object);
+  const [draft, setDraft] = useState<number | null>(null);
+  const start = useRef({ x: 0, width: 0 });
+  const { getZoom } = useReactFlow();
+
+  // A width the user is mid-drag on is local; everything else comes from the store, so undo
+  // and a collaborator's edit both land immediately.
+  const width = draft ?? stored;
+
+  const commit = useCallback(
+    (next: number | undefined) => {
+      const data = { ...object.data };
+      if (next === undefined) delete data.width;
+      else data.width = next;
+      useScapeStore
+        .getState()
+        .dispatchTx([{ type: "UpdateObject", id: object.id, patch: { data } }]);
+    },
+    [object.data, object.id],
+  );
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    start.current = { x: e.clientX, width: stored };
+    setDraft(stored);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (draft === null) return;
+    // Screen pixels are not canvas pixels once you have zoomed.
+    const delta = (e.clientX - start.current.x) / (getZoom() || 1);
+    setDraft(
+      Math.round(
+        Math.min(MAX_OBJECT_WIDTH, Math.max(MIN_OBJECT_WIDTH, start.current.width + delta)),
+      ),
+    );
+  };
+
+  const onPointerUp = () => {
+    if (draft === null) return;
+    if (draft !== stored) commit(draft);
+    setDraft(null);
+  };
+
+  // Escape abandons the drag rather than committing whatever the pointer happened to be over.
+  useEffect(() => {
+    if (draft === null) return;
+    const cancel = (e: KeyboardEvent) => e.key === "Escape" && setDraft(null);
+    window.addEventListener("keydown", cancel);
+    return () => window.removeEventListener("keydown", cancel);
+  }, [draft]);
+
+  const grip = (
+    <div
+      role="separator"
+      aria-label="Resize card"
+      aria-orientation="vertical"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => setDraft(null)}
+      // Double-click gives the card its type's default width back.
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        commit(undefined);
+      }}
+      title="Drag to resize · double-click to reset"
+      className={
+        "nodrag nopan absolute inset-y-0 right-0 z-10 w-2 cursor-ew-resize " +
+        "transition-opacity duration-instant ease-out " +
+        (draft !== null ? "opacity-100" : "opacity-0 group-hover:opacity-100")
+      }
+    >
+      <span className="absolute inset-y-2 right-[3px] block w-[2px] rounded-full bg-[var(--border-strong)]" />
+    </div>
+  );
+
+  return { width, grip };
 }
 
 /**

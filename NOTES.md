@@ -58,3 +58,39 @@ this build.
 - Everything explicitly out of scope in `CLAUDE.md`: MCP server, multi-provider, Tauri,
   SQLite, collaboration, version history UI, templates, tags, archive, search, rich text
   editing, Storybook, Playwright, Turborepo.
+
+## Wireframe layout pass (`feat/wireframe-layout`)
+
+### Core changes wanted, not made (`src/core` is frozen)
+
+1. **`ScapeObject` has nowhere to put a size.** Card width is stored in the plugin's own
+   `data.width` instead. That works — the schema validates it and it survives export — but a
+   width is a property of the card, not of a wireframe, and notes and journeys are now
+   resizable through the same generic path with no schema entry of their own. A `width?:
+   number` on `ScapeObject` (or a `ResizeObject` action carrying its own inverse) is the
+   honest home for it.
+2. **`UpdateObject.patch.data` replaces rather than merges.** Every call site now has to
+   spread `object.data` before writing one key, and forgetting to is silent — the wireframe
+   inspector had exactly this latent bug before this pass. A shallow merge, or a distinct
+   `MergeObjectData`, would remove a whole class of mistake.
+3. **`SETTING_KEYS` has no entry for the composer's type filter.** It is written under the
+   literal `"ui.generateTypes"` from `src/app/Shell.tsx`. Should be folded into `SETTING_KEYS`
+   alongside `theme` and `lastScapeId`.
+
+### Duplicated constant
+
+`DEFAULT_WIDTH = 380` exists in both `src/canvas/layout.ts` (as `NODE_WIDTHS.wireframe`) and
+`src/objects/wireframe/schema.ts`. The objects workstream cannot import from the canvas
+workstream, so they are kept in step by hand. Both are commented.
+
+### `tokens.css` additions
+
+Two utility classes, no token values touched: `.range-field` (the width slider — `accent-color`
+alone leaves the platform's own track behind, which reads as near-black on a warm light
+surface) and the existing `.focus-self`. Shared `Select` primitive now lives at
+`src/design/Select.tsx`.
+
+### Pre-existing, not fixed
+
+`/dev/objects` logs a React nesting warning: `PreviewCard` renders a `<button>` that contains
+`ExpandToggle`'s `<button>`. Harness-only, predates this branch.

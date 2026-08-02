@@ -50,6 +50,15 @@ export interface ApplyOptions {
   /** Wired to the canvas by the app shell, so this module never imports src/canvas. */
   requestLayout?: () => void;
   txId?: string;
+  /**
+   * Object types this generation may create. Empty or absent means no constraint.
+   *
+   * The prompt already asks for the constraint, but asking is not enforcing — a model that
+   * creates a wireframe anyway would silently defeat the control, so the request is also
+   * enforced here and the offender lands in the "N actions skipped" count like any other
+   * invalid action.
+   */
+  allowedTypes?: string[];
 }
 
 export interface Applier {
@@ -105,6 +114,11 @@ export function createApplier(options: ApplyOptions): Applier {
     if (action.type === "CreateObject") {
       const plugin = getPlugin(action.objectType);
       if (!plugin) return skip(toolName, `unknown object type "${action.objectType}"`, input);
+
+      const allowed = options.allowedTypes ?? [];
+      if (allowed.length > 0 && !allowed.includes(action.objectType)) {
+        return skip(toolName, `${action.objectType} was excluded from this generation`, input);
+      }
 
       const data = plugin.schema.safeParse(action.data ?? plugin.defaults());
       if (!data.success) {
@@ -201,7 +215,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
 
     const result = streamText({
       model,
-      system: systemPrompt(),
+      system: systemPrompt(options.allowedTypes),
       prompt: prompt.text,
       tools,
       stopWhen: stepCountIs(MAX_STEPS),

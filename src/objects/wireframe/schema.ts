@@ -10,6 +10,7 @@ import { z } from "zod";
  * the original five are unchanged and still first.
  */
 export const PRIMITIVE_KINDS = [
+  "section",
   "heading",
   "text",
   "box",
@@ -24,15 +25,41 @@ export const PRIMITIVE_KINDS = [
   "divider",
 ] as const;
 
+/** Which grid granularities a screen can be drawn on. Twelve is needless precision for a
+ * simple screen, and a four-column grid makes halves and thirds land exactly. */
+export const COLUMN_CHOICES = [4, 6, 12] as const;
+
+export const MIN_WIDTH = 200;
+export const MAX_WIDTH = 900;
+export const DEFAULT_COLUMNS = 12;
+
+/**
+ * The width a wireframe card is drawn at when nobody has resized it. Kept in step with the
+ * canvas's per-type default by hand: `src/canvas/layout.ts` owns layout and this module
+ * cannot import it without crossing a workstream boundary.
+ */
+export const DEFAULT_WIDTH = 380;
+
+/**
+ * Every field beyond `id`/`kind`/`span` is optional, on purpose: a wireframe written before
+ * any of them existed has to keep validating, and it does.
+ */
 export const primitiveSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(PRIMITIVE_KINDS),
   label: z.string().optional(),
   span: z.number().int().min(1).max(12),
+  /** Where the element sits inside its column when it does not fill it. */
+  align: z.enum(["start", "center", "end"]).optional(),
+  /** Vertical weight, for the kinds that occupy area rather than a line of text. */
+  size: z.enum(["sm", "md", "lg"]).optional(),
 });
 
 export const wireframeSchema = z.object({
   primitives: z.array(primitiveSchema),
+  /** Card width in px. Set by dragging the card's edge, or from the inspector. */
+  width: z.number().min(MIN_WIDTH).max(MAX_WIDTH).optional(),
+  columns: z.union([z.literal(4), z.literal(6), z.literal(12)]).optional(),
 });
 
 export type PrimitiveKind = (typeof PRIMITIVE_KINDS)[number];
@@ -41,3 +68,12 @@ export type WireframeData = z.infer<typeof wireframeSchema>;
 
 /** Node body renders this many, then a count — a 30-primitive wireframe stays node-sized. */
 export const VISIBLE_PRIMITIVES = 10;
+
+/** A section is a region header: always full width, never counted against the cutoff. */
+export function isSection(primitive: Primitive): boolean {
+  return primitive.kind === "section";
+}
+
+export function columnsOf(data: Partial<WireframeData>): number {
+  return data.columns ?? DEFAULT_COLUMNS;
+}

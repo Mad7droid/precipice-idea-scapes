@@ -2,16 +2,47 @@ import { createContext, useContext, useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { EmptyHint, ExpandToggle } from "../ui";
-import { VISIBLE_PRIMITIVES, type Primitive, type WireframeData } from "./schema";
+import {
+  columnsOf,
+  isSection,
+  VISIBLE_PRIMITIVES,
+  type Primitive,
+  type WireframeData,
+} from "./schema";
 
 /** Expanded cards let labels wrap instead of truncating, so a long screen reads in full. */
 const Expanded = createContext(false);
+const Columns = createContext(12);
+
+/**
+ * Truncate by *elements*, not by array index — a section header is structure, not content,
+ * and a screen that stops half way through a region with its header cut off reads as a bug
+ * rather than as "there is more below".
+ */
+function visible(primitives: Primitive[]): Primitive[] {
+  const out: Primitive[] = [];
+  let counted = 0;
+  for (const p of primitives) {
+    if (!isSection(p)) {
+      if (counted >= VISIBLE_PRIMITIVES) break;
+      counted += 1;
+    }
+    out.push(p);
+  }
+  // A trailing section header with nothing under it is a promise the card does not keep.
+  while (out.length > 0 && isSection(out[out.length - 1])) out.pop();
+  return out;
+}
 
 export function WireframeNode({ object }: { object: ScapeObject; selected: boolean }) {
-  const primitives = ((object.data as Partial<WireframeData>).primitives ?? []).filter(Boolean);
+  const data = object.data as Partial<WireframeData>;
+  const primitives = (data.primitives ?? []).filter(Boolean);
+  const columns = columnsOf(data);
   const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? primitives : primitives.slice(0, VISIBLE_PRIMITIVES);
-  const overflow = primitives.length - shown.length;
+  const shown = expanded ? primitives : visible(primitives);
+  // Counted in elements, since that is the word the toggle uses. Sections are not elements.
+  const overflow =
+    primitives.filter((p) => !isSection(p)).length - shown.filter((p) => !isSection(p)).length;
   const [editingTitle, setEditingTitle] = useState(false);
 
   return (
@@ -53,11 +84,16 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
               you a button exists but never which button.
             */}
             <Expanded.Provider value={expanded}>
-              <div className="grid grid-cols-12 items-center gap-1.5 rounded-sm border border-subtle bg-raised p-2">
-                {shown.map((p) => (
-                  <Block key={p.id} primitive={p} />
-                ))}
-              </div>
+              <Columns.Provider value={columns}>
+                <div
+                  className="grid items-center gap-1.5 rounded-sm border border-subtle bg-raised p-2"
+                  style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+                >
+                  {shown.map((p) => (
+                    <Block key={p.id} primitive={p} />
+                  ))}
+                </div>
+              </Columns.Provider>
             </Expanded.Provider>
             <ExpandToggle
               expanded={expanded}
@@ -73,14 +109,25 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
   );
 }
 
+const ALIGN: Record<string, string> = {
+  start: "justify-self-start",
+  center: "justify-self-center",
+  end: "justify-self-end",
+};
+
 function Block({ primitive }: { primitive: Primitive }) {
-  const span = Math.min(12, Math.max(1, primitive.span || 12));
+  const columns = useContext(Columns);
+  // A section is a region header. It always takes the full row, whatever span it carries.
+  const span = isSection(primitive)
+    ? columns
+    : Math.min(columns, Math.max(1, primitive.span || columns));
+  const align = primitive.align ? ALIGN[primitive.align] : "";
   return (
     <div
       // `min-w-0` is load-bearing: a grid item defaults to `min-width: auto`, which refuses to
       // shrink below its content, so without it a long label on a narrow span overflows the
       // column and spills outside the card instead of truncating.
-      className="min-w-0"
+      className={`min-w-0 ${align} ${primitive.align ? "" : "w-full"}`}
       style={{ gridColumn: `span ${span} / span ${span}` }}
       title={primitive.label}
     >
@@ -88,6 +135,9 @@ function Block({ primitive }: { primitive: Primitive }) {
     </div>
   );
 }
+
+/** Extra vertical weight for the kinds that occupy area rather than a line of text. */
+const SIZE: Record<string, string> = { sm: "min-h-5", md: "min-h-10", lg: "min-h-16" };
 
 /** Two muted bars — what an element looks like before anyone has said what it says. */
 function Placeholder({ lines = 2 }: { lines?: number }) {
@@ -109,8 +159,19 @@ function Shape({ primitive }: { primitive: Primitive }) {
   const expanded = useContext(Expanded);
   /** Collapsed cards clip to keep every card the same size; expanded ones show everything. */
   const clip = expanded ? "" : "truncate";
+  const weight = primitive.size ? SIZE[primitive.size] : "";
 
   switch (primitive.kind) {
+    // A region within the screen — header, content, footer. Reading a screen is mostly
+    // reading its regions, so this is the one element that is typographic, not a shape.
+    case "section":
+      return (
+        <div className="mt-1 flex items-center gap-1.5 first:mt-0">
+          <span className={`mono shrink-0 ${clip}`}>{label || "section"}</span>
+          <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+        </div>
+      );
+
     case "heading":
       return label ? (
         <p className={`text-xs font-medium leading-snug text-fg ${clip}`}>{label}</p>
@@ -133,14 +194,18 @@ function Shape({ primitive }: { primitive: Primitive }) {
 
     case "box":
       return (
-        <div className="grid min-h-6 place-items-center rounded-xs border border-subtle bg-inset px-1 py-1">
+        <div
+          className={`grid min-h-6 place-items-center rounded-xs border border-subtle bg-inset px-1 py-1 ${weight}`}
+        >
           {label && <span className={`max-w-full text-2xs text-fg-tertiary ${clip}`}>{label}</span>}
         </div>
       );
 
     case "image":
       return (
-        <div className="grid min-h-8 place-items-center rounded-xs border border-subtle bg-inset">
+        <div
+          className={`grid min-h-8 place-items-center rounded-xs border border-subtle bg-inset ${weight}`}
+        >
           <svg width="16" height="14" viewBox="0 0 16 14" aria-hidden className="text-fg-tertiary">
             <rect
               x="0.7"
@@ -233,7 +298,9 @@ function Shape({ primitive }: { primitive: Primitive }) {
 
     case "list":
       return (
-        <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xs border border-subtle bg-inset">
+        <div
+          className={`divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xs border border-subtle bg-inset ${weight}`}
+        >
           {label ? (
             <>
               <p className={`px-1.5 py-[3px] text-2xs text-fg-secondary ${clip}`}>{label}</p>

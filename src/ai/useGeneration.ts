@@ -68,7 +68,7 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
   }, []);
 
   const start = useCallback(
-    async (request: string, apiKey: string, modelId: string) => {
+    async (request: string, apiKey: string, modelId: string, allowedTypes: string[] = []) => {
       const scape = useScapeStore.getState().scape;
       if (!scape || !request.trim()) return;
 
@@ -85,6 +85,7 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
           selection: useScapeStore.getState().selection,
           apiKey,
           modelId,
+          allowedTypes,
           dispatch: (action) => useScapeStore.getState().dispatch(action),
           onEvent: handleEvent,
           ...(requestLayout ? { requestLayout } : {}),

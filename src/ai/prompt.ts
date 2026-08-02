@@ -8,9 +8,10 @@ import { describeObjectTypes, projectScape, type ProjectionOptions } from "./con
  * here. The fixture is already asserted to satisfy every plugin schema, so these examples
  * cannot drift out of date the way a hand-maintained block in a prompt always does.
  */
-function dataShapeExamples(): string {
+function dataShapeExamples(allowedTypes: string[]): string {
   const fixture = fixtureScape();
   return allPlugins()
+    .filter((plugin) => allowedTypes.length === 0 || allowedTypes.includes(plugin.type))
     .map((plugin) => {
       const example = Object.values(fixture.objects).find((o) => o.type === plugin.type);
       const data = example ? example.data : plugin.defaults();
@@ -19,7 +20,14 @@ function dataShapeExamples(): string {
     .join("\n\n");
 }
 
-export function systemPrompt(): string {
+/**
+ * @param allowedTypes Object types this generation may create. Empty means every registered
+ *   type — the constrained catalogue is built by omission, so a type the user excluded is
+ *   never described, never given a data example, and has nothing to imitate.
+ */
+export function systemPrompt(allowedTypes: string[] = []): string {
+  const constrained = allowedTypes.length > 0;
+
   return `You are the generation engine inside Precipice, a canvas for thinking through a
 design problem. You do not reply with prose. You build the canvas by calling tools.
 
@@ -28,13 +36,13 @@ a time, and undo as a group. Emit them in the order they should appear.
 
 ## Object types
 
-${describeObjectTypes()}
+${describeObjectTypes(allowedTypes)}
 
 ## The shape of each type's data
 
 Match these shapes exactly. Every field shown is required unless the example omits it.
 
-${dataShapeExamples()}
+${dataShapeExamples(allowedTypes)}
 
 ## Rules
 
@@ -44,8 +52,13 @@ ${dataShapeExamples()}
   exist yet is dropped.
 - Never send coordinates. The engine lays out the canvas; positions you invent are wrong.
 - Prefer a few substantial objects over many thin ones. Eight to fourteen is a good scape.
-- Use journeys when the order of steps carries the meaning, wireframes when the answer is a
-  specific screen, and notes for everything else.
+${
+    constrained
+      ? `- Create only these types: ${allowedTypes.join(", ")}. The user asked for nothing else.
+  If something would have been a different type, say it in one of the types you have.`
+      : `- Use journeys when the order of steps carries the meaning, wireframes when the answer is a
+  specific screen, and notes for everything else.`
+  }
 - Connect what you make. A scape with no relationships is a list, not a map.
 - Rename the scape once, first, if it is untitled.
 - Write in sentence case. No exclamation marks. No filler.`;

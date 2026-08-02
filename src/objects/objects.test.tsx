@@ -5,6 +5,7 @@ import { allPlugins, getPlugin } from "@/core/registry";
 import type { ScapeObject } from "@/core/types";
 import { fixtureScape } from "@/core/fixtures";
 import { render, type as typeInto } from "@/test/react";
+import { wireframeSchema } from "./wireframe/schema";
 
 const EXPECTED_TYPES = ["journey", "note", "wireframe"];
 
@@ -159,6 +160,77 @@ describe("inspectors dispatch UpdateObject", () => {
     };
     expect(payload.type).toBe("UpdateObject");
     expect(payload.patch.data.steps).toHaveLength(before + 1);
+
+    unmount();
+  });
+});
+
+describe("wireframe layout", () => {
+  const wireframe = () =>
+    Object.values(fixtureScape().objects).find((o) => o.type === "wireframe")!;
+
+  it("accepts a wireframe written before width, columns, align and size existed", () => {
+    const legacy = {
+      primitives: [
+        { id: "a", kind: "heading", label: "Sign in", span: 12 },
+        { id: "b", kind: "input", span: 6 },
+      ],
+    };
+    expect(wireframeSchema.safeParse(legacy).success).toBe(true);
+  });
+
+  it("rejects a width outside what a card can usefully be", () => {
+    expect(wireframeSchema.safeParse({ primitives: [], width: 40 }).success).toBe(false);
+    expect(wireframeSchema.safeParse({ primitives: [], width: 4000 }).success).toBe(false);
+    expect(wireframeSchema.safeParse({ primitives: [], width: 480 }).success).toBe(true);
+  });
+
+  it("keeps existing elements and gives every inserted one a fresh id", () => {
+    const object = wireframe();
+    const dispatch = vi.fn<(payload: ActionPayload) => void>();
+    const plugin = getPlugin("wireframe")!;
+    const { container, unmount } = render(
+      <plugin.Inspector object={object} dispatch={dispatch} />,
+    );
+
+    const open = [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === "Insert a layout",
+    )!;
+    act(() => open.click());
+    const preset = [...container.querySelectorAll("button")].find((b) =>
+      b.textContent?.startsWith("Sign-up form"),
+    )!;
+    act(() => preset.click());
+
+    const payload = dispatch.mock.calls[0][0] as unknown as {
+      patch: { data: { primitives: Array<{ id: string }> } };
+    };
+    const before = (object.data as { primitives: Array<{ id: string }> }).primitives;
+    const after = payload.patch.data.primitives;
+
+    expect(after.length).toBeGreaterThan(before.length);
+    expect(after.slice(0, before.length).map((p) => p.id)).toEqual(before.map((p) => p.id));
+    expect(new Set(after.map((p) => p.id)).size).toBe(after.length);
+
+    unmount();
+  });
+
+  it("carries the rest of data through when one key changes, since the reducer replaces it", () => {
+    const object = { ...wireframe(), data: { ...wireframe().data, width: 520 } };
+    const dispatch = vi.fn<(payload: ActionPayload) => void>();
+    const plugin = getPlugin("wireframe")!;
+    const { container, unmount } = render(
+      <plugin.Inspector object={object} dispatch={dispatch} />,
+    );
+
+    const add = [...container.querySelectorAll("button")].find((b) => b.textContent === "+ text")!;
+    act(() => add.click());
+
+    const payload = dispatch.mock.calls[0][0] as unknown as {
+      patch: { data: { width: number; primitives: unknown[] } };
+    };
+    expect(payload.patch.data.width).toBe(520);
+    expect(payload.patch.data.primitives.length).toBeGreaterThan(0);
 
     unmount();
   });

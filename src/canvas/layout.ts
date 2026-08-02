@@ -19,11 +19,23 @@ export const NODE_WIDTH = 220;
  * every label truncates to nothing and the mockup stops being readable as a screen.
  */
 const NODE_WIDTHS: Record<string, number> = {
-  wireframe: 340,
+  wireframe: 380,
 };
 
 export function widthFor(type: string): number {
   return NODE_WIDTHS[type] ?? NODE_WIDTH;
+}
+
+/** How wide a card is drawn: the width the user dragged it to, or the default for its type. */
+export const MIN_OBJECT_WIDTH = 200;
+export const MAX_OBJECT_WIDTH = 900;
+
+export function objectWidth(object: { type: string; data: Record<string, unknown> }): number {
+  const stored = object.data?.width;
+  if (typeof stored === "number" && Number.isFinite(stored)) {
+    return Math.min(MAX_OBJECT_WIDTH, Math.max(MIN_OBJECT_WIDTH, stored));
+  }
+  return widthFor(object.type);
 }
 
 /**
@@ -71,7 +83,7 @@ export function layoutPositions(
     if (!object) continue;
     const size = measured[id];
     graph.setNode(id, {
-      width: size?.width ?? widthFor(object.type),
+      width: size?.width ?? objectWidth(object),
       height: size?.height ?? FALLBACK_HEIGHT[object.type] ?? DEFAULT_HEIGHT,
     });
   }

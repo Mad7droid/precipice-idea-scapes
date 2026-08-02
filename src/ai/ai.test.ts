@@ -7,6 +7,7 @@ import type { Scape } from "@/core/types";
 import { DEFAULT_BUDGET_TOKENS, estimateTokens, projectScape } from "./context";
 import { createApplier, type GenerationEvent } from "./generate";
 import { ONBOARDING_RECORDING, replayRecording } from "./recording";
+import { systemPrompt } from "./prompt";
 import { toolInputSchemas } from "./tools";
 
 /** A dispatch backed by a local Scape, so nothing here touches the app's store. */
@@ -341,5 +342,43 @@ describe("context projection", () => {
   it("estimates tokens monotonically", () => {
     expect(estimateTokens("")).toBe(0);
     expect(estimateTokens("a".repeat(400))).toBe(100);
+  });
+});
+
+describe("constraining which types a generation may create", () => {
+  it("describes only the types the user allowed, and gives examples of only those", () => {
+    const all = systemPrompt();
+    expect(all).toContain("wireframe:");
+    expect(all).toContain("journey:");
+
+    const notesOnly = systemPrompt(["note"]);
+    expect(notesOnly).toContain("note:");
+    expect(notesOnly).not.toContain("wireframe:");
+    expect(notesOnly).not.toContain("journey:");
+    expect(notesOnly).toContain("Create only these types: note");
+  });
+
+  it("treats an empty list as no constraint rather than as nothing", () => {
+    expect(systemPrompt([])).toBe(systemPrompt());
+  });
+
+  it("drops an excluded type at the apply boundary, since the prompt is a request not a rule", () => {
+    const local = localDispatch(emptyScape("scp_t"));
+    const { events, onEvent } = collector();
+    const applier = createApplier({ dispatch: local.dispatch, onEvent, allowedTypes: ["note"] });
+
+    applier.apply("CreateObject", { id: "a", objectType: "note", title: "A", data: { body: "" } });
+    applier.apply("CreateObject", {
+      id: "b",
+      objectType: "wireframe",
+      title: "B",
+      data: { primitives: [] },
+    });
+
+    expect(applier.applied()).toBe(1);
+    expect(applier.skipped()).toBe(1);
+    expect(local.get().objectOrder).toEqual(["a"]);
+    const skipped = events.find((e) => e.kind === "skipped");
+    expect(skipped && "reason" in skipped && skipped.reason).toContain("excluded");
   });
 });

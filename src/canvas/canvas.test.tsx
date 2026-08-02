@@ -5,7 +5,7 @@ import { useScapeStore } from "@/core/store";
 import type { Scape } from "@/core/types";
 import { render } from "@/test/react";
 import { mergeFlowNodes, toFlowEdges, toFlowNodes } from "./edges";
-import { layoutAction, layoutPositions, widthFor } from "./layout";
+import { layoutAction, layoutPositions, objectWidth, widthFor } from "./layout";
 import { ObjectNode } from "./ObjectNode";
 
 const store = () => useScapeStore.getState();
@@ -22,7 +22,7 @@ describe("layout", () => {
       id,
       x1: p.x,
       y1: p.y,
-      x2: p.x + widthFor(scape.objects[id].type),
+      x2: p.x + objectWidth(scape.objects[id]),
       y2: p.y + (heights[scape.objects[id].type] ?? 130),
     }));
 
@@ -268,5 +268,37 @@ describe("unregistered object types", () => {
     expect(container.textContent).toContain("persona");
     expect(container.textContent).toContain("Someone");
     unmount();
+  });
+});
+
+describe("card width", () => {
+  it("falls back to the type's default when nothing has been dragged", () => {
+    const object = { type: "wireframe", data: {} };
+    expect(objectWidth(object)).toBe(widthFor("wireframe"));
+    expect(objectWidth({ type: "note", data: {} })).toBe(widthFor("note"));
+  });
+
+  it("prefers a width stored on the object, clamped to what a card can be", () => {
+    expect(objectWidth({ type: "note", data: { width: 460 } })).toBe(460);
+    expect(objectWidth({ type: "note", data: { width: 5 } })).toBe(200);
+    expect(objectWidth({ type: "note", data: { width: 5000 } })).toBe(900);
+    // A width that is not a number is not a width.
+    expect(objectWidth({ type: "note", data: { width: "wide" } })).toBe(widthFor("note"));
+  });
+
+  it("lays out a resized card at the width it was dragged to", () => {
+    const scape = fixtureScape();
+    const [first] = scape.objectOrder;
+    const widened: Scape = {
+      ...scape,
+      objects: {
+        ...scape.objects,
+        [first]: { ...scape.objects[first], data: { ...scape.objects[first].data, width: 880 } },
+      },
+    };
+    const before = layoutPositions(scape, "LR");
+    const after = layoutPositions(widened, "LR");
+    // Dagre reserves the extra room, so at least one downstream node has to move.
+    expect(after).not.toEqual(before);
   });
 });

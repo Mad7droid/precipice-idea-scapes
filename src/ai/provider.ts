@@ -53,11 +53,11 @@ export const anthropicProvider: Provider = {
   models: MODELS,
   model(modelId, apiKey) {
     if (!apiKey?.trim()) throw new MissingApiKeyError();
-    // Calling the API straight from a browser needs this header; without it Anthropic
-    // rejects the request rather than letting the key leak silently into a page.
+    // The browser talks only to our Cloudflare Worker. The Worker injects the Anthropic
+    // secret server-side; no user API key is accepted or persisted by the web app.
     const provider = createAnthropic({
-      apiKey: apiKey.trim(),
-      headers: { "anthropic-dangerous-direct-browser-access": "true" },
+      apiKey: "server-managed",
+      baseURL: import.meta.env.VITE_AI_PROXY_URL ?? "https://precipice-ai-proxy.precipice.workers.dev",
     });
     return provider(modelId);
   },

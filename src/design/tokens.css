@@ -287,6 +287,52 @@ body {
   box-shadow: none;
 }
 
+/*
+ * A range that belongs to this palette.
+ *
+ * `accent-color` alone only paints the filled half; the rest of the track stays whatever the
+ * platform draws, which on macOS Chrome is a heavy near-black bar that reads as a mistake on
+ * a warm light surface. Styling the track means taking the whole control, thumb included.
+ */
+.range-field {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+}
+
+.range-field::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--bg-active);
+}
+
+.range-field::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.range-field::-moz-range-track {
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--bg-active);
+}
+
+.range-field::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-instant: 1ms;

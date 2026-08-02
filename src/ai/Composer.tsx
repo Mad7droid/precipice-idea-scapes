@@ -1,4 +1,6 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { allPlugins } from "@/core/registry";
+import { Select } from "@/design/Select";
 import { MODELS } from "./provider";
 
 /** Auto-grow to six lines, then scroll. Roughly six × --leading-base plus the padding. */
@@ -14,6 +16,9 @@ export interface ComposerProps {
   onModelChange: (modelId: string) => void;
   scope: Scope;
   onScopeChange: (scope: Scope) => void;
+  /** Object types this generation may create. Empty means no constraint — every type. */
+  types: string[];
+  onTypesChange: (types: string[]) => void;
   selectionCount: number;
   disabled?: boolean;
   placeholder?: string;
@@ -31,6 +36,8 @@ export function Composer({
   onModelChange,
   scope,
   onScopeChange,
+  types,
+  onTypesChange,
   selectionCount,
   disabled,
   placeholder = "Describe what you want on the canvas.",
@@ -87,6 +94,7 @@ export function Composer({
       {/* Icon row, inside the well. */}
       <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1">
         <Select
+          variant="pill"
           label="Scope"
           value={scope}
           onChange={(v) => onScopeChange(v as Scope)}
@@ -99,7 +107,9 @@ export function Composer({
           ]}
           disabled={busy}
         />
+        <TypePicker types={types} onChange={onTypesChange} disabled={busy} />
         <Select
+          variant="pill"
           label="Model"
           value={modelId}
           onChange={onModelChange}
@@ -149,32 +159,98 @@ export function Composer({
   );
 }
 
-function Select({
-  label,
-  value,
+const PILL =
+  "mono cursor-pointer rounded-full border border-subtle bg-transparent px-2.5 py-1 " +
+  "normal-case tracking-normal text-fg-secondary transition-colors duration-instant " +
+  "ease-out hover:bg-hover hover:text-fg disabled:cursor-default disabled:opacity-40";
+
+/**
+ * Constrains what the model is allowed to create.
+ *
+ * A multi-select is the wrong control here — the common case is "everything", and the second
+ * most common is "only notes". So this is a set of toggles behind a pill that names the
+ * current answer in plain words. An empty set means unconstrained rather than "nothing",
+ * which keeps the default free of any prompt change at all.
+ */
+function TypePicker({
+  types,
   onChange,
-  options,
   disabled,
 }: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: Array<{ value: string; label: string; title?: string }>;
+  types: string[];
+  onChange: (types: string[]) => void;
   disabled?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const plugins = allPlugins();
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  const selected = types.filter((t) => plugins.some((p) => p.type === t));
+  const label =
+    selected.length === 0 || selected.length === plugins.length
+      ? "All types"
+      : selected
+          .map((t) => plugins.find((p) => p.type === t)?.label ?? t)
+          .join(" + ");
+
+  const toggle = (type: string) => {
+    const current = selected.length === 0 ? plugins.map((p) => p.type) : selected;
+    const next = current.includes(type)
+      ? current.filter((t) => t !== type)
+      : [...current, type];
+    // Every type on is the same as no constraint, and so is none: refusing to create
+    // anything is never what someone means by unticking the last box.
+    onChange(next.length === 0 || next.length === plugins.length ? [] : next);
+  };
+
   return (
-    <select
-      aria-label={label}
-      value={value}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-      className="mono cursor-pointer rounded-full border border-subtle bg-transparent px-2.5 py-1 normal-case tracking-normal text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg disabled:opacity-40"
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value} title={option.title}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <div className="relative" ref={root}>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={PILL}
+        title="Which object types this generation may create"
+      >
+        {label}
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 z-10 mb-1.5 min-w-40 rounded-md border border-subtle bg-raised p-1 shadow-md">
+          {plugins.map((plugin) => {
+            const on = selected.length === 0 || selected.includes(plugin.type);
+            return (
+              <label
+                key={plugin.type}
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => toggle(plugin.type)}
+                  className="accent-[var(--accent)]"
+                />
+                {plugin.label}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
