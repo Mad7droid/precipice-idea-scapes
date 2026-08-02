@@ -22,19 +22,19 @@ export interface ModelChoice {
 }
 
 /**
- * Model ids are exact. Do not append date suffixes — the aliases below are complete.
- * Sonnet 5 is the default: near-Opus quality on structured, tool-heavy work at a fraction
- * of the cost, which matters when a single prompt emits twenty tool calls.
+ * Model ids are exact Anthropic API ids. Keep these pinned to documented models rather than
+ * inventing aliases: an otherwise valid API key still fails when the model id is unknown.
+ * Sonnet 4 is the default for structured, tool-heavy work at a lower cost than Opus.
  */
 export const MODELS: ModelChoice[] = [
   {
-    id: "claude-sonnet-5",
-    label: "Sonnet 5",
+    id: "claude-sonnet-4-20250514",
+    label: "Sonnet 4",
     hint: "Fast and good at structured output. The default.",
   },
   {
-    id: "claude-opus-4-8",
-    label: "Opus 4.8",
+    id: "claude-opus-4-20250514",
+    label: "Opus 4",
     hint: "Slower and pricier. Better on genuinely hard briefs.",
   },
 ];
@@ -84,6 +84,12 @@ export function describeProviderError(error: unknown): { message: string; detail
     return {
       message: "Rate limited by Anthropic",
       detail: "Wait a moment and run the prompt again.",
+    };
+  }
+  if (status === 404 || /model.*(not found|not available)|invalid.*model/i.test(raw)) {
+    return {
+      message: "Model unavailable",
+      detail: "Choose a supported Anthropic model and try again.",
     };
   }
   if (status === 529 || /overloaded/i.test(raw)) {

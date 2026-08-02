@@ -26,6 +26,8 @@ milestone is published.
 
 - Restored the production Settings API-key field and wired user-owned keys into
   generation instead of deleting them during app startup.
+- Replaced invalid model aliases with documented Anthropic API model ids so valid
+  user keys can complete generation.
 
 ### Security
 

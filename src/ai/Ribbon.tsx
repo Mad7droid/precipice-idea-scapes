@@ -73,7 +73,7 @@ export function Ribbon({
     );
   }
 
-  // Collapsed: `18 actions · claude-sonnet-5 · undo`
+  // Collapsed: `18 actions · claude-sonnet-4-20250514 · undo`
   return (
     <Strip>
       <div className="relative flex items-center gap-2 px-3 py-2">
