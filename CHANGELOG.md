@@ -18,6 +18,8 @@ milestone is published.
 - Added editable Wireframe and Journey inspector experiences.
 - Added Cloudflare Pages and Worker deployment configuration.
 - Added the current workspace screenshots and refreshed the public README.
+- Replaced cramped wireframe canvas screenshots with expanded light and dark views,
+  plus clearer filter, model-selector, and relationship-line control views.
 - Added the MIT license, security guidance, and non-developer setup instructions.
 
 ### Security

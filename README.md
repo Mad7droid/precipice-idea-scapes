@@ -70,6 +70,8 @@ Filters and line controls keep larger scapes readable.
 
 ![Object type filter](docs/screenshots/type-filter-dark.png)
 
+![Model selector](docs/screenshots/model-selector-dark.png)
+
 ![Relationship line filter](docs/screenshots/line-filter-dark.png)
 
 ### Development surfaces
