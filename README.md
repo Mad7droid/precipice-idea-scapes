@@ -36,7 +36,7 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - Wireframe grids with sections, labelled elements, spans, alignment, sizing, and presets.
 - Local persistence with autosave and `.scape` export/import.
 - Theme controls, object-type filters, and relationship-line visibility controls.
-- AI generation foundations with a Cloudflare Worker proxy and recorded fixtures for development.
+- AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
 
 ## Screenshots
 
@@ -123,7 +123,7 @@ Zustand, and the Vercel AI SDK with Anthropic support.
 ## Security and privacy
 
 - Scapes and settings are stored locally in the browser through IndexedDB; the hosted app does not provide a shared server-side scape database.
-- AI requests are sent through the Cloudflare Worker at `https://precipice-ai-proxy.precipice.workers.dev`. Generation requires your own Anthropic key, added in Settings; it is stored unencrypted in your browser's IndexedDB and forwarded for generation requests only.
+- AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is stored unencrypted in your browser's IndexedDB and forwarded for generation requests only.
 - The Worker holds no Anthropic credential of its own and stores nothing. It exists to add CORS headers, and it rejects any request that does not carry a key.
 - The Worker forwards an allowlist of headers upstream, limits request bodies to 256 KiB, and returns `Cache-Control: no-store`. Its per-IP counter is best-effort abuse damping only: Worker isolates do not share memory, so it is not a dependable rate limit.
 - Its origin check gates CORS, not authorization. `Origin` is forgeable by any non-browser client, so nothing sensitive is placed behind it.
