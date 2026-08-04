@@ -108,6 +108,71 @@ describe("toText", () => {
   });
 });
 
+describe("node rendering", () => {
+  const base = { x: 0, y: 0, createdAt: 0, updatedAt: 0 };
+
+  it("renders the complete note body without an expansion control", () => {
+    const body = "A long note body that remains visible at every canvas zoom. ".repeat(12);
+    const object: ScapeObject = {
+      ...base,
+      id: "expanded-note",
+      type: "note",
+      title: "Expanded note",
+      data: { body },
+    };
+    const plugin = getPlugin("note")!;
+    const { container, unmount } = render(<plugin.Node object={object} selected={false} />);
+
+    expect(container.textContent).toContain(body.trim());
+    expect(container.textContent).not.toMatch(/Show more|Show less/);
+    unmount();
+  });
+
+  it("renders every journey step and detail without an expansion control", () => {
+    const steps = Array.from({ length: 7 }, (_, i) => ({
+      id: `step-${i}`,
+      label: `Journey step ${i + 1}`,
+      detail: `Journey detail ${i + 1}`,
+    }));
+    const object: ScapeObject = {
+      ...base,
+      id: "expanded-journey",
+      type: "journey",
+      title: "Expanded journey",
+      data: { steps },
+    };
+    const plugin = getPlugin("journey")!;
+    const { container, unmount } = render(<plugin.Node object={object} selected={false} />);
+
+    expect(container.textContent).toContain("Journey step 7");
+    expect(container.textContent).toContain("Journey detail 7");
+    expect(container.textContent).not.toMatch(/Show more|Show less/);
+    unmount();
+  });
+
+  it("renders every wireframe primitive and label without an expansion control", () => {
+    const primitives = Array.from({ length: 12 }, (_, i) => ({
+      id: `primitive-${i}`,
+      kind: "box" as const,
+      label: `Wireframe element ${i + 1}`,
+      span: 12,
+    }));
+    const object: ScapeObject = {
+      ...base,
+      id: "expanded-wireframe",
+      type: "wireframe",
+      title: "Expanded wireframe",
+      data: { primitives },
+    };
+    const plugin = getPlugin("wireframe")!;
+    const { container, unmount } = render(<plugin.Node object={object} selected={false} />);
+
+    expect(container.textContent).toContain("Wireframe element 12");
+    expect(container.textContent).not.toMatch(/Show more|Show less/);
+    unmount();
+  });
+});
+
 describe("inspectors dispatch UpdateObject", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());

@@ -41,8 +41,7 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
       {/*
         A tinted band, not a hairline. A 2px rule is invisible at the zoom people actually
         read a whole scape at, which left every card looking identical. The band keeps its
-        colour at any scale, and it is deliberately *not* tagged `lod-body`: when the body
-        drops out at low zoom, type identity is the one thing that must survive.
+        colour at any scale, so type identity remains visible alongside the expanded body.
       */}
       <div
         className="flex items-center gap-1.5 px-3 py-1"
@@ -59,7 +58,7 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         <span className="text-2xs font-medium text-fg-secondary">
           {plugin?.label ?? object.type}
         </span>
-        <span className="mono lod-body ml-auto truncate">{object.id}</span>
+        <span className="mono ml-auto truncate">{object.id}</span>
       </div>
 
       <div className="px-3 pb-2.5 pt-2">
@@ -68,7 +67,7 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         ) : (
           <>
             <h4 className="text-sm font-medium text-fg">{object.title || "Untitled"}</h4>
-            <p className="mono lod-body mt-1.5">unregistered type</p>
+            <p className="mono mt-1.5">unregistered type</p>
           </>
         )}
       </div>

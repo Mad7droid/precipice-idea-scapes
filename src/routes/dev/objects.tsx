@@ -109,10 +109,7 @@ export function DevObjects() {
           <Row objects={representative} onSelect={setSelectedId} selectedId={selectedId} />
         </Section>
 
-        <Section
-          title="Fixture objects · 0.4×"
-          caption="body text drops out rather than turning to mush"
-        >
+        <Section title="Fixture objects · 0.4×" caption="body text remains visible at every scale">
           <Row
             objects={representative}
             onSelect={setSelectedId}
@@ -214,12 +211,7 @@ function Row({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div
-      // Below ~0.6x, 12px body text renders under 8px. The canvas sets this same attribute.
-      data-lod={scale < 0.6 ? "low" : "high"}
-      className="flex flex-wrap items-start gap-4"
-      style={{ zoom: scale }}
-    >
+    <div className="flex flex-wrap items-start gap-4" style={{ zoom: scale }}>
       {objects.map((object) => (
         <PreviewCard
           key={object.id}

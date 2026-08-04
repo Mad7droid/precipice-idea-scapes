@@ -118,43 +118,6 @@ export function IconButton({
   );
 }
 
-/**
- * The affordance that turns a truncated card into a complete one.
- *
- * Cards stay compact so a whole scape is readable at once, but "+3 more" with no way to see
- * the other three is a dead end — the content has to be reachable without opening a panel.
- */
-export function ExpandToggle({
-  expanded,
-  hiddenCount,
-  onToggle,
-  moreLabel = "more",
-  canExpand,
-}: {
-  expanded: boolean;
-  /** How many items are being withheld while collapsed. */
-  hiddenCount: number;
-  onToggle: () => void;
-  moreLabel?: string;
-  /** Force the affordance on when nothing is *counted* as hidden but content is still
-   * clamped — a two-step journey with long details has plenty left to show. */
-  canExpand?: boolean;
-}) {
-  if (!expanded && hiddenCount <= 0 && !canExpand) return null;
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle();
-      }}
-      className="nodrag mt-1.5 text-xs text-fg-tertiary underline-offset-2 transition-colors duration-instant ease-out hover:text-fg-secondary hover:underline"
-    >
-      {expanded ? "Show less" : hiddenCount > 0 ? `+${hiddenCount} ${moreLabel}` : "Show more"}
-    </button>
-  );
-}
-
 /** Empty states inside a node say what to add, not how we feel about it. */
 export function EmptyHint({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-fg-tertiary">{children}</p>;

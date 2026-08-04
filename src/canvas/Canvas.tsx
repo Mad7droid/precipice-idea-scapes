@@ -64,8 +64,6 @@ function readHiddenTypes(): Set<string> {
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
-/** Below this, 12px body text renders under ~7px. Plugins tag such content `lod-body`. */
-const LOD_THRESHOLD = 0.6;
 /** Arrow-key nudge, per the keyboard spec. */
 const NUDGE = 8;
 
@@ -376,9 +374,6 @@ function CanvasSurface({
       ref={surface}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      // Plugins tag low-priority content `lod-body`; below the threshold it drops out rather
-      // than rendering as unreadable mush.
-      data-lod={zoom < LOD_THRESHOLD ? "low" : "high"}
       // A focus ring around the entire viewport reads as a rendering fault, and selection is
       // what actually communicates focus here.
       className="focus-self relative h-full w-full bg-canvas"

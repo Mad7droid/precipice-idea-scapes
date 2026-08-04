@@ -66,9 +66,6 @@ export type PrimitiveKind = (typeof PRIMITIVE_KINDS)[number];
 export type Primitive = z.infer<typeof primitiveSchema>;
 export type WireframeData = z.infer<typeof wireframeSchema>;
 
-/** Node body renders this many, then a count — a 30-primitive wireframe stays node-sized. */
-export const VISIBLE_PRIMITIVES = 10;
-
 /** A section is a region header: always full width, never counted against the cutoff. */
 export function isSection(primitive: Primitive): boolean {
   return primitive.kind === "section";

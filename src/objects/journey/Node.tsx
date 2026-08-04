@@ -1,14 +1,11 @@
 import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
-import { EmptyHint, ExpandToggle } from "../ui";
-import { VISIBLE_STEPS, type JourneyData, type JourneyStep } from "./schema";
+import { EmptyHint } from "../ui";
+import type { JourneyData, JourneyStep } from "./schema";
 
 export function JourneyNode({ object }: { object: ScapeObject; selected: boolean }) {
   const steps = ((object.data as Partial<JourneyData>).steps ?? []).filter(Boolean);
-  const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? steps : steps.slice(0, VISIBLE_STEPS);
-  const overflow = steps.length - shown.length;
   const [editing, setEditing] = useState<"title" | number | null>(null);
 
   const dispatch = useScapeStore.getState().dispatchTx;
@@ -45,7 +42,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
           {object.title || "Untitled"}
         </h4>
       )}
-      <div className="lod-body mt-2">
+      <div className="mt-2">
         {steps.length === 0 ? (
           <EmptyHint>No steps yet</EmptyHint>
         ) : (
@@ -55,7 +52,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
               sequence a user moves through, unlike a decorative list.
             */}
             <ol className="space-y-1.5">
-              {shown.map((step, i) => (
+              {steps.map((step, i) => (
                 <li key={step.id} className="flex gap-2 text-xs">
                   <span className="mono w-3 shrink-0 pt-px text-right normal-case tracking-normal">
                     {i + 1}
@@ -78,10 +75,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                     ) : (
                       <span
                         onClick={() => setEditing(i)}
-                        className={
-                          "nodrag block cursor-text text-fg-secondary " +
-                          (expanded ? "" : "line-clamp-1")
-                        }
+                        className="nodrag block cursor-text text-fg-secondary"
                       >
                         {step.label}
                       </span>
@@ -92,12 +86,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                       reach. If it was worth writing, it is worth showing.
                     */}
                     {step.detail && (
-                      <span
-                        className={
-                          "mt-0.5 block text-2xs leading-snug text-fg-tertiary " +
-                          (expanded ? "" : "line-clamp-1")
-                        }
-                      >
+                      <span className="mt-0.5 block text-2xs leading-snug text-fg-tertiary">
                         {step.detail}
                       </span>
                     )}
@@ -105,13 +94,6 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                 </li>
               ))}
             </ol>
-            <ExpandToggle
-              expanded={expanded}
-              hiddenCount={overflow}
-              canExpand={steps.some((s) => s.detail)}
-              onToggle={() => setExpanded((e) => !e)}
-              moreLabel="steps"
-            />
           </>
         )}
       </div>

@@ -1,48 +1,15 @@
 import { createContext, useContext, useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
-import { EmptyHint, ExpandToggle } from "../ui";
-import {
-  columnsOf,
-  isSection,
-  VISIBLE_PRIMITIVES,
-  type Primitive,
-  type WireframeData,
-} from "./schema";
+import { EmptyHint } from "../ui";
+import { columnsOf, isSection, type Primitive, type WireframeData } from "./schema";
 
-/** Expanded cards let labels wrap instead of truncating, so a long screen reads in full. */
-const Expanded = createContext(false);
 const Columns = createContext(12);
-
-/**
- * Truncate by *elements*, not by array index — a section header is structure, not content,
- * and a screen that stops half way through a region with its header cut off reads as a bug
- * rather than as "there is more below".
- */
-function visible(primitives: Primitive[]): Primitive[] {
-  const out: Primitive[] = [];
-  let counted = 0;
-  for (const p of primitives) {
-    if (!isSection(p)) {
-      if (counted >= VISIBLE_PRIMITIVES) break;
-      counted += 1;
-    }
-    out.push(p);
-  }
-  // A trailing section header with nothing under it is a promise the card does not keep.
-  while (out.length > 0 && isSection(out[out.length - 1])) out.pop();
-  return out;
-}
 
 export function WireframeNode({ object }: { object: ScapeObject; selected: boolean }) {
   const data = object.data as Partial<WireframeData>;
   const primitives = (data.primitives ?? []).filter(Boolean);
   const columns = columnsOf(data);
-  const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? primitives : visible(primitives);
-  // Counted in elements, since that is the word the toggle uses. Sections are not elements.
-  const overflow =
-    primitives.filter((p) => !isSection(p)).length - shown.filter((p) => !isSection(p)).length;
   const [editingTitle, setEditingTitle] = useState(false);
 
   return (
@@ -73,7 +40,7 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
           {object.title || "Untitled"}
         </h4>
       )}
-      <div className="lod-body mt-2">
+      <div className="mt-2">
         {primitives.length === 0 ? (
           <EmptyHint>No elements yet</EmptyHint>
         ) : (
@@ -83,25 +50,16 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
               grid. Elements carry their own label, because an unlabelled grey block tells
               you a button exists but never which button.
             */}
-            <Expanded.Provider value={expanded}>
-              <Columns.Provider value={columns}>
-                <div
-                  className="grid items-center gap-1.5 rounded-sm border border-subtle bg-raised p-2"
-                  style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-                >
-                  {shown.map((p) => (
-                    <Block key={p.id} primitive={p} />
-                  ))}
-                </div>
-              </Columns.Provider>
-            </Expanded.Provider>
-            <ExpandToggle
-              expanded={expanded}
-              hiddenCount={overflow}
-              canExpand={primitives.some((p) => (p.label?.length ?? 0) > 18)}
-              onToggle={() => setExpanded((e) => !e)}
-              moreLabel="elements"
-            />
+            <Columns.Provider value={columns}>
+              <div
+                className="grid items-center gap-1.5 rounded-sm border border-subtle bg-raised p-2"
+                style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+              >
+                {primitives.map((p) => (
+                  <Block key={p.id} primitive={p} />
+                ))}
+              </div>
+            </Columns.Provider>
           </>
         )}
       </div>
@@ -156,9 +114,6 @@ function Placeholder({ lines = 2 }: { lines?: number }) {
 
 function Shape({ primitive }: { primitive: Primitive }) {
   const label = primitive.label?.trim();
-  const expanded = useContext(Expanded);
-  /** Collapsed cards clip to keep every card the same size; expanded ones show everything. */
-  const clip = expanded ? "" : "truncate";
   const weight = primitive.size ? SIZE[primitive.size] : "";
 
   switch (primitive.kind) {
@@ -167,25 +122,21 @@ function Shape({ primitive }: { primitive: Primitive }) {
     case "section":
       return (
         <div className="mt-1 flex items-center gap-1.5 first:mt-0">
-          <span className={`mono shrink-0 ${clip}`}>{label || "section"}</span>
+          <span className="mono shrink-0">{label || "section"}</span>
           <span className="h-px flex-1 bg-[var(--border-subtle)]" />
         </div>
       );
 
     case "heading":
       return label ? (
-        <p className={`text-xs font-medium leading-snug text-fg ${clip}`}>{label}</p>
+        <p className="text-xs font-medium leading-snug text-fg">{label}</p>
       ) : (
         <div className="h-[5px] w-3/4 rounded-full bg-[var(--border-strong)]" />
       );
 
     case "text":
       return label ? (
-        <p
-          className={"text-2xs leading-snug text-fg-secondary " + (expanded ? "" : "line-clamp-2")}
-        >
-          {label}
-        </p>
+        <p className="text-2xs leading-snug text-fg-secondary">{label}</p>
       ) : (
         <Placeholder />
       );
@@ -195,7 +146,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
         <div
           className={`grid min-h-6 place-items-center rounded-xs border border-subtle bg-inset px-1 py-1 ${weight}`}
         >
-          {label && <span className={`max-w-full text-2xs text-fg-tertiary ${clip}`}>{label}</span>}
+          {label && <span className="max-w-full text-2xs text-fg-tertiary">{label}</span>}
         </div>
       );
 
@@ -233,7 +184,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-subtle bg-inset text-2xs text-fg-tertiary">
             {label ? label.charAt(0).toUpperCase() : ""}
           </span>
-          {label && <span className={`min-w-0 text-2xs text-fg-secondary ${clip}`}>{label}</span>}
+          {label && <span className="min-w-0 text-2xs text-fg-secondary">{label}</span>}
         </div>
       );
 
@@ -241,7 +192,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
       return (
         <div className="flex h-5 items-center rounded-xs border border-default bg-inset px-1.5">
           {label ? (
-            <span className={`min-w-0 text-2xs text-fg-tertiary ${clip}`}>{label}</span>
+            <span className="min-w-0 text-2xs text-fg-tertiary">{label}</span>
           ) : (
             <span className="h-[3px] w-1/3 rounded-full bg-active" />
           )}
@@ -252,7 +203,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
       return (
         <div className="grid h-5 place-items-center rounded-xs border border-strong bg-active px-1.5">
           {label ? (
-            <span className={`max-w-full text-2xs font-medium text-fg ${clip}`}>{label}</span>
+            <span className="max-w-full text-2xs font-medium text-fg">{label}</span>
           ) : (
             <span className="h-[3px] w-1/2 rounded-full bg-[var(--border-strong)]" />
           )}
@@ -264,7 +215,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 shrink-0 rounded-[2px] border border-strong bg-inset" />
           {label ? (
-            <span className={`min-w-0 text-2xs text-fg-secondary ${clip}`}>{label}</span>
+            <span className="min-w-0 text-2xs text-fg-secondary">{label}</span>
           ) : (
             <span className="h-[3px] flex-1 rounded-full bg-active" />
           )}
@@ -278,7 +229,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
             <span className="h-2 w-2 rounded-full bg-[var(--border-strong)]" />
           </span>
           {label ? (
-            <span className={`min-w-0 text-2xs text-fg-secondary ${clip}`}>{label}</span>
+            <span className="min-w-0 text-2xs text-fg-secondary">{label}</span>
           ) : (
             <span className="h-[3px] flex-1 rounded-full bg-active" />
           )}
@@ -301,7 +252,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
         >
           {label ? (
             <>
-              <p className={`px-1.5 py-[3px] text-2xs text-fg-secondary ${clip}`}>{label}</p>
+              <p className="px-1.5 py-[3px] text-2xs text-fg-secondary">{label}</p>
               <div className="px-1.5 py-1">
                 <Placeholder lines={2} />
               </div>
