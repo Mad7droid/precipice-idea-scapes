@@ -86,9 +86,7 @@ export interface RunEvalsOptions {
  * so running the suite cannot touch whatever the user has open.
  */
 export async function runEvals(options: RunEvalsOptions): Promise<EvalResult[]> {
-  const chosen = options.only?.length
-    ? EVALS.filter((e) => options.only!.includes(e.id))
-    : EVALS;
+  const chosen = options.only?.length ? EVALS.filter((e) => options.only!.includes(e.id)) : EVALS;
 
   const results: EvalResult[] = [];
 
@@ -176,9 +174,13 @@ export function formatEvalTable(results: EvalResult[]): string {
   });
 
   const passed = results.filter((r) => r.passed).length;
-  return [header, "-".repeat(header.length), ...rows, "", `${passed}/${results.length} passed`].join(
-    "\n",
-  );
+  return [
+    header,
+    "-".repeat(header.length),
+    ...rows,
+    "",
+    `${passed}/${results.length} passed`,
+  ].join("\n");
 }
 
 export type { GenerationEvent };

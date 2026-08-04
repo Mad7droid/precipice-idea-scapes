@@ -23,7 +23,13 @@ describe("applyAction — inverse round-trips", () => {
   it("CreateObject", () => {
     expectRoundTrip(
       fixtureScape(),
-      act({ type: "CreateObject", id: "n1", objectType: "note", title: "New", data: { body: "x" } }),
+      act({
+        type: "CreateObject",
+        id: "n1",
+        objectType: "note",
+        title: "New",
+        data: { body: "x" },
+      }),
     );
   });
 
@@ -101,7 +107,10 @@ describe("applyAction — no-ops produce no inverse", () => {
     ["move a missing object", { type: "MoveObject", id: "nope", x: 1, y: 1 }],
     ["delete a missing object", { type: "DeleteObject", id: "nope" }],
     ["update a missing object", { type: "UpdateObject", id: "nope", patch: { title: "x" } }],
-    ["create a duplicate id", { type: "CreateObject", id: "brief", objectType: "note", title: "x" }],
+    [
+      "create a duplicate id",
+      { type: "CreateObject", id: "brief", objectType: "note", title: "x" },
+    ],
     ["move to the current position", { type: "MoveObject", id: "brief", x: 0, y: 0 }],
     ["rename to the current name", { type: "RenameScape", name: "Fintech onboarding" }],
     ["update with an empty patch", { type: "UpdateObject", id: "brief", patch: {} }],

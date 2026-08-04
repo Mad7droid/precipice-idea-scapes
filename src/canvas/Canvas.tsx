@@ -162,7 +162,8 @@ function CanvasSurface({
   );
 
   const visibleNodes = useMemo(
-    () => (hiddenTypes.size === 0 ? nodes : nodes.filter((n) => !hiddenTypes.has(n.data.object.type))),
+    () =>
+      hiddenTypes.size === 0 ? nodes : nodes.filter((n) => !hiddenTypes.has(n.data.object.type)),
     [nodes, hiddenTypes],
   );
 
@@ -663,7 +664,15 @@ function ToolButton({
         "text-fg-secondary hover:bg-hover hover:text-fg"
       }
     >
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        aria-hidden
+      >
         {children}
       </svg>
     </button>

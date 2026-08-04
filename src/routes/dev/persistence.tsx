@@ -78,7 +78,13 @@ export function DevPersistence() {
     // The fixture carries a fixed 2025 timestamp so snapshots stay stable; a scape that was
     // seeded just now should not claim it was last touched a year ago.
     const now = Date.now();
-    const seeded = { ...fixtureScape(), id: created.id, name: created.name, createdAt: now, updatedAt: now };
+    const seeded = {
+      ...fixtureScape(),
+      id: created.id,
+      name: created.name,
+      createdAt: now,
+      updatedAt: now,
+    };
     await scapeRepository.saveSnapshot(seeded, Date.now());
     await open(created.id);
     notify.success("Seeded the fixture scape.");
@@ -98,7 +104,8 @@ export function DevPersistence() {
       const imported = await importScape(await file.text(), scapeRepository);
       await open(imported.id);
     } catch (error) {
-      if (error instanceof ScapeImportError) notify.error("Could not import that file", error.message);
+      if (error instanceof ScapeImportError)
+        notify.error("Could not import that file", error.message);
       else throw error;
     }
   };
@@ -151,7 +158,13 @@ export function DevPersistence() {
             Flush now
           </Command>
           <Command
-            onClick={() => scape && downloadScape(scape, log.map((entry) => entry.action))}
+            onClick={() =>
+              scape &&
+              downloadScape(
+                scape,
+                log.map((entry) => entry.action),
+              )
+            }
             disabled={!scape}
           >
             Export
@@ -234,7 +247,8 @@ export function DevPersistence() {
                 >
                   <span className="block truncate text-fg">{summary.name}</span>
                   <span className="mono">
-                    {summary.objectCount} objects · {new Date(summary.updatedAt).toLocaleTimeString()}
+                    {summary.objectCount} objects ·{" "}
+                    {new Date(summary.updatedAt).toLocaleTimeString()}
                   </span>
                 </button>
                 <button
@@ -280,7 +294,9 @@ const Th = ({ children }: { children: React.ReactNode }) => (
 );
 
 const Td = ({ children, mono }: { children: React.ReactNode; mono?: boolean }) => (
-  <td className={`py-1 pr-3 align-top ${mono ? "mono normal-case tracking-normal" : "text-fg-secondary"}`}>
+  <td
+    className={`py-1 pr-3 align-top ${mono ? "mono normal-case tracking-normal" : "text-fg-secondary"}`}
+  >
     {children}
   </td>
 );

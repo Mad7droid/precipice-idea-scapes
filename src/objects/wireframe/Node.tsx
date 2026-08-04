@@ -182,9 +182,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
     case "text":
       return label ? (
         <p
-          className={
-            "text-2xs leading-snug text-fg-secondary " + (expanded ? "" : "line-clamp-2")
-          }
+          className={"text-2xs leading-snug text-fg-secondary " + (expanded ? "" : "line-clamp-2")}
         >
           {label}
         </p>

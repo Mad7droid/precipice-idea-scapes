@@ -49,8 +49,7 @@ export const useScapeStore = create<StoreState>((set, get) => ({
   redoStack: [],
   generating: false,
 
-  loadScape: (scape) =>
-    set({ scape, selection: [], actionLog: [], undoStack: [], redoStack: [] }),
+  loadScape: (scape) => set({ scape, selection: [], actionLog: [], undoStack: [], redoStack: [] }),
 
   dispatch: (action) => {
     const { scape, undoStack } = get();

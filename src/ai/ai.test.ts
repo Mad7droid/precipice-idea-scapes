@@ -8,6 +8,7 @@ import { DEFAULT_BUDGET_TOKENS, estimateTokens, projectScape } from "./context";
 import { createApplier, type GenerationEvent } from "./generate";
 import { ONBOARDING_RECORDING, replayRecording } from "./recording";
 import { systemPrompt } from "./prompt";
+import { proxyBaseUrl } from "./provider";
 import { toolInputSchemas } from "./tools";
 
 /** A dispatch backed by a local Scape, so nothing here touches the app's store. */
@@ -380,5 +381,25 @@ describe("constraining which types a generation may create", () => {
     expect(local.get().objectOrder).toEqual(["a"]);
     const skipped = events.find((e) => e.kind === "skipped");
     expect(skipped && "reason" in skipped && skipped.reason).toContain("excluded");
+  });
+});
+
+describe("proxy base url", () => {
+  // The AI SDK appends `/messages` to the base url. Give it a bare origin and requests land on
+  // `/messages`, which the Worker 404s — surfacing as "Model unavailable", an error about the
+  // model for a request that never reached Anthropic. That failure was silent and misread once.
+  it("carries the version segment the AI SDK does not add", () => {
+    expect(proxyBaseUrl("https://proxy.example")).toBe("https://proxy.example/v1");
+  });
+
+  it("does not double the slash when the origin has a trailing one", () => {
+    expect(proxyBaseUrl("https://proxy.example/")).toBe("https://proxy.example/v1");
+  });
+
+  it("builds the path the worker actually serves", () => {
+    // Mirrors `${baseURL}/messages` in @ai-sdk/anthropic.
+    expect(`${proxyBaseUrl("https://proxy.example")}/messages`).toBe(
+      "https://proxy.example/v1/messages",
+    );
   });
 });

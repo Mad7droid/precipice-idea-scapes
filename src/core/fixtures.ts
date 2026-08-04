@@ -265,14 +265,18 @@ export function syntheticScape(count = 200): Scape {
               })),
             };
 
-    objects.push(obj(id, type, `Synthetic object ${i}`, data, (i % 20) * 320, Math.floor(i / 20) * 240));
+    objects.push(
+      obj(id, type, `Synthetic object ${i}`, data, (i % 20) * 320, Math.floor(i / 20) * 240),
+    );
 
     if (i > 0) {
       relationships.push(rel(`syn-r-${i}`, `syn-${String(i - 1).padStart(3, "0")}`, id));
     }
     // A few long-range edges so the adjacency list is not a straight chain.
     if (i > 10 && i % 7 === 0) {
-      relationships.push(rel(`syn-x-${i}`, `syn-${String(i - 10).padStart(3, "0")}`, id, "relates to"));
+      relationships.push(
+        rel(`syn-x-${i}`, `syn-${String(i - 10).padStart(3, "0")}`, id, "relates to"),
+      );
     }
   }
 

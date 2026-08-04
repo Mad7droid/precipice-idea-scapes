@@ -189,9 +189,7 @@ describe("wireframe layout", () => {
     const object = wireframe();
     const dispatch = vi.fn<(payload: ActionPayload) => void>();
     const plugin = getPlugin("wireframe")!;
-    const { container, unmount } = render(
-      <plugin.Inspector object={object} dispatch={dispatch} />,
-    );
+    const { container, unmount } = render(<plugin.Inspector object={object} dispatch={dispatch} />);
 
     const open = [...container.querySelectorAll("button")].find(
       (b) => b.textContent === "Insert a layout",
@@ -219,9 +217,7 @@ describe("wireframe layout", () => {
     const object = { ...wireframe(), data: { ...wireframe().data, width: 520 } };
     const dispatch = vi.fn<(payload: ActionPayload) => void>();
     const plugin = getPlugin("wireframe")!;
-    const { container, unmount } = render(
-      <plugin.Inspector object={object} dispatch={dispatch} />,
-    );
+    const { container, unmount } = render(<plugin.Inspector object={object} dispatch={dispatch} />);
 
     const add = [...container.querySelectorAll("button")].find((b) => b.textContent === "+ text")!;
     act(() => add.click());

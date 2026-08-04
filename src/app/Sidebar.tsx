@@ -54,7 +54,8 @@ export function Sidebar({
       const imported = await importScape(await file.text(), scapeRepository);
       onImported(imported.id);
     } catch (error) {
-      if (error instanceof ScapeImportError) notify.error("Could not import that file", error.message);
+      if (error instanceof ScapeImportError)
+        notify.error("Could not import that file", error.message);
       else throw error;
     }
   };
@@ -113,9 +114,7 @@ export function Sidebar({
                     }
                   >
                     <span className="block truncate text-fg">{s.name}</span>
-                    <span className="mono block text-fg-tertiary">
-                      {s.objectCount} objects
-                    </span>
+                    <span className="mono block text-fg-tertiary">{s.objectCount} objects</span>
                   </button>
                 )}
                 <button

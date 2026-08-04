@@ -41,9 +41,7 @@ export function ThemeControl({
               "flex flex-1 items-center justify-center gap-1.5 rounded-full transition-colors " +
               "duration-instant ease-out " +
               (compact ? "px-2 py-1 " : "px-2.5 py-1 ") +
-              (active
-                ? "bg-raised text-fg shadow-sm"
-                : "text-fg-tertiary hover:text-fg-secondary")
+              (active ? "bg-raised text-fg shadow-sm" : "text-fg-tertiary hover:text-fg-secondary")
             }
           >
             <ThemeIcon preference={option.value} />
@@ -85,7 +83,15 @@ function ThemeIcon({ preference }: { preference: ThemePreference }) {
 
   return (
     <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden fill="none">
-      <rect x="1.2" y="2.2" width="11.6" height="8" rx="1.4" stroke="currentColor" strokeWidth="1.3" />
+      <rect
+        x="1.2"
+        y="2.2"
+        width="11.6"
+        height="8"
+        rx="1.4"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
       <path d="M4.8 12.4h4.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );

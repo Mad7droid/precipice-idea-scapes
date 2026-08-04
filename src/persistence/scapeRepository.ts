@@ -3,13 +3,7 @@ import { emptyScape } from "@/core/fixtures";
 import { newScapeId } from "@/core/ids";
 import { notify } from "@/core/notify";
 import { toPlainScape } from "@/core/serialize";
-import type {
-  LoggedAction,
-  Scape,
-  ScapeId,
-  ScapeRepository,
-  ScapeSummary,
-} from "@/core/types";
+import type { LoggedAction, Scape, ScapeId, ScapeRepository, ScapeSummary } from "@/core/types";
 import { db, type PrecipiceDb } from "./db";
 
 export class DexieScapeRepository implements ScapeRepository {

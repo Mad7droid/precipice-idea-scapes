@@ -54,7 +54,11 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
         case "skipped":
           return { ...prev, skipped: [...prev.skipped, event] };
         case "error":
-          return { ...prev, status: "error", error: { message: event.message, detail: event.detail } };
+          return {
+            ...prev,
+            status: "error",
+            error: { message: event.message, detail: event.detail },
+          };
         case "done":
           return {
             ...prev,

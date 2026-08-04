@@ -66,8 +66,8 @@ export function DevCanvas() {
           </Link>
           <h1 className="mt-2 text-lg text-fg">Canvas</h1>
           <p className="mt-1 text-xs text-fg-secondary">
-            Drag a node, drag handle to handle, select and press Delete, Cmd+D to duplicate,
-            arrows to nudge, Escape to clear, Cmd+Z to undo.
+            Drag a node, drag handle to handle, select and press Delete, Cmd+D to duplicate, arrows
+            to nudge, Escape to clear, Cmd+Z to undo.
           </p>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -105,16 +105,10 @@ export function DevCanvas() {
             >
               Delete
             </Command>
-            <Command
-              onClick={() => useScapeStore.getState().undo()}
-              disabled={!undoStack.length}
-            >
+            <Command onClick={() => useScapeStore.getState().undo()} disabled={!undoStack.length}>
               Undo ({undoStack.length})
             </Command>
-            <Command
-              onClick={() => useScapeStore.getState().redo()}
-              disabled={!redoStack.length}
-            >
+            <Command onClick={() => useScapeStore.getState().redo()} disabled={!redoStack.length}>
               Redo ({redoStack.length})
             </Command>
             <Command onClick={reset}>Reset</Command>
@@ -124,9 +118,7 @@ export function DevCanvas() {
             objects · {scape ? scape.objectOrder.length : 0} · relationships ·{" "}
             {scape ? Object.keys(scape.relationships).length : 0}
           </p>
-          <p className="mono mt-1">
-            selected · {selection.length ? selection.join(", ") : "none"}
-          </p>
+          <p className="mono mt-1">selected · {selection.length ? selection.join(", ") : "none"}</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto p-4">

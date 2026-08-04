@@ -99,43 +99,45 @@ export function toFlowEdges(
     return !!object && !hidden.has(object.type);
   };
 
-  return Object.values(scape.relationships)
-    .filter((rel) => visible(rel.from) && visible(rel.to))
-    .map((rel) => {
-      // An edge reads as active when either end is selected — that is what makes clicking a
-      // node show you what it is connected to.
-      const active = selected.has(rel.from) || selected.has(rel.to);
-      return { rel, active };
-    })
-    // In `selected` mode the graph is answering one question — "what is this connected to?"
-    // — so everything that is not part of the answer is noise.
-    .filter(({ active }) => (mode === "selected" ? active : true))
-    .map(({ rel, active }) => {
-      // When something is selected, everything else recedes rather than competing with it.
-      const dimmed = selected.size > 0 && !active;
-      return {
-        id: rel.id,
-        source: rel.from,
-        target: rel.to,
-        // Orthogonal, not bezier: in a dense graph curved edges read as tangle, and a
-        // stepped path makes it possible to follow one line with your eye.
-        type: "smoothstep",
-        // Labels are the densest thing on the canvas and the first thing to become
-        // unreadable, so they appear only on the edges currently being asked about.
-        ...(rel.label && active ? { label: rel.label } : {}),
-        style: {
-          stroke: active ? "var(--edge-stroke-active)" : "var(--edge-stroke)",
-          strokeWidth: active ? 2 : 1.5,
-          opacity: dimmed ? 0.25 : 1,
-        },
-        labelStyle: {
-          fill: "var(--text-secondary)",
-          fontSize: "var(--text-2xs)",
-          fontFamily: "var(--font-mono)",
-        },
-        labelBgStyle: { fill: "var(--bg-raised)" },
-        labelBgPadding: [6, 3] as [number, number],
-        labelBgBorderRadius: 9999,
-      } satisfies Edge;
-    });
+  return (
+    Object.values(scape.relationships)
+      .filter((rel) => visible(rel.from) && visible(rel.to))
+      .map((rel) => {
+        // An edge reads as active when either end is selected — that is what makes clicking a
+        // node show you what it is connected to.
+        const active = selected.has(rel.from) || selected.has(rel.to);
+        return { rel, active };
+      })
+      // In `selected` mode the graph is answering one question — "what is this connected to?"
+      // — so everything that is not part of the answer is noise.
+      .filter(({ active }) => (mode === "selected" ? active : true))
+      .map(({ rel, active }) => {
+        // When something is selected, everything else recedes rather than competing with it.
+        const dimmed = selected.size > 0 && !active;
+        return {
+          id: rel.id,
+          source: rel.from,
+          target: rel.to,
+          // Orthogonal, not bezier: in a dense graph curved edges read as tangle, and a
+          // stepped path makes it possible to follow one line with your eye.
+          type: "smoothstep",
+          // Labels are the densest thing on the canvas and the first thing to become
+          // unreadable, so they appear only on the edges currently being asked about.
+          ...(rel.label && active ? { label: rel.label } : {}),
+          style: {
+            stroke: active ? "var(--edge-stroke-active)" : "var(--edge-stroke)",
+            strokeWidth: active ? 2 : 1.5,
+            opacity: dimmed ? 0.25 : 1,
+          },
+          labelStyle: {
+            fill: "var(--text-secondary)",
+            fontSize: "var(--text-2xs)",
+            fontFamily: "var(--font-mono)",
+          },
+          labelBgStyle: { fill: "var(--bg-raised)" },
+          labelBgPadding: [6, 3] as [number, number],
+          labelBgBorderRadius: 9999,
+        } satisfies Edge;
+      })
+  );
 }

@@ -23,10 +23,9 @@ export interface ModelChoice {
 
 /**
  * Model ids are exact Anthropic API ids, and these are the current ones — bare aliases with
- * no date suffix. Dated snapshots retire: the previous pair, `claude-sonnet-4-20250514` and
- * `claude-opus-4-20250514`, reached end of life and started returning 404 "model not found",
- * which the UI surfaced as "Model unavailable". Prefer the undated alias so a snapshot
- * retirement can't break generation again.
+ * no date suffix. The previous pair, `claude-sonnet-4-20250514` and `claude-opus-4-20250514`,
+ * were dated snapshots that had passed their retirement date. Prefer the undated alias so a
+ * snapshot retirement can't break generation later.
  *
  * Sonnet stays the default for structured, tool-heavy work at a lower cost than Opus.
  */
@@ -45,6 +44,24 @@ export const MODELS: ModelChoice[] = [
 
 export const DEFAULT_MODEL = MODELS[0].id;
 
+const DEFAULT_PROXY_ORIGIN = "https://precipice-ai-proxy.precipice.workers.dev";
+
+/**
+ * The AI SDK appends `/messages` to whatever base URL it is given — its own default is
+ * `https://api.anthropic.com/v1`, so the version segment belongs in the base URL, not in the
+ * path it builds.
+ *
+ * Handing it the bare Worker origin therefore produced requests to `/messages`, which the
+ * Worker answers with 404, and `describeProviderError` maps any 404 to "Model unavailable" —
+ * an error about the model for a request that never reached Anthropic. Keep `/v1` here rather
+ * than in `VITE_AI_PROXY_URL` so the env var stays a plain origin.
+ */
+export function proxyBaseUrl(
+  origin: string = import.meta.env.VITE_AI_PROXY_URL ?? DEFAULT_PROXY_ORIGIN,
+): string {
+  return `${origin.replace(/\/+$/, "")}/v1`;
+}
+
 export class MissingApiKeyError extends Error {
   constructor() {
     super("No Anthropic API key. Add one in settings.");
@@ -62,8 +79,7 @@ export const anthropicProvider: Provider = {
     // its own — a hosted key behind a public endpoint is a hosted key anyone can spend.
     const provider = createAnthropic({
       apiKey,
-      baseURL:
-        import.meta.env.VITE_AI_PROXY_URL ?? "https://precipice-ai-proxy.precipice.workers.dev",
+      baseURL: proxyBaseUrl(),
     });
     return provider(modelId);
   },
