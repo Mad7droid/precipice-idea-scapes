@@ -23,10 +23,7 @@ const plugin: ObjectPlugin<WireframeData> = {
       .map((p) => (p.kind === "section" ? `[${p.label ?? "section"}]` : p.label))
       .filter(Boolean)
       .join(", ");
-    return clamp(
-      `"${title}" · ${primitives.length} elements${labels ? `: ${labels}` : ""}`,
-      118,
-    );
+    return clamp(`"${title}" · ${primitives.length} elements${labels ? `: ${labels}` : ""}`, 118);
   },
   aiHint:
     "A low-fidelity screen layout on a column grid (12 by default; set `columns` to 4 or 6 for " +
@@ -36,7 +33,7 @@ const plugin: ObjectPlugin<WireframeData> = {
     "has a `span` in columns, and optionally `align` (start/center/end) and `size` " +
     "(sm/md/lg, for box, image and list). Use a wireframe when the answer is a specific " +
     "screen rather than a flow. Always label elements with the real words on the screen — " +
-    "\"Continue\", not \"button\" — because the label is what renders.",
+    '"Continue", not "button" — because the label is what renders.',
 };
 
 export default plugin;

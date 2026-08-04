@@ -74,10 +74,7 @@ export function WireframeInspector({
   };
 
   const add = (kind: PrimitiveKind) =>
-    commit([
-      ...primitives,
-      { id: newPrimitiveId(), kind, span: columns },
-    ]);
+    commit([...primitives, { id: newPrimitiveId(), kind, span: columns }]);
 
   const insertPreset = (index: number) => {
     const preset = PRESETS[index];
@@ -97,7 +94,11 @@ export function WireframeInspector({
     <div>
       <SectionHeader>wireframe</SectionHeader>
       <Field label="Title">
-        <TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled" />
+        <TextInput
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Untitled"
+        />
       </Field>
 
       <div className="mt-3 flex gap-3">
@@ -328,7 +329,10 @@ function PrimitiveRow({
         )}
       </div>
       <div className="-mr-1 flex shrink-0 flex-col">
-        <IconButton label={`Move element ${index + 1} up`} onClick={canMoveUp ? onMoveUp : () => {}}>
+        <IconButton
+          label={`Move element ${index + 1} up`}
+          onClick={canMoveUp ? onMoveUp : () => {}}
+        >
           <Chevron up disabled={!canMoveUp} />
         </IconButton>
         <IconButton
@@ -339,13 +343,36 @@ function PrimitiveRow({
         </IconButton>
         <IconButton label={`Duplicate element ${index + 1}`} onClick={onDuplicate}>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-            <rect x="1.2" y="1.2" width="6.6" height="6.6" rx="1.2" stroke="currentColor" strokeWidth="1.2" fill="none" />
-            <rect x="4.2" y="4.2" width="6.6" height="6.6" rx="1.2" stroke="currentColor" strokeWidth="1.2" fill="none" />
+            <rect
+              x="1.2"
+              y="1.2"
+              width="6.6"
+              height="6.6"
+              rx="1.2"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              fill="none"
+            />
+            <rect
+              x="4.2"
+              y="4.2"
+              width="6.6"
+              height="6.6"
+              rx="1.2"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              fill="none"
+            />
           </svg>
         </IconButton>
         <IconButton label={`Delete element ${index + 1}`} onClick={onRemove} danger>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-            <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" strokeWidth="1.4" fill="none" />
+            <path
+              d="M2.5 2.5l7 7M9.5 2.5l-7 7"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              fill="none"
+            />
           </svg>
         </IconButton>
       </div>

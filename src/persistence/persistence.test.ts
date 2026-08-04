@@ -75,9 +75,7 @@ function describeRepository(name: string, make: () => Promise<ScapeRepository>) 
 
     it("removes a scape and its action log", async () => {
       const created = await repo.create("Doomed");
-      await repo.appendActions(created.id, [
-        { type: "RenameScape", name: "x", txId: "t1", ts: 1 },
-      ]);
+      await repo.appendActions(created.id, [{ type: "RenameScape", name: "x", txId: "t1", ts: 1 }]);
       await repo.remove(created.id);
 
       expect(await repo.get(created.id)).toBeUndefined();

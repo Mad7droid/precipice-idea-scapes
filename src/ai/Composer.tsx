@@ -203,15 +203,11 @@ function TypePicker({
   const label =
     selected.length === 0 || selected.length === plugins.length
       ? "All types"
-      : selected
-          .map((t) => plugins.find((p) => p.type === t)?.label ?? t)
-          .join(" + ");
+      : selected.map((t) => plugins.find((p) => p.type === t)?.label ?? t).join(" + ");
 
   const toggle = (type: string) => {
     const current = selected.length === 0 ? plugins.map((p) => p.type) : selected;
-    const next = current.includes(type)
-      ? current.filter((t) => t !== type)
-      : [...current, type];
+    const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type];
     // Every type on is the same as no constraint, and so is none: refusing to create
     // anything is never what someone means by unticking the last box.
     onChange(next.length === 0 || next.length === plugins.length ? [] : next);

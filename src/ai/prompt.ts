@@ -53,12 +53,12 @@ ${dataShapeExamples(allowedTypes)}
 - Never send coordinates. The engine lays out the canvas; positions you invent are wrong.
 - Prefer a few substantial objects over many thin ones. Eight to fourteen is a good scape.
 ${
-    constrained
-      ? `- Create only these types: ${allowedTypes.join(", ")}. The user asked for nothing else.
+  constrained
+    ? `- Create only these types: ${allowedTypes.join(", ")}. The user asked for nothing else.
   If something would have been a different type, say it in one of the types you have.`
-      : `- Use journeys when the order of steps carries the meaning, wireframes when the answer is a
+    : `- Use journeys when the order of steps carries the meaning, wireframes when the answer is a
   specific screen, and notes for everything else.`
-  }
+}
 - Connect what you make. A scape with no relationships is a list, not a map.
 - Rename the scape once, first, if it is untitled.
 - Write in sentence case. No exclamation marks. No filler.`;

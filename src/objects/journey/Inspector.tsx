@@ -36,7 +36,11 @@ export function JourneyInspector({
     <div>
       <SectionHeader>journey</SectionHeader>
       <Field label="Title">
-        <TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled" />
+        <TextInput
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Untitled"
+        />
       </Field>
 
       <SectionHeader>steps</SectionHeader>
@@ -150,7 +154,12 @@ function StepRow({
         </IconButton>
         <IconButton label={`Delete step ${index + 1}`} onClick={onRemove} danger>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-            <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" strokeWidth="1.4" fill="none" />
+            <path
+              d="M2.5 2.5l7 7M9.5 2.5l-7 7"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              fill="none"
+            />
           </svg>
         </IconButton>
       </div>

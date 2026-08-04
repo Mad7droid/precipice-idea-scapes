@@ -156,18 +156,27 @@ export const ONBOARDING_RECORDING: Recording = {
         },
       },
     },
-    { tool: "ConnectObjects", input: { id: "e1", from: "goal", to: "signup-journey", label: "drives" } },
+    {
+      tool: "ConnectObjects",
+      input: { id: "e1", from: "goal", to: "signup-journey", label: "drives" },
+    },
     {
       tool: "ConnectObjects",
       input: { id: "e2", from: "kyc-constraint", to: "signup-journey", label: "constrains" },
     },
     { tool: "ConnectObjects", input: { id: "e3", from: "signup-journey", to: "welcome-screen" } },
-    { tool: "ConnectObjects", input: { id: "e4", from: "signup-journey", to: "id-capture-screen" } },
+    {
+      tool: "ConnectObjects",
+      input: { id: "e4", from: "signup-journey", to: "id-capture-screen" },
+    },
     {
       tool: "ConnectObjects",
       input: { id: "e5", from: "signup-journey", to: "recovery-journey", label: "on failure" },
     },
-    { tool: "ConnectObjects", input: { id: "e6", from: "recovery-journey", to: "id-capture-screen" } },
+    {
+      tool: "ConnectObjects",
+      input: { id: "e6", from: "recovery-journey", to: "id-capture-screen" },
+    },
     {
       tool: "ConnectObjects",
       input: { id: "e7", from: "drop-off", to: "id-capture-screen", label: "evidence" },

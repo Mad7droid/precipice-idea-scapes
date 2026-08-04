@@ -153,8 +153,7 @@ function renderDetail(scape: Scape, ids: Set<ObjectId>, budgetTokens: number): s
 
   for (const object of chosen) {
     const body = JSON.stringify(object.data);
-    const truncated =
-      body.length > charsEach ? `${body.slice(0, charsEach)}…(truncated)` : body;
+    const truncated = body.length > charsEach ? `${body.slice(0, charsEach)}…(truncated)` : body;
     const block = `### ${object.id} · ${object.type} · "${object.title}"\n${truncated}`;
 
     const cost = estimateTokens(block);

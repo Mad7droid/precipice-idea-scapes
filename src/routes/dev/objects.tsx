@@ -78,8 +78,8 @@ export function DevObjects() {
 
   if (!scape) return null;
 
-  const representative = allPlugins().map(
-    (p) => scape.objectOrder.map((id) => scape.objects[id]).find((o) => o.type === p.type)!,
+  const representative = allPlugins().map((p) =>
+    scape.objectOrder.map((id) => scape.objects[id]).find((o) => o.type === p.type)!,
   );
   const overfull = ["overfull-note", "overfull-journey", "overfull-wireframe"].map(
     (id) => scape.objects[id],
@@ -113,7 +113,12 @@ export function DevObjects() {
           title="Fixture objects · 0.4×"
           caption="body text drops out rather than turning to mush"
         >
-          <Row objects={representative} onSelect={setSelectedId} selectedId={selectedId} scale={0.4} />
+          <Row
+            objects={representative}
+            onSelect={setSelectedId}
+            selectedId={selectedId}
+            scale={0.4}
+          />
         </Section>
 
         <Section title="Over-full instances · 1×" caption="node height must not grow with content">

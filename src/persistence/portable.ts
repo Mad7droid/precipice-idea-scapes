@@ -70,10 +70,7 @@ export function parseScapeFile(text: string): ScapeFile {
  * Import always creates a *new* scape rather than overwriting an existing one. An import that
  * can silently replace your work is a data-loss bug waiting to be reported.
  */
-export async function importScape(
-  text: string,
-  repository: ScapeRepository,
-): Promise<Scape> {
+export async function importScape(text: string, repository: ScapeRepository): Promise<Scape> {
   const file = parseScapeFile(text);
 
   const scape: Scape = {

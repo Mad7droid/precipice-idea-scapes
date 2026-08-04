@@ -87,9 +87,7 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea {...props} className={`${FIELD_CLASS} resize-y ${props.className ?? ""}`} />
-  );
+  return <textarea {...props} className={`${FIELD_CLASS} resize-y ${props.className ?? ""}`} />;
 }
 
 export function IconButton({

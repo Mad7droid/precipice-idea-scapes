@@ -38,7 +38,9 @@ export function DevAi() {
     void settingsRepository.set(SETTING_KEYS.apiKey, next);
   }, []);
 
-  const projection = scape ? projectScape(scape, { selection: useScapeStore.getState().selection }) : null;
+  const projection = scape
+    ? projectScape(scape, { selection: useScapeStore.getState().selection })
+    : null;
 
   const runAllEvals = async () => {
     if (!apiKey.trim()) return;

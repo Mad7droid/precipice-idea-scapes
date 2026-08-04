@@ -7,7 +7,18 @@
  * so it can gate CORS and nothing else. With no server-side key there is nothing left for
  * a forged origin to reach.
  */
-const ALLOWED_ORIGINS = new Set(["https://precipice.pages.dev"]);
+/**
+ * The Vite dev server is here too. That is safe precisely because the Worker holds no
+ * credential: this list gates CORS, not access to anything, and every caller still has to
+ * supply their own key. Without the dev origins, `pnpm dev` gets a 403 with no
+ * `Access-Control-Allow-Origin`, which the browser reports as "Failed to fetch" and the UI
+ * shows as "Could not reach Anthropic" — a confusing way to say "you are on localhost".
+ */
+const ALLOWED_ORIGINS = new Set([
+  "https://precipice.pages.dev",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
 const MAX_BODY_BYTES = 256 * 1024;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
