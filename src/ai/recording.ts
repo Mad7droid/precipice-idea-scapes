@@ -24,7 +24,7 @@ export interface Recording {
 export const ONBOARDING_RECORDING: Recording = {
   id: "fintech-onboarding",
   prompt: "Design an onboarding flow for a fintech app.",
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-5",
   calls: [
     { tool: "RenameScape", input: { name: "Fintech onboarding" } },
     {

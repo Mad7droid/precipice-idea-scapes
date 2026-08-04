@@ -22,19 +22,23 @@ export interface ModelChoice {
 }
 
 /**
- * Model ids are exact Anthropic API ids. Keep these pinned to documented models rather than
- * inventing aliases: an otherwise valid API key still fails when the model id is unknown.
- * Sonnet 4 is the default for structured, tool-heavy work at a lower cost than Opus.
+ * Model ids are exact Anthropic API ids, and these are the current ones — bare aliases with
+ * no date suffix. Dated snapshots retire: the previous pair, `claude-sonnet-4-20250514` and
+ * `claude-opus-4-20250514`, reached end of life and started returning 404 "model not found",
+ * which the UI surfaced as "Model unavailable". Prefer the undated alias so a snapshot
+ * retirement can't break generation again.
+ *
+ * Sonnet stays the default for structured, tool-heavy work at a lower cost than Opus.
  */
 export const MODELS: ModelChoice[] = [
   {
-    id: "claude-sonnet-4-20250514",
-    label: "Sonnet 4",
+    id: "claude-sonnet-5",
+    label: "Sonnet 5",
     hint: "Fast and good at structured output. The default.",
   },
   {
-    id: "claude-opus-4-20250514",
-    label: "Opus 4",
+    id: "claude-opus-5",
+    label: "Opus 5",
     hint: "Slower and pricier. Better on genuinely hard briefs.",
   },
 ];
