@@ -1,12 +1,17 @@
 import dagre from "dagre";
 import type { ActionPayload } from "@/core/actions";
 import type { ObjectId, Scape } from "@/core/types";
+import type { LayoutMode } from "@/starters";
+import { gridPositions, radialPositions, type NodeSize, type Positions } from "./arrange";
 
 /**
  * Auto-layout. This is the only place in the app that decides where an object sits.
  *
  * The model never emits coordinates — `CreateObject` has no x/y — so every newly created
  * object arrives at the origin and this runs to place it.
+ *
+ * Which arrangement runs is the scape's starter's decision: a journey map is a layered graph
+ * and belongs to Dagre, a mind map is a tree around a centre and does not.
  */
 
 export const NODE_WIDTH = 220;
@@ -49,18 +54,39 @@ const FALLBACK_HEIGHT: Record<string, number> = {
 };
 const DEFAULT_HEIGHT = 130;
 
-export type Direction = "LR" | "TB";
+/** Retained name for the two Dagre rank directions. `LayoutMode` is the full set. */
+export type Direction = Extract<LayoutMode, "LR" | "TB">;
 
-export interface NodeSize {
-  width: number;
-  height: number;
+export type { NodeSize } from "./arrange";
+
+/** The size a node will actually be drawn at: measured if React Flow has seen it, else a guess. */
+function sizeLookup(scape: Scape, measured: Record<ObjectId, NodeSize>) {
+  return (id: ObjectId): NodeSize => {
+    const fromFlow = measured[id];
+    if (fromFlow) return fromFlow;
+    const object = scape.objects[id];
+    return {
+      width: object ? objectWidth(object) : NODE_WIDTH,
+      height: (object && FALLBACK_HEIGHT[object.type]) ?? DEFAULT_HEIGHT,
+    };
+  };
 }
 
 export function layoutPositions(
   scape: Scape,
-  direction: Direction = "LR",
+  mode: LayoutMode = "LR",
   measured: Record<ObjectId, NodeSize> = {},
-): Record<ObjectId, { x: number; y: number }> {
+): Positions {
+  if (mode === "radial") return radialPositions(scape, sizeLookup(scape, measured));
+  if (mode === "grid") return gridPositions(scape, sizeLookup(scape, measured));
+  return dagrePositions(scape, mode, measured);
+}
+
+function dagrePositions(
+  scape: Scape,
+  direction: Direction,
+  measured: Record<ObjectId, NodeSize>,
+): Positions {
   const graph = new dagre.graphlib.Graph();
   graph.setGraph({
     rankdir: direction,
@@ -96,7 +122,7 @@ export function layoutPositions(
 
   dagre.layout(graph);
 
-  const positions: Record<ObjectId, { x: number; y: number }> = {};
+  const positions: Positions = {};
   for (const id of scape.objectOrder) {
     const node = graph.node(id);
     if (!node) continue;
@@ -115,8 +141,8 @@ export function layoutPositions(
  */
 export function layoutAction(
   scape: Scape,
-  direction: Direction = "LR",
+  mode: LayoutMode = "LR",
   measured: Record<ObjectId, NodeSize> = {},
 ): ActionPayload {
-  return { type: "LayoutScape", positions: layoutPositions(scape, direction, measured) };
+  return { type: "LayoutScape", positions: layoutPositions(scape, mode, measured) };
 }

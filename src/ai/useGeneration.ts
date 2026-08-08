@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { notify } from "@/core/notify";
 import { useScapeStore } from "@/core/store";
+import { starterFor } from "@/starters";
 import { generate, type GenerationEvent, type SkippedEvent } from "./generate";
+import type { Scope } from "./prompt";
 import { ONBOARDING_RECORDING, replayRecording } from "./recording";
+import { CONNECT_TOOL_NAMES } from "./tools";
 
 export type GenerationStatus = "idle" | "streaming" | "done" | "error";
 
@@ -71,25 +74,41 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
     });
   }, []);
 
-  const start = useCallback(
-    async (request: string, apiKey: string, modelId: string, allowedTypes: string[] = []) => {
+  const run = useCallback(
+    async (options: {
+      request: string;
+      apiKey: string;
+      modelId: string;
+      allowedTypes?: string[];
+      allowedTools?: typeof CONNECT_TOOL_NAMES;
+      scope?: Scope;
+      mode?: "build" | "connect";
+    }) => {
       const scape = useScapeStore.getState().scape;
-      if (!scape || !request.trim()) return;
+      if (!scape || !options.request.trim()) return;
 
       controller.current?.abort();
       controller.current = new AbortController();
       lineKey.current = 0;
-      setState({ ...IDLE, status: "streaming", model: modelId });
+      setState({ ...IDLE, status: "streaming", model: options.modelId });
+
+      // The scape's own starter decides what kind of document this is. It is read here rather
+      // than passed in so every caller — composer, quick action, outline — gets it for free.
+      const starter = starterFor(scape);
 
       useScapeStore.getState().setGenerating(true);
       try {
         await generate({
-          request,
+          request: options.request,
           scape,
           selection: useScapeStore.getState().selection,
-          apiKey,
-          modelId,
-          allowedTypes,
+          scope: options.scope ?? "scape",
+          apiKey: options.apiKey,
+          modelId: options.modelId,
+          allowedTypes: options.allowedTypes ?? [],
+          ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
+          ...(options.mode ? { mode: options.mode } : {}),
+          ...(starter.promptHint ? { starterHint: starter.promptHint } : {}),
           dispatch: (action) => useScapeStore.getState().dispatch(action),
           onEvent: handleEvent,
           ...(requestLayout ? { requestLayout } : {}),
@@ -100,6 +119,38 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
       }
     },
     [handleEvent, requestLayout],
+  );
+
+  const start = run;
+
+  /**
+   * "Suggest connections" — a generation that can only draw relationships.
+   *
+   * The tool set is the enforcement, not the prompt: `CreateObject` is never offered, so this
+   * cannot quietly turn into a second build. Everything it draws shares one txId, so a set of
+   * suggestions you do not like is one press of undo.
+   */
+  const connect = useCallback(
+    async (apiKey: string, modelId: string, ids?: string[]) => {
+      const scape = useScapeStore.getState().scape;
+      if (!scape) return;
+      if (Object.keys(scape.objects).length < 2) {
+        notify.info("Not enough to connect", "Add at least two objects first.");
+        return;
+      }
+      const focused = ids && ids.length > 0;
+      await run({
+        request: focused
+          ? `Connect these objects to the rest of the scape, and to each other where they belong: ${ids.join(", ")}.`
+          : "Draw the relationships this scape is missing. Start with the objects that have none.",
+        apiKey,
+        modelId,
+        allowedTools: CONNECT_TOOL_NAMES,
+        mode: "connect",
+        scope: "scape",
+      });
+    },
+    [run],
   );
 
   /** Runs the recorded generation. No key, no network — the ribbon behaves identically. */
@@ -143,5 +194,5 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
 
   const dismiss = useCallback(() => setState(IDLE), []);
 
-  return { state, start, startRecorded, cancel, undo, dismiss };
+  return { state, start, connect, startRecorded, cancel, undo, dismiss };
 }

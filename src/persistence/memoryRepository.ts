@@ -5,10 +5,12 @@ import type {
   LoggedAction,
   Scape,
   ScapeId,
+  ScapeMeta,
   ScapeRepository,
   ScapeSummary,
   SettingsRepository,
 } from "@/core/types";
+import { summarize } from "./summary";
 
 /**
  * The same repository, backed by a Map.
@@ -23,14 +25,7 @@ export class MemoryScapeRepository implements ScapeRepository {
   private lastSeq = new Map<ScapeId, number>();
 
   async list(): Promise<ScapeSummary[]> {
-    return [...this.scapes.values()]
-      .map((scape) => ({
-        id: scape.id,
-        name: scape.name,
-        updatedAt: scape.updatedAt,
-        objectCount: scape.objectOrder.length,
-      }))
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+    return [...this.scapes.values()].map(summarize).sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
   async get(id: ScapeId): Promise<Scape | undefined> {
@@ -38,8 +33,8 @@ export class MemoryScapeRepository implements ScapeRepository {
     return scape ? structuredClone(scape) : undefined;
   }
 
-  async create(name = "Untitled scape"): Promise<Scape> {
-    const scape = emptyScape(newScapeId(), name);
+  async create(name = "Untitled scape", meta?: ScapeMeta): Promise<Scape> {
+    const scape = emptyScape(newScapeId(), name, meta);
     scape.createdAt = Date.now();
     scape.updatedAt = scape.createdAt;
     this.scapes.set(scape.id, scape);

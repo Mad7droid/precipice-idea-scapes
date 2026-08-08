@@ -7,9 +7,9 @@ import type { Scape } from "@/core/types";
 import { DEFAULT_BUDGET_TOKENS, estimateTokens, projectScape } from "./context";
 import { createApplier, type GenerationEvent } from "./generate";
 import { ONBOARDING_RECORDING, replayRecording } from "./recording";
-import { systemPrompt } from "./prompt";
+import { systemPrompt, userPrompt } from "./prompt";
 import { proxyBaseUrl } from "./provider";
-import { toolInputSchemas } from "./tools";
+import { CONNECT_TOOL_NAMES, toolInputSchemas } from "./tools";
 
 /** A dispatch backed by a local Scape, so nothing here touches the app's store. */
 function localDispatch(initial: Scape) {
@@ -352,7 +352,7 @@ describe("constraining which types a generation may create", () => {
     expect(all).toContain("wireframe:");
     expect(all).toContain("journey:");
 
-    const notesOnly = systemPrompt(["note"]);
+    const notesOnly = systemPrompt({ allowedTypes: ["note"] });
     expect(notesOnly).toContain("note:");
     expect(notesOnly).not.toContain("wireframe:");
     expect(notesOnly).not.toContain("journey:");
@@ -360,7 +360,7 @@ describe("constraining which types a generation may create", () => {
   });
 
   it("treats an empty list as no constraint rather than as nothing", () => {
-    expect(systemPrompt([])).toBe(systemPrompt());
+    expect(systemPrompt({ allowedTypes: [] })).toBe(systemPrompt());
   });
 
   it("drops an excluded type at the apply boundary, since the prompt is a request not a rule", () => {
@@ -401,5 +401,84 @@ describe("proxy base url", () => {
     expect(`${proxyBaseUrl("https://proxy.example")}/messages`).toBe(
       "https://proxy.example/v1/messages",
     );
+  });
+});
+
+describe("restricting a generation to the graph", () => {
+  it("drops a tool the generation was never offered", () => {
+    const local = localDispatch(fixtureScape());
+    const { events, onEvent } = collector();
+    const applier = createApplier({
+      dispatch: local.dispatch,
+      onEvent,
+      allowedTools: CONNECT_TOOL_NAMES,
+    });
+
+    // The tool set is what a live generation offers the model; this is the second gate, for
+    // a model that names a tool it was not given.
+    applier.apply("ConnectObjects", { id: "r-new", from: "brief", to: "constraints" });
+    applier.apply("CreateObject", { id: "sneaky", objectType: "note", title: "No", data: {} });
+
+    expect(applier.applied()).toBe(1);
+    expect(applier.skipped()).toBe(1);
+    const skipped = events.find((e) => e.kind === "skipped");
+    expect(skipped).toMatchObject({
+      tool: "CreateObject",
+      reason: "not available in this generation",
+    });
+    expect(local.get().objects["sneaky"]).toBeUndefined();
+    expect(local.get().relationships["r-new"]).toBeDefined();
+  });
+
+  it("offers only the two relationship tools in connect mode", () => {
+    expect(CONNECT_TOOL_NAMES).toEqual(["ConnectObjects", "DisconnectObjects"]);
+    expect(CONNECT_TOOL_NAMES).not.toContain("CreateObject");
+    expect(CONNECT_TOOL_NAMES).not.toContain("DeleteObject");
+  });
+
+  it("tells the model it cannot create anything", () => {
+    const prompt = systemPrompt({ mode: "connect" });
+    expect(prompt).toContain("You are not adding, editing or removing any of");
+    expect(prompt).not.toContain("## The shape of each type's data");
+  });
+});
+
+describe("generation scope", () => {
+  it("keeps the selection out of the projection when the scope is the whole scape", () => {
+    const scape = syntheticScape(40);
+    const selected = [scape.objectOrder[7]!, scape.objectOrder[8]!];
+
+    const whole = userPrompt("Do a thing", scape, { scope: "scape", selection: selected });
+    const narrow = userPrompt("Do a thing", scape, { scope: "selection", selection: selected });
+
+    expect(narrow.text).not.toBe(whole.text);
+    expect(narrow.text).toContain("objects selected");
+    expect(whole.text).not.toContain("objects selected");
+  });
+
+  it("names the selected ids so the model knows what it may touch", () => {
+    const scape = fixtureScape();
+    const prompt = userPrompt("Expand this", scape, {
+      scope: "selection",
+      selection: ["happy-path"],
+    });
+    expect(prompt.text).toContain("one object selected: happy-path");
+    expect(prompt.text).toContain("Leave the rest of the scape alone.");
+  });
+
+  it("defaults to the whole scape when no scope is given", () => {
+    const scape = fixtureScape();
+    expect(userPrompt("x", scape, { selection: ["brief"] }).text).toBe(
+      userPrompt("x", scape, { scope: "scape", selection: ["brief"] }).text,
+    );
+  });
+});
+
+describe("the starter steers the prompt", () => {
+  it("carries the starter's description into the system prompt", () => {
+    const withHint = systemPrompt({ starterHint: "This scape is a mind map." });
+    expect(withHint).toContain("## What this scape is");
+    expect(withHint).toContain("This scape is a mind map.");
+    expect(systemPrompt()).not.toContain("## What this scape is");
   });
 });

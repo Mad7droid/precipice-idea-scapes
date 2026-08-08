@@ -7,6 +7,21 @@ import { MAX_OBJECT_WIDTH, MIN_OBJECT_WIDTH, objectWidth } from "./layout";
 import type { ObjectNodeData } from "./edges";
 
 /**
+ * Connection handles.
+ *
+ * Hidden until you hover the card, then large enough to read as an invitation rather than a
+ * decorative dot. Dragging one is the primary way to connect two objects, so its hover state
+ * gets the accent and a small halo without introducing a second visual language on the card.
+ */
+const HANDLE =
+  // z-20 puts it above the resize grip. The grip now lives in the bottom corner rather than
+  // reading as a scrollbar along the card's whole right edge, but the source handle remains
+  // deliberately above it so a connection always wins in the shared edge territory.
+  "!z-20 !h-4 !w-4 !border-2 !border-[var(--bg-surface)] !bg-[var(--border-strong)] " +
+  "!opacity-0 !transition-all !duration-fast group-hover:!opacity-100 group-hover:!bg-[var(--accent)] " +
+  "group-hover:!shadow-[0_0_0_3px_var(--accent-subtle)] hover:!h-5 hover:!w-5 hover:!bg-[var(--accent-hover)]";
+
+/**
  * The one React Flow node type. It owns the card — surface, radius, shadow, the type band
  * and the id — and delegates the middle to whichever plugin the object's type resolves to.
  *
@@ -35,7 +50,8 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!h-2 !w-2 !border-0 !bg-[var(--border-strong)]"
+        className={HANDLE}
+        aria-label="Connect into this card"
       />
 
       {/*
@@ -75,7 +91,9 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!h-2 !w-2 !border-0 !bg-[var(--border-strong)]"
+        className={HANDLE}
+        aria-label="Drag to create a connection"
+        title="Drag to connect"
       />
 
       {grip}
@@ -163,12 +181,15 @@ function useResizeGrip(object: ScapeObject) {
       }}
       title="Drag to resize · double-click to reset"
       className={
-        "nodrag nopan absolute inset-y-0 right-0 z-10 w-2 cursor-ew-resize " +
+        "nodrag nopan absolute bottom-0 right-0 z-10 h-7 w-7 cursor-ew-resize " +
         "transition-opacity duration-instant ease-out " +
         (draft !== null ? "opacity-100" : "opacity-0 group-hover:opacity-100")
       }
     >
-      <span className="absolute inset-y-2 right-[3px] block w-[2px] rounded-full bg-[var(--border-strong)]" />
+      <span
+        aria-hidden
+        className="absolute bottom-2 right-2 block h-3 w-3 rounded-br-sm border-b-2 border-r-2 border-[var(--border-strong)]"
+      />
     </div>
   );
 

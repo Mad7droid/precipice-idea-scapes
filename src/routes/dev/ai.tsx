@@ -144,7 +144,9 @@ export function DevAi() {
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-2">
           <Ribbon state={state} onCancel={cancel} onUndo={undo} onDismiss={dismiss} />
           <Composer
-            onSend={(request) => void start(request, apiKey, modelId, types)}
+            onSend={(request) =>
+              void start({ request, apiKey, modelId, allowedTypes: types, scope })
+            }
             onCancel={cancel}
             busy={state.status === "streaming"}
             modelId={modelId}

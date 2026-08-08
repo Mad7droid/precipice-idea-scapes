@@ -4,7 +4,7 @@ import { newTxId } from "@/core/ids";
 import { getPlugin } from "@/core/registry";
 import type { ObjectId, Scape } from "@/core/types";
 import { anthropicProvider, describeProviderError } from "./provider";
-import { systemPrompt, userPrompt } from "./prompt";
+import { systemPrompt, userPrompt, type GenerationMode, type Scope } from "./prompt";
 import { isToolName, toolDescriptions, toolInputSchemas, TOOL_NAMES, type ToolName } from "./tools";
 
 /** Re-running Dagre on every action makes the canvas thrash; every third is invisible. */
@@ -59,6 +59,15 @@ export interface ApplyOptions {
    * invalid action.
    */
   allowedTypes?: string[];
+  /**
+   * The tools this generation is offered. Absent means all of them.
+   *
+   * Restricting the tool set is how a scoped action stays scoped: "suggest connections" is
+   * only ever going to add relationships because `CreateObject` was never on the table. The
+   * apply loop enforces it a second time, because a model can still name a tool it was not
+   * given and the boundary between a model and state is not the place to assume it will not.
+   */
+  allowedTools?: ToolName[];
 }
 
 export interface Applier {
@@ -90,6 +99,11 @@ export function createApplier(options: ApplyOptions): Applier {
 
   const apply = (toolName: string, input: unknown): string => {
     if (!isToolName(toolName)) return skip(toolName, "not a known action", input);
+
+    const tools = options.allowedTools;
+    if (tools && !tools.includes(toolName)) {
+      return skip(toolName, "not available in this generation", input);
+    }
 
     const candidate = { ...(input as object), type: toolName, txId, ts: Date.now() };
 
@@ -175,6 +189,12 @@ export interface GenerateOptions extends ApplyOptions {
   request: string;
   scape: Scape;
   selection?: ObjectId[];
+  /** Whether the selection is the subject of the request or merely what happens to be clicked. */
+  scope?: Scope;
+  /** The scape's starter, describing what kind of document this is. */
+  starterHint?: string;
+  /** `connect` swaps in a prompt that only rewires the existing graph. */
+  mode?: GenerationMode;
   apiKey: string;
   modelId: string;
   signal?: AbortSignal;
@@ -199,8 +219,9 @@ export interface GenerateResult {
 export async function generate(options: GenerateOptions): Promise<GenerateResult> {
   const applier = createApplier(options);
 
+  const offered = options.allowedTools ?? TOOL_NAMES;
   const tools: ToolSet = Object.fromEntries(
-    TOOL_NAMES.map((name: ToolName) => [
+    offered.map((name: ToolName) => [
       name,
       tool({
         description: toolDescriptions()[name],
@@ -212,6 +233,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
 
   const prompt = userPrompt(options.request, options.scape, {
     ...(options.selection ? { selection: options.selection } : {}),
+    ...(options.scope ? { scope: options.scope } : {}),
   });
 
   try {
@@ -219,7 +241,11 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
 
     const result = streamText({
       model,
-      system: systemPrompt(options.allowedTypes),
+      system: systemPrompt({
+        ...(options.allowedTypes ? { allowedTypes: options.allowedTypes } : {}),
+        ...(options.starterHint ? { starterHint: options.starterHint } : {}),
+        ...(options.mode ? { mode: options.mode } : {}),
+      }),
       prompt: prompt.text,
       tools,
       stopWhen: stepCountIs(MAX_STEPS),

@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { allPlugins } from "@/core/registry";
 import { Select } from "@/design/Select";
+import type { Scope } from "./prompt";
 import { MODELS } from "./provider";
 
 /** Auto-grow to six lines, then scroll. Roughly six × --leading-base plus the padding. */
 const MAX_HEIGHT_PX = 168;
 
-export type Scope = "scape" | "selection";
+export type { Scope } from "./prompt";
 
 export interface ComposerProps {
   onSend: (request: string) => void;
@@ -19,9 +20,24 @@ export interface ComposerProps {
   /** Object types this generation may create. Empty means no constraint — every type. */
   types: string[];
   onTypesChange: (types: string[]) => void;
+  /**
+   * The types the picker may offer at all, as decided by the scape's starter. Empty means
+   * every registered type. A mind map does not offer to create a wireframe.
+   */
+  availableTypes?: string[];
   selectionCount: number;
   disabled?: boolean;
   placeholder?: string;
+  /** Rendered to the left of the send button — the starter badge on the home page. */
+  slot?: React.ReactNode;
+  /**
+   * Which pills to draw.
+   *
+   * The home page shows neither: there is no selection to scope to, and the starter cards
+   * directly below already decide the types. A control that cannot change anything is worse
+   * than no control — it is a promise the app does not keep.
+   */
+  controls?: { scope?: boolean; types?: boolean };
 }
 
 /**
@@ -38,10 +54,15 @@ export function Composer({
   onScopeChange,
   types,
   onTypesChange,
+  availableTypes,
   selectionCount,
   disabled,
   placeholder = "Describe what you want on the canvas.",
+  slot,
+  controls,
 }: ComposerProps) {
+  const showScope = controls?.scope ?? true;
+  const showTypes = controls?.types ?? true;
   const [value, setValue] = useState("");
   const [focused, setFocused] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -93,21 +114,30 @@ export function Composer({
 
       {/* Icon row, inside the well. */}
       <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1">
-        <Select
-          variant="pill"
-          label="Scope"
-          value={scope}
-          onChange={(v) => onScopeChange(v as Scope)}
-          options={[
-            { value: "scape", label: "Whole scape" },
-            {
-              value: "selection",
-              label: selectionCount ? `Selection (${selectionCount})` : "Selection",
-            },
-          ]}
-          disabled={busy}
-        />
-        <TypePicker types={types} onChange={onTypesChange} disabled={busy} />
+        {showScope && (
+          <Select
+            variant="pill"
+            label="Scope"
+            value={scope}
+            onChange={(v) => onScopeChange(v as Scope)}
+            options={[
+              { value: "scape", label: "Whole scape" },
+              {
+                value: "selection",
+                label: selectionCount ? `Selection (${selectionCount})` : "Selection",
+              },
+            ]}
+            disabled={busy}
+          />
+        )}
+        {showTypes && (
+          <TypePicker
+            types={types}
+            onChange={onTypesChange}
+            disabled={busy}
+            {...(availableTypes ? { availableTypes } : {})}
+          />
+        )}
         <Select
           variant="pill"
           label="Model"
@@ -117,7 +147,15 @@ export function Composer({
           disabled={busy}
         />
 
-        <span className="mono ml-auto hidden sm:inline">{busy ? "streaming" : "⌘↵"}</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {slot}
+          <span
+            className="mono hidden sm:inline"
+            title={busy ? undefined : "Send with Command or Control + Enter"}
+          >
+            {busy ? "streaming" : "⌘↵ to send"}
+          </span>
+        </div>
 
         {busy ? (
           <button
@@ -176,14 +214,21 @@ function TypePicker({
   types,
   onChange,
   disabled,
+  availableTypes,
 }: {
   types: string[];
   onChange: (types: string[]) => void;
   disabled?: boolean;
+  /** Restricts the menu itself. A mind map never offers to create a wireframe. */
+  availableTypes?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const plugins = allPlugins();
+  const all = allPlugins();
+  const plugins =
+    availableTypes && availableTypes.length > 0
+      ? all.filter((p) => availableTypes.includes(p.type))
+      : all;
 
   useEffect(() => {
     if (!open) return;
@@ -200,10 +245,16 @@ function TypePicker({
   }, [open]);
 
   const selected = types.filter((t) => plugins.some((p) => p.type === t));
+  const names = (list: string[]) =>
+    list.map((t) => plugins.find((p) => p.type === t)?.label ?? t).join(" + ");
   const label =
     selected.length === 0 || selected.length === plugins.length
-      ? "All types"
-      : selected.map((t) => plugins.find((p) => p.type === t)?.label ?? t).join(" + ");
+      ? // "All types" is a lie when the scape's starter has already narrowed the menu — a mind
+        // map's picker offering "All types" reads as though a wireframe is one keystroke away.
+        plugins.length < all.length
+        ? names(plugins.map((p) => p.type))
+        : "All types"
+      : names(selected);
 
   const toggle = (type: string) => {
     const current = selected.length === 0 ? plugins.map((p) => p.type) : selected;

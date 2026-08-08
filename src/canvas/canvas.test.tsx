@@ -302,3 +302,108 @@ describe("card width", () => {
     expect(after).not.toEqual(before);
   });
 });
+
+describe("relationships are editable, not just drawable", () => {
+  it("draws edges by default now, instead of hiding the whole graph", () => {
+    const scape = fixtureScape();
+    // The old default was "none", which made the relationship graph invisible until you
+    // found a menu. `toFlowEdges` defaulting to "all" is what the starter now overrides.
+    expect(toFlowEdges(scape, []).length).toBe(Object.keys(scape.relationships).length);
+  });
+
+  it("gives every edge an arrowhead, because a relationship is directed", () => {
+    const [edge] = toFlowEdges(fixtureScape(), []);
+    expect(edge.markerEnd).toMatchObject({ type: "arrowclosed" });
+  });
+
+  it("marks the selected edge and dims the rest", () => {
+    const scape = fixtureScape();
+    const edges = toFlowEdges(scape, [], "all", new Set(), "r-brief-happy");
+
+    const selected = edges.find((e) => e.id === "r-brief-happy")!;
+    expect(selected.selected).toBe(true);
+    expect(selected.style?.opacity).toBe(1);
+    expect(selected.label).toBe("drives");
+
+    const other = edges.find((e) => e.id === "r-happy-phone")!;
+    expect(other.selected).toBe(false);
+    expect(other.style?.opacity).toBeLessThan(1);
+  });
+
+  it("disconnects through the reducer, and undo puts the relationship back", () => {
+    const before = structuredClone(store().scape!);
+    store().dispatchTx([{ type: "DisconnectObjects", id: "r-brief-happy" }]);
+
+    expect(store().scape!.relationships["r-brief-happy"]).toBeUndefined();
+    expect(store().undoStack).toHaveLength(1);
+
+    store().undo();
+    expect(store().scape!.relationships["r-brief-happy"]).toEqual(
+      before.relationships["r-brief-happy"],
+    );
+  });
+
+  it("relabels by disconnect-and-reconnect on the same id, as one undo", () => {
+    store().dispatchTx([
+      { type: "DisconnectObjects", id: "r-happy-phone" },
+      {
+        type: "ConnectObjects",
+        id: "r-happy-phone",
+        from: "happy-path",
+        to: "wf-phone",
+        label: "then",
+      },
+    ]);
+
+    expect(store().scape!.relationships["r-happy-phone"]).toEqual({
+      id: "r-happy-phone",
+      from: "happy-path",
+      to: "wf-phone",
+      label: "then",
+    });
+    expect(store().undoStack).toHaveLength(1);
+
+    store().undo();
+    expect(store().scape!.relationships["r-happy-phone"].label).toBeUndefined();
+  });
+
+  it("reverses a relationship without changing its id", () => {
+    store().dispatchTx([
+      { type: "DisconnectObjects", id: "r-brief-happy" },
+      {
+        type: "ConnectObjects",
+        id: "r-brief-happy",
+        from: "happy-path",
+        to: "brief",
+        label: "drives",
+      },
+    ]);
+
+    const rel = store().scape!.relationships["r-brief-happy"];
+    expect(rel.from).toBe("happy-path");
+    expect(rel.to).toBe("brief");
+  });
+});
+
+describe("creating a connected object", () => {
+  it("is one transaction, so half a branch is never a state you can undo to", () => {
+    const scape = store().scape!;
+    const before = Object.keys(scape.relationships).length;
+
+    // What the canvas dispatches when a connection is dropped on empty space and a type is
+    // picked: create, place, connect — one txId.
+    store().dispatchTx([
+      { type: "CreateObject", id: "fresh", objectType: "note", title: "Fresh", data: { body: "" } },
+      { type: "MoveObject", id: "fresh", x: 400, y: 400 },
+      { type: "ConnectObjects", id: "r-fresh", from: "brief", to: "fresh" },
+    ]);
+
+    expect(store().scape!.objects["fresh"]).toBeDefined();
+    expect(Object.keys(store().scape!.relationships)).toHaveLength(before + 1);
+    expect(store().undoStack).toHaveLength(1);
+
+    store().undo();
+    expect(store().scape!.objects["fresh"]).toBeUndefined();
+    expect(Object.keys(store().scape!.relationships)).toHaveLength(before);
+  });
+});

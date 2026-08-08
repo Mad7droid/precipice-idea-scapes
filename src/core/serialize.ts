@@ -29,6 +29,13 @@ export const scapeSchema = z.object({
   objectOrder: z.array(z.string()),
   relationships: z.record(z.string(), relationship),
   viewState: z.object({ x: z.number(), y: z.number(), zoom: z.number() }),
+  /**
+   * Open-ended and optional. `toPlainScape` parses through this schema before anything is
+   * written to disk, so a key that is not declared here is silently dropped — which is why
+   * `meta` is a permissive record rather than a closed object. A scape written by a newer
+   * build carries its settings through this one intact instead of losing them on first save.
+   */
+  meta: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

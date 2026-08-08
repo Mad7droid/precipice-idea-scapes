@@ -1,4 +1,4 @@
-import type { Relationship, Scape, ScapeObject } from "./types";
+import type { Relationship, Scape, ScapeMeta, ScapeObject } from "./types";
 
 /**
  * A hand-built sample Scape. Every workstream develops against this, which is why none of
@@ -284,6 +284,7 @@ export function syntheticScape(count = 200): Scape {
 }
 
 /** An empty Scape, for "new scape" and for tests that want to build state up by dispatch. */
-export function emptyScape(id: string, name = "Untitled scape"): Scape {
-  return assemble(id, name, [], []);
+export function emptyScape(id: string, name = "Untitled scape", meta?: ScapeMeta): Scape {
+  const scape = assemble(id, name, [], []);
+  return meta ? { ...scape, meta } : scape;
 }

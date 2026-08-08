@@ -2,8 +2,9 @@ import { DevAi } from "@/routes/dev/ai";
 import { DevCanvas } from "@/routes/dev/canvas";
 import { DevObjects } from "@/routes/dev/objects";
 import { DevPersistence } from "@/routes/dev/persistence";
-import { Link, useRoute } from "./router";
-import { Shell } from "./Shell";
+import { Editor } from "./Editor";
+import { Home } from "./Home";
+import { Link, match, useRoute } from "./router";
 import { ToastHost } from "./ToastHost";
 
 const DEV_ROUTES: Array<[string, string]> = [
@@ -31,7 +32,12 @@ function Routes() {
   if (route === "/dev/ai") return <DevAi />;
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
 
-  return <Shell />;
+  const scapeId = match("/s", route);
+  // Keyed so that navigating between two scapes remounts rather than trying to reconcile one
+  // document's canvas, selection and autosave into another's.
+  if (scapeId) return <Editor key={scapeId} scapeId={scapeId} />;
+
+  return <Home />;
 }
 
 function DevIndex({ route }: { route: string }) {

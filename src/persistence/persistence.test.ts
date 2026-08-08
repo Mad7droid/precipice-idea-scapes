@@ -2,12 +2,14 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyScape, fixtureScape } from "@/core/fixtures";
 import { useScapeStore } from "@/core/store";
+import { toPlainScape } from "@/core/serialize";
 import type { Scape, ScapeRepository } from "@/core/types";
 import { startAutosave } from "./autosave";
 import { PrecipiceDb } from "./db";
 import { MemoryScapeRepository } from "./memoryRepository";
 import { DexieScapeRepository } from "./scapeRepository";
 import { importScape, parseScapeFile, ScapeImportError, serializeScape } from "./portable";
+import { previewOf, summarize } from "./summary";
 
 /**
  * The same suite runs against both implementations. A contract with one implementation is
@@ -293,5 +295,71 @@ describe("autosave", () => {
     await vi.advanceTimersByTimeAsync(600);
 
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("scape summaries", () => {
+  it("counts objects by type and reports the relationship count", () => {
+    const summary = summarize(fixtureScape());
+    expect(summary.objectCount).toBe(12);
+    expect(summary.relationshipCount).toBe(12);
+    expect(summary.typeCounts).toEqual({ note: 5, journey: 3, wireframe: 4 });
+  });
+
+  it("carries the starter through, and omits it when there is none", () => {
+    expect(summarize(emptyScape("scp_a", "A", { starter: "mind-map" })).starter).toBe("mind-map");
+    expect(summarize(emptyScape("scp_b", "B")).starter).toBeUndefined();
+  });
+
+  it("normalises preview positions into a unit box", () => {
+    const preview = previewOf(fixtureScape())!;
+    expect(preview.nodes).toHaveLength(12);
+    for (const node of preview.nodes) {
+      expect(node.x).toBeGreaterThanOrEqual(0);
+      expect(node.x).toBeLessThanOrEqual(1);
+      expect(node.y).toBeGreaterThanOrEqual(0);
+      expect(node.y).toBeLessThanOrEqual(1);
+    }
+    // Edge endpoints are indices into `nodes`, so every one must be in range.
+    for (const [from, to] of preview.edges) {
+      expect(preview.nodes[from]).toBeDefined();
+      expect(preview.nodes[to]).toBeDefined();
+    }
+  });
+
+  it("does not divide by zero when every object shares a coordinate", () => {
+    const scape = emptyScape("scp_flat");
+    for (const id of ["a", "b"]) {
+      scape.objects[id] = {
+        id,
+        type: "note",
+        title: id,
+        data: { body: "" },
+        x: 100,
+        y: 100,
+        createdAt: 0,
+        updatedAt: 0,
+      };
+      scape.objectOrder.push(id);
+    }
+    const preview = previewOf(scape)!;
+    expect(preview.nodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))).toBe(true);
+  });
+
+  it("has no preview at all for an empty scape", () => {
+    expect(previewOf(emptyScape("scp_empty"))).toBeUndefined();
+    expect(summarize(emptyScape("scp_empty")).preview).toBeUndefined();
+  });
+});
+
+describe("scape meta survives the round trip", () => {
+  it("keeps the starter through a snapshot write, because toPlainScape parses it", () => {
+    const scape = emptyScape("scp_meta", "Meta", { starter: "mind-map" });
+    expect(toPlainScape(scape).meta).toEqual({ starter: "mind-map" });
+  });
+
+  it("keeps a key written by a newer build rather than dropping it on first save", () => {
+    const scape = emptyScape("scp_future", "Future", { starter: "blank", somethingNew: 7 });
+    expect(toPlainScape(scape).meta).toEqual({ starter: "blank", somethingNew: 7 });
   });
 });

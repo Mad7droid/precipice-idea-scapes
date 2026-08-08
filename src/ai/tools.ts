@@ -36,6 +36,15 @@ export type ToolName = keyof typeof toolInputSchemas;
 
 export const TOOL_NAMES = Object.keys(toolInputSchemas) as ToolName[];
 
+/**
+ * The tools a generation that only rewires the graph is allowed to touch.
+ *
+ * Restricting the tool set rather than asking the model nicely is the difference between a
+ * feature and a suggestion: "suggest connections" cannot quietly invent six new notes if
+ * `CreateObject` was never offered to it.
+ */
+export const CONNECT_TOOL_NAMES: ToolName[] = ["ConnectObjects", "DisconnectObjects"];
+
 export function isToolName(name: string): name is ToolName {
   return name in toolInputSchemas;
 }

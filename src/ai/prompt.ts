@@ -1,7 +1,25 @@
 import { fixtureScape } from "@/core/fixtures";
 import { allPlugins } from "@/core/registry";
-import type { Scape } from "@/core/types";
+import type { ObjectId, Scape } from "@/core/types";
 import { describeObjectTypes, projectScape, type ProjectionOptions } from "./context";
+
+/**
+ * What the model is asked to do, and what it is told about the canvas it is doing it to.
+ */
+
+/** Whether this generation builds the scape or only rewires the graph it already has. */
+export type GenerationMode = "build" | "connect";
+
+/** Whole scape, or only what the user has selected. */
+export type Scope = "scape" | "selection";
+
+export interface SystemPromptOptions {
+  /** Object types this generation may create. Empty means every registered type. */
+  allowedTypes?: string[];
+  /** The scape's starter speaking: what kind of document this is. Empty for Blank. */
+  starterHint?: string;
+  mode?: GenerationMode;
+}
 
 /**
  * One worked example of each type's `data`, taken from the fixture rather than written out
@@ -20,20 +38,26 @@ function dataShapeExamples(allowedTypes: string[]): string {
     .join("\n\n");
 }
 
-/**
- * @param allowedTypes Object types this generation may create. Empty means every registered
- *   type — the constrained catalogue is built by omission, so a type the user excluded is
- *   never described, never given a data example, and has nothing to imitate.
- */
-export function systemPrompt(allowedTypes: string[] = []): string {
-  const constrained = allowedTypes.length > 0;
-
-  return `You are the generation engine inside Precipice, a canvas for thinking through a
+const PREAMBLE = `You are the generation engine inside Precipice, a canvas for thinking through a
 design problem. You do not reply with prose. You build the canvas by calling tools.
 
 Each tool call is a named, reversible operation the user can see land on their canvas one at
-a time, and undo as a group. Emit them in the order they should appear.
+a time, and undo as a group. Emit them in the order they should appear.`;
 
+/**
+ * @param options.allowedTypes The constrained catalogue is built by omission, so a type the
+ *   user excluded is never described, never given a data example, and has nothing to imitate.
+ */
+export function systemPrompt(options: SystemPromptOptions = {}): string {
+  const allowedTypes = options.allowedTypes ?? [];
+  const starterHint = options.starterHint ?? "";
+
+  if (options.mode === "connect") return connectPrompt(starterHint);
+
+  const constrained = allowedTypes.length > 0;
+
+  return `${PREAMBLE}
+${starterHint ? `\n## What this scape is\n\n${starterHint}\n` : ""}
 ## Object types
 
 ${describeObjectTypes(allowedTypes)}
@@ -64,17 +88,71 @@ ${
 - Write in sentence case. No exclamation marks. No filler.`;
 }
 
+/**
+ * The prompt behind "suggest connections".
+ *
+ * Deliberately narrow. The objects already exist and the user did not ask for more of them —
+ * the only thing being asked for is the structure between them, which is also the thing a
+ * generation is most likely to have left half-finished.
+ */
+function connectPrompt(starterHint: string): string {
+  return `${PREAMBLE}
+${starterHint ? `\n## What this scape is\n\n${starterHint}\n` : ""}
+## Your task
+
+Every object on this canvas already exists. You are not adding, editing or removing any of
+them — you only have the two relationship tools, and that is on purpose.
+
+Read the scape and draw the relationships that are genuinely there but not yet on the canvas.
+
+## Rules
+
+- Direction carries meaning. Connect from the thing that causes, constrains or precedes, to
+  the thing it acts on. "brief -> happy-path", not the reverse.
+- Give every relationship a label of two or three words, in sentence case: "constrains",
+  "on failure", "evidence for". An unlabelled edge says two things are related without
+  saying how, which is the least useful thing a line can do.
+- Give each relationship a short kebab-case id starting with "r-": "r-brief-happy".
+- Connect what is actually related. A wrong edge costs the user more than a missing one,
+  because it has to be found before it can be removed.
+- Prefer connecting objects that currently have no relationships at all. Those are the ones
+  the user is looking at this for.
+- Do not connect an object to itself, and do not duplicate a relationship that already
+  exists in the list you were given.
+- Use DisconnectObjects only for a relationship that is plainly wrong, and only if you can
+  say why by replacing it with a better one.`;
+}
+
+export interface UserPromptOptions extends ProjectionOptions {
+  scope?: Scope;
+  /** Only meaningful when scope is "selection". */
+  selection?: ObjectId[];
+}
+
 export function userPrompt(
   request: string,
   scape: Scape,
-  options: ProjectionOptions = {},
+  options: UserPromptOptions = {},
 ): { text: string; estimatedTokens: number; omitted: number } {
-  const projection = projectScape(scape, options);
+  const scope = options.scope ?? "scape";
+  // "Whole scape" means the selection is not part of the question. Passing it anyway biases
+  // the projection's detail budget toward whatever happened to be clicked last, which is how
+  // the scope control ended up doing nothing at all.
+  const selection = scope === "selection" ? (options.selection ?? []) : [];
+
+  const projection = projectScape(scape, { ...options, selection });
   const empty = scape.objectOrder.length === 0;
+
+  const focus =
+    scope === "selection" && selection.length > 0
+      ? `\n\nThe user has ${selection.length === 1 ? "one object" : `${selection.length} objects`} selected: ${selection.join(", ")}. Confine your changes to ${
+          selection.length === 1 ? "it" : "them"
+        } and to whatever you need to create alongside ${selection.length === 1 ? "it" : "them"}. Leave the rest of the scape alone.`
+      : "";
 
   const text = empty
     ? `The scape is empty.\n\n${request}`
-    : `Here is the current scape.\n\n${projection.text}\n\n---\n\n${request}`;
+    : `Here is the current scape.\n\n${projection.text}${focus}\n\n---\n\n${request}`;
 
   return { text, estimatedTokens: projection.estimatedTokens, omitted: projection.omitted };
 }

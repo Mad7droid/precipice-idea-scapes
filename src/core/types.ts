@@ -37,6 +37,22 @@ export interface ViewState {
 }
 
 /**
+ * Document-level settings that are not themselves content.
+ *
+ * `starter` is the recipe a scape was created from — it decides the layout mode, which object
+ * types the model may create, and whether relationships are drawn by default. It lives on the
+ * document rather than in browser settings because it has to survive an export: a mind map
+ * that re-imports as a left-to-right flow chart is not the same document.
+ *
+ * Open-ended on purpose. Everything in here is advisory — a scape with an unrecognised
+ * starter falls back to the defaults and still opens.
+ */
+export interface ScapeMeta {
+  starter?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Records give the reducer O(1) lookup and make inverses trivial to compute; `objectOrder`
  * carries the stable ordering that layout and keyboard navigation depend on.
  */
@@ -47,6 +63,7 @@ export interface Scape {
   objectOrder: ObjectId[];
   relationships: Record<RelationshipId, Relationship>;
   viewState: ViewState;
+  meta?: ScapeMeta;
   createdAt: number;
   updatedAt: number;
 }
@@ -56,6 +73,18 @@ export interface ScapeSummary {
   name: string;
   updatedAt: number;
   objectCount: number;
+  relationshipCount: number;
+  /** Type counts, for the composition strip in the scape list. */
+  typeCounts: Record<string, number>;
+  starter?: string;
+  /** Enough geometry to draw a thumbnail without loading the whole snapshot. */
+  preview?: ScapePreview;
+}
+
+/** Normalised positions in a unit box, plus the edges between them. Drawn, never edited. */
+export interface ScapePreview {
+  nodes: Array<{ x: number; y: number; type: string }>;
+  edges: Array<[number, number]>;
 }
 
 export interface LoggedAction {
@@ -72,7 +101,7 @@ export interface LoggedAction {
 export interface ScapeRepository {
   list(): Promise<ScapeSummary[]>;
   get(id: ScapeId): Promise<Scape | undefined>;
-  create(name?: string): Promise<Scape>;
+  create(name?: string, meta?: ScapeMeta): Promise<Scape>;
   rename(id: ScapeId, name: string): Promise<void>;
   duplicate(id: ScapeId): Promise<Scape>;
   remove(id: ScapeId): Promise<void>;
@@ -98,4 +127,6 @@ export const SETTING_KEYS = {
   model: "anthropic.model",
   theme: "ui.theme",
   lastScapeId: "ui.lastScapeId",
+  /** Which object types a generation may create, when the scape's starter does not decide. */
+  generateTypes: "ui.generateTypes",
 } as const;

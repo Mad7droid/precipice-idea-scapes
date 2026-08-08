@@ -7,25 +7,25 @@ import {
   applyNodeChanges,
   useReactFlow,
   type Connection,
+  type Edge,
+  type FinalConnectionState,
   type Node,
   type NodeChange,
   type OnSelectionChangeParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import type { ActionPayload } from "@/core/actions";
 import { newObjectId, newRelId } from "@/core/ids";
 import { allPlugins } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
-import type { ObjectId } from "@/core/types";
+import type { ObjectId, RelationshipId } from "@/core/types";
+import { starterFor, type EdgeMode, type LayoutMode } from "@/starters";
 import { prefersReducedMotion, useFocusObject, useViewportPersistence } from "./camera";
-import {
-  mergeFlowNodes,
-  toFlowEdges,
-  OBJECT_NODE_TYPE,
-  type EdgeMode,
-  type ObjectNodeData,
-} from "./edges";
-import { layoutAction, widthFor, type Direction } from "./layout";
+import { mergeFlowNodes, toFlowEdges, OBJECT_NODE_TYPE, type ObjectNodeData } from "./edges";
+import { layoutAction, widthFor } from "./layout";
 import { ObjectNode } from "./ObjectNode";
+import { AddPalette, ConnectMenu } from "./pickers";
+import { Toolbar } from "./Toolbar";
 
 /** Stable identity — a fresh object here remounts every node on every render. */
 const NODE_TYPES = { [OBJECT_NODE_TYPE]: ObjectNode };
@@ -35,21 +35,28 @@ const isUntouchedViewport = (v: { x: number; y: number; zoom: number }) =>
   v.x === 0 && v.y === 0 && v.zoom === 1;
 
 /**
- * View preferences are per-browser rather than per-scape, and deliberately not part of the
- * Scape document: how you want to look at a scape is not a property of the scape, and it
- * should not travel to whoever you export it to.
+ * View preferences are per-browser rather than part of the Scape document: how you want to
+ * look at a scape is not a property of the scape, and it should not travel to whoever you
+ * export it to.
+ *
+ * Edge visibility is keyed by scape, because its sensible default is not global — a mind map
+ * without its edges is not a mind map, and a wall of screens threaded with lines is
+ * unreadable. The starter supplies the default and this remembers an override.
  */
 const EDGE_MODE_KEY = "precipice.view.edges";
 const HIDDEN_TYPES_KEY = "precipice.view.hiddenTypes";
 
-function readEdgeMode(): EdgeMode {
+function readEdgeModes(): Record<string, EdgeMode> {
   try {
     const raw = localStorage.getItem(EDGE_MODE_KEY);
-    if (raw === "none" || raw === "selected" || raw === "all") return raw;
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    // Was a bare string before edge visibility became per-scape. Ignore rather than migrate:
+    // it is a view preference, and the starter's default is a better answer than the old one.
+    if (parsed && typeof parsed === "object") return parsed as Record<string, EdgeMode>;
   } catch {
-    /* private mode */
+    /* private mode, or a malformed value we should not die on */
   }
-  return "none";
+  return {};
 }
 
 function readHiddenTypes(): Set<string> {
@@ -62,25 +69,82 @@ function readHiddenTypes(): Set<string> {
   return new Set();
 }
 
-const MIN_ZOOM = 0.25;
+// 0.25 was too high to frame a large scape at all: "fit view" would silently stop at the
+// limit and leave half the canvas off-screen, which reads as the button being broken. Cards
+// are unreadable this far out, but that is what fit is for — you are looking at the shape.
+const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2;
 /** Arrow-key nudge, per the keyboard spec. */
 const NUDGE = 8;
+
+/** Where a menu was opened: on screen, for placement, and in the canvas, for what it creates. */
+interface Anchor {
+  screenX: number;
+  screenY: number;
+  flowX: number;
+  flowY: number;
+  /** Set when the menu was opened by dragging a connection out of a node. */
+  from?: ObjectId;
+}
+
+/** The connection that led to an "add" choice, held on screen while that choice is open. */
+interface PendingConnection {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}
+
+function eventPoint(event: MouseEvent | TouchEvent) {
+  const point = "changedTouches" in event ? event.changedTouches[0] : event;
+  return point ? { x: point.clientX, y: point.clientY } : null;
+}
+
+/**
+ * React Flow removes its live connection line as soon as a drag ends. Leaving a low-key,
+ * dotted version in place while the add palette is open makes the resulting relationship
+ * explicit — the palette is completing that line, not starting an unrelated action.
+ */
+function PendingConnectionLine({ connection }: { connection: PendingConnection }) {
+  const distance = Math.abs(connection.endX - connection.startX);
+  const bend = Math.max(36, Math.min(120, distance * 0.45));
+  const path = `M ${connection.startX} ${connection.startY} C ${connection.startX + bend} ${connection.startY}, ${connection.endX - bend} ${connection.endY}, ${connection.endX} ${connection.endY}`;
+
+  return (
+    <svg
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-10 h-full w-full overflow-visible"
+    >
+      <path
+        d={path}
+        fill="none"
+        stroke="var(--edge-stroke-active)"
+        strokeDasharray="3 6"
+        strokeLinecap="round"
+        strokeWidth="2"
+        opacity="0.62"
+      />
+      <circle cx={connection.endX} cy={connection.endY} r="4" fill="var(--accent)" opacity="0.72" />
+    </svg>
+  );
+}
 
 /**
  * Imperative operations the canvas owns because they need measured node geometry.
  *
  * Handed to the parent via `onReady` rather than reached for through a global, so that
- * callers outside this directory — the AI apply loop, in particular — receive them as a
- * plain callback and never import from src/canvas.
+ * callers outside this directory — the AI apply loop and the outline panel, in particular —
+ * receive them as plain callbacks and never import from src/canvas.
  */
 export interface CanvasCommands {
-  /** Re-runs Dagre and commits the result as a single LayoutScape action: one undo. */
-  relayout: (direction?: Direction) => void;
+  /** Re-runs layout and commits the result as a single LayoutScape action: one undo. */
+  relayout: (mode?: LayoutMode) => void;
   focus: (id: ObjectId) => void;
   /** Clears the store selection *and* React Flow's own node.selected mirror — the two are
    * separate, so a caller outside the canvas (e.g. an inspector close button) needs both. */
   clearSelection: () => void;
+  /** Adds an object of the given type at the centre of the current view. */
+  addObject: (objectType: string) => void;
 }
 
 export interface CanvasProps {
@@ -93,6 +157,8 @@ export interface CanvasProps {
   /** Keeps React Flow's own palette in step with the app's. Left unset it defaults to light,
    * which reads wrong on a dark canvas. */
   colorMode?: "light" | "dark";
+  /** Selecting an edge opens the relationship inspector, which the app shell owns. */
+  onEdgeSelect?: (id: RelationshipId | null) => void;
 }
 
 export function Canvas(props: CanvasProps) {
@@ -108,6 +174,7 @@ function CanvasSurface({
   onReady,
   isGenerating = false,
   colorMode = "light",
+  onEdgeSelect,
 }: CanvasProps) {
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
@@ -121,25 +188,45 @@ function CanvasSurface({
   const redoDepth = useScapeStore((s) => s.redoStack.length);
   const surface = useRef<HTMLDivElement>(null);
 
+  // The scape's starter decides the arrangement and whether relationships are drawn.
+  const starter = starterFor(scape);
+  const scapeId = scape?.id ?? "";
+
   const [nodes, setNodes] = useState<Node<ObjectNodeData>[]>([]);
   const [zoom, setZoom] = useState(scape?.viewState.zoom ?? 1);
-  /** Handle-drag is the primary way to connect two nodes, but it relies on knowing React
-   * Flow's handle convention. This context menu is the discoverable fallback. */
-  const [connectMenu, setConnectMenu] = useState<{ from: ObjectId; x: number; y: number } | null>(
-    null,
-  );
-  const [edgeMode, setEdgeMode] = useState<EdgeMode>(readEdgeMode);
-  /** Object types the user has switched off for this canvas. */
+  const [connectMenu, setConnectMenu] = useState<Anchor | null>(null);
+  const [addMenu, setAddMenu] = useState<Anchor | null>(null);
+  const [pendingConnection, setPendingConnection] = useState<PendingConnection | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<RelationshipId | null>(null);
+  const [edgeModes, setEdgeModes] = useState<Record<string, EdgeMode>>(readEdgeModes);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(readHiddenTypes);
+
+  const edgeMode = edgeModes[scapeId] ?? starter.edgeMode;
+  const layoutMode = starter.layout;
 
   useEffect(() => {
     try {
-      localStorage.setItem(EDGE_MODE_KEY, edgeMode);
+      localStorage.setItem(EDGE_MODE_KEY, JSON.stringify(edgeModes));
       localStorage.setItem(HIDDEN_TYPES_KEY, JSON.stringify([...hiddenTypes]));
     } catch {
       /* private mode — the view preference just will not persist */
     }
-  }, [edgeMode, hiddenTypes]);
+  }, [edgeModes, hiddenTypes]);
+
+  const setEdgeMode = useCallback(
+    (mode: EdgeMode) => setEdgeModes((prev) => ({ ...prev, [scapeId]: mode })),
+    [scapeId],
+  );
+
+  /** Selecting an edge and selecting a node are mutually exclusive: one inspector at a time. */
+  const selectEdge = useCallback(
+    (id: RelationshipId | null) => {
+      setSelectedEdgeId(id);
+      onEdgeSelect?.(id);
+    },
+    [onEdgeSelect],
+  );
+
   /**
    * React Flow would like to own node positions. It does not: the store is the source of
    * truth and this array is a mirror, kept only so a drag can animate at 60fps without
@@ -154,9 +241,15 @@ function CanvasSurface({
     setNodes((prev) => mergeFlowNodes(prev, scape, isGenerating));
   }, [scape, isGenerating]);
 
+  // A relationship can be deleted out from under the inspector — by undo, by an AI
+  // generation, or by deleting one of its endpoints.
+  useEffect(() => {
+    if (selectedEdgeId && scape && !scape.relationships[selectedEdgeId]) selectEdge(null);
+  }, [scape, selectedEdgeId, selectEdge]);
+
   const edges = useMemo(
-    () => (scape ? toFlowEdges(scape, selection, edgeMode, hiddenTypes) : []),
-    [scape, selection, edgeMode, hiddenTypes],
+    () => (scape ? toFlowEdges(scape, selection, edgeMode, hiddenTypes, selectedEdgeId) : []),
+    [scape, selection, edgeMode, hiddenTypes, selectedEdgeId],
   );
 
   const visibleNodes = useMemo(
@@ -187,8 +280,11 @@ function CanvasSurface({
   );
 
   const onSelectionChange = useCallback(
-    ({ nodes: selected }: OnSelectionChangeParams) => setSelection(selected.map((n) => n.id)),
-    [setSelection],
+    ({ nodes: selected }: OnSelectionChangeParams) => {
+      setSelection(selected.map((n) => n.id));
+      if (selected.length > 0) selectEdge(null);
+    },
+    [setSelection, selectEdge],
   );
 
   const onConnect = useCallback(
@@ -201,9 +297,46 @@ function CanvasSurface({
     [dispatchTx],
   );
 
+  const anchorFrom = useCallback(
+    (screenX: number, screenY: number, from?: ObjectId): Anchor => {
+      const flow = screenToFlowPosition({ x: screenX, y: screenY });
+      return { screenX, screenY, flowX: flow.x, flowY: flow.y, ...(from ? { from } : {}) };
+    },
+    [screenToFlowPosition],
+  );
+
+  /**
+   * Dropping a connection on empty canvas offers to create the object it was heading for.
+   *
+   * This is the interaction a mind map is actually built with — drag out, name the thing,
+   * repeat — and it is why the create and the connect land in one transaction: half a branch
+   * is never a state worth being able to undo to.
+   */
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+      if (state.isValid) {
+        setPendingConnection(null);
+        return; // a real connection; onConnect already handled it
+      }
+      const from = state.fromNode?.id;
+      if (!from) return;
+      const point = eventPoint(event);
+      if (!point) return;
+      setConnectMenu(null);
+      setAddMenu(anchorFrom(point.x, point.y, from));
+      setPendingConnection((previous) => ({
+        startX: previous?.startX ?? point.x,
+        startY: previous?.startY ?? point.y,
+        endX: point.x,
+        endY: point.y,
+      }));
+    },
+    [anchorFrom],
+  );
+
   const connectTo = useCallback(
     (to: ObjectId) => {
-      if (connectMenu) {
+      if (connectMenu?.from) {
         dispatchTx([{ type: "ConnectObjects", id: newRelId(), from: connectMenu.from, to }]);
       }
       setConnectMenu(null);
@@ -212,7 +345,7 @@ function CanvasSurface({
   );
 
   const relayout = useCallback(
-    (direction: Direction = "LR") => {
+    (mode: LayoutMode = layoutMode) => {
       const current = useScapeStore.getState().scape;
       if (!current) return;
       // Real measured heights beat the per-type fallbacks, so a five-step journey and a
@@ -228,43 +361,39 @@ function CanvasSurface({
           measured[id] = { width: size.width, height: size.height };
         }
       }
-      dispatchTx([layoutAction(current, direction, measured)]);
+      dispatchTx([layoutAction(current, mode, measured)]);
       // Reflowing without refitting leaves the scape somewhere off-screen. Both move over
       // --dur-canvas so the reflow and the camera read as one motion.
       fitView({ padding: 0.15, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 420 });
     },
-    [dispatchTx, fitView, getInternalNode],
+    [dispatchTx, fitView, getInternalNode, layoutMode],
   );
 
   const clearSelection = useCallback(() => {
     setSelection([]);
     setNodes((prev) => prev.map((n) => (n.selected ? { ...n, selected: false } : n)));
-  }, [setSelection]);
+    selectEdge(null);
+  }, [setSelection, selectEdge]);
 
   const fit = useCallback(() => {
     fitView({ padding: 0.15, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 420 });
   }, [fitView]);
 
   /**
-   * Manual object creation. Until now the only way to get an object onto the canvas was to
-   * ask the model for one.
+   * Manual object creation.
    *
    * `CreateObject` carries no coordinates by design, so the new object lands at 0,0 and a
-   * `MoveObject` in the *same transaction* places it at the centre of what the user is
-   * currently looking at. One action pair, one undo.
+   * `MoveObject` in the *same transaction* places it where it was asked for. When it came
+   * from a dropped connection, the relationship joins the same transaction: one undo puts
+   * the canvas back exactly as it was.
    */
-  const addObject = useCallback(
-    (objectType: string) => {
+  const createAt = useCallback(
+    (objectType: string, at: { x: number; y: number }, from?: ObjectId) => {
       const plugin = allPlugins().find((p) => p.type === objectType);
       if (!plugin) return;
 
-      const rect = surface.current?.getBoundingClientRect();
-      const centre = rect
-        ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-        : { x: 0, y: 0 };
-
       const id = newObjectId();
-      dispatchTx([
+      const payloads: ActionPayload[] = [
         {
           type: "CreateObject",
           id,
@@ -272,26 +401,55 @@ function CanvasSurface({
           title: `New ${plugin.label.toLowerCase()}`,
           data: plugin.defaults() as Record<string, unknown>,
         },
-        // Centre the card, not its top-left corner.
+        // Centre the card on the point, not its top-left corner.
         {
           type: "MoveObject",
           id,
-          x: Math.round(centre.x - widthFor(objectType) / 2),
-          y: Math.round(centre.y - 60),
+          x: Math.round(at.x - widthFor(objectType) / 2),
+          y: Math.round(at.y - 60),
         },
-      ]);
+      ];
+      if (from) payloads.push({ type: "ConnectObjects", id: newRelId(), from, to: id });
+
+      dispatchTx(payloads);
       // Select it so the inspector opens ready to edit — a new object with a placeholder
       // title is not finished, and the next thing anyone does is rename it.
       setSelection([id]);
+      selectEdge(null);
     },
-    [dispatchTx, screenToFlowPosition, setSelection],
+    [dispatchTx, setSelection, selectEdge],
   );
 
-  // Hand the parent the imperative surface once. `relayout`, `focus` and `clearSelection` are
-  // all stable.
+  const addObject = useCallback(
+    (objectType: string) => {
+      const rect = surface.current?.getBoundingClientRect();
+      const centre = rect
+        ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+        : { x: 0, y: 0 };
+      createAt(objectType, centre);
+    },
+    [createAt, screenToFlowPosition],
+  );
+
+  const openAddMenuAtCentre = useCallback(() => {
+    const rect = surface.current?.getBoundingClientRect();
+    if (!rect) return;
+    setConnectMenu(null);
+    setAddMenu(anchorFrom(rect.left + rect.width / 2, rect.top + rect.height / 2));
+  }, [anchorFrom]);
+
+  const deleteEdge = useCallback(
+    (id: RelationshipId) => {
+      dispatchTx([{ type: "DisconnectObjects", id }]);
+      selectEdge(null);
+    },
+    [dispatchTx, selectEdge],
+  );
+
+  // Hand the parent the imperative surface once. All four are stable.
   useEffect(() => {
-    onReady?.({ relayout, focus, clearSelection });
-  }, [onReady, relayout, focus, clearSelection]);
+    onReady?.({ relayout, focus, clearSelection, addObject });
+  }, [onReady, relayout, focus, clearSelection, addObject]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -306,6 +464,8 @@ function CanvasSurface({
       if (event.key === "Escape") {
         clearSelection();
         setConnectMenu(null);
+        setAddMenu(null);
+        setPendingConnection(null);
         return;
       }
 
@@ -313,6 +473,14 @@ function CanvasSurface({
       if (event.shiftKey && event.key === "1") {
         event.preventDefault();
         fit();
+        return;
+      }
+
+      // A selected relationship is deletable like anything else on the canvas. Before this,
+      // `DisconnectObjects` existed in the protocol and was reachable only by the model.
+      if (selectedEdgeId && (event.key === "Delete" || event.key === "Backspace")) {
+        event.preventDefault();
+        deleteEdge(selectedEdgeId);
         return;
       }
 
@@ -364,7 +532,7 @@ function CanvasSurface({
         );
       }
     },
-    [clearSelection, dispatchTx, fit, onOpenInspector, setSelection],
+    [clearSelection, deleteEdge, dispatchTx, fit, onOpenInspector, selectedEdgeId, setSelection],
   );
 
   if (!scape) return <div className="h-full bg-canvas" />;
@@ -387,12 +555,38 @@ function CanvasSurface({
         onNodeDragStop={onNodeDragStop}
         onSelectionChange={onSelectionChange}
         onConnect={onConnect}
+        onConnectStart={(event) => {
+          const point = eventPoint(event);
+          if (!point) return;
+          setPendingConnection({ startX: point.x, startY: point.y, endX: point.x, endY: point.y });
+        }}
+        onConnectEnd={onConnectEnd}
         onNodeDoubleClick={(_, node) => onOpenInspector?.(node.id)}
         onNodeContextMenu={(event, node) => {
           event.preventDefault();
-          setConnectMenu({ from: node.id, x: event.clientX, y: event.clientY });
+          setAddMenu(null);
+          setPendingConnection(null);
+          setConnectMenu(anchorFrom(event.clientX, event.clientY, node.id));
         }}
-        onPaneClick={() => setConnectMenu(null)}
+        onEdgeClick={(event, edge: Edge) => {
+          event.stopPropagation();
+          clearSelection();
+          selectEdge(edge.id);
+        }}
+        onPaneClick={() => {
+          setConnectMenu(null);
+          setAddMenu(null);
+          setPendingConnection(null);
+          selectEdge(null);
+        }}
+        // Double-click on empty canvas adds an object there. The alternative — hunting for a
+        // toolbar button and then dragging the result into place — is two steps too many.
+        onDoubleClick={(event: React.MouseEvent) => {
+          if ((event.target as HTMLElement).closest(".react-flow__node")) return;
+          setConnectMenu(null);
+          setAddMenu(anchorFrom(event.clientX, event.clientY));
+          setPendingConnection(null);
+        }}
         onMove={(_, viewport) => {
           setZoom(viewport.zoom);
           onViewportChange(viewport);
@@ -408,10 +602,7 @@ function CanvasSurface({
         // These are mutually exclusive on purpose. Passing `fitView` and `defaultViewport`
         // together leaves React Flow's initialisation half-done: nodes are never measured,
         // stay `visibility: hidden`, and every edge is silently dropped because its
-        // endpoints have no handle geometry.
-        // Fit only when the scape has no camera of its own yet; once the user has panned,
-        // their viewport is persisted and overriding it on load would be a bug. Spread so
-        // exactly one of the two is ever passed.
+        // endpoints have no handle geometry. Spread so exactly one of the two is passed.
         {...(isUntouchedViewport(scape.viewState)
           ? { fitView: true, fitViewOptions: { padding: 0.15, maxZoom: 1 } }
           : { defaultViewport: scape.viewState })}
@@ -419,6 +610,10 @@ function CanvasSurface({
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--canvas-dot)" />
       </ReactFlow>
+
+      {pendingConnection && addMenu?.from && (
+        <PendingConnectionLine connection={pendingConnection} />
+      )}
 
       <Toolbar
         edgeMode={edgeMode}
@@ -432,6 +627,8 @@ function CanvasSurface({
             return next;
           })
         }
+        layoutMode={layoutMode}
+        onTidy={relayout}
         zoom={zoom}
         canUndo={undoDepth > 0}
         canRedo={redoDepth > 0}
@@ -441,296 +638,41 @@ function CanvasSurface({
         onZoomOut={() => zoomOut({ duration: prefersReducedMotion() ? 0 : 130 })}
         onZoomReset={() => zoomTo(1, { duration: prefersReducedMotion() ? 0 : 130 })}
         onFit={fit}
-        onTidy={() => relayout()}
-        onAdd={addObject}
+        onAdd={openAddMenuAtCentre}
       />
+
+      {addMenu && (
+        <AddPalette
+          x={addMenu.screenX}
+          y={addMenu.screenY}
+          availableTypes={starter.types}
+          connectingFrom={addMenu.from}
+          onPick={(type) => {
+            createAt(type, { x: addMenu.flowX, y: addMenu.flowY }, addMenu.from);
+            setAddMenu(null);
+            setPendingConnection(null);
+          }}
+          onClose={() => {
+            setAddMenu(null);
+            setPendingConnection(null);
+          }}
+        />
+      )}
 
       {connectMenu && (
         <ConnectMenu
-          x={connectMenu.x}
-          y={connectMenu.y}
+          x={connectMenu.screenX}
+          y={connectMenu.screenY}
           options={scape.objectOrder
-            .filter((id) => id !== connectMenu.from)
-            .map((id) => ({ id, title: scape.objects[id]?.title || "Untitled" }))}
+            .filter((id) => id !== connectMenu.from && scape.objects[id])
+            .map((id) => ({
+              id,
+              title: scape.objects[id]!.title || "Untitled",
+              type: scape.objects[id]!.type,
+            }))}
           onPick={connectTo}
           onClose={() => setConnectMenu(null)}
         />
-      )}
-    </div>
-  );
-}
-
-/**
- * The canvas utility rail.
- *
- * Two of these were previously unreachable from the app: `Tidy` (auto-layout existed only as
- * a command the AI called after a generation) and `Add` (there was no way to put an object on
- * the canvas without asking the model for one). Undo and redo existed as keystrokes only.
- */
-function Toolbar({
-  edgeMode,
-  onEdgeModeChange,
-  hiddenTypes,
-  onToggleType,
-  zoom,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onZoomIn,
-  onZoomOut,
-  onZoomReset,
-  onFit,
-  onTidy,
-  onAdd,
-}: {
-  edgeMode: EdgeMode;
-  onEdgeModeChange: (mode: EdgeMode) => void;
-  hiddenTypes: Set<string>;
-  onToggleType: (type: string) => void;
-  zoom: number;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onZoomReset: () => void;
-  onFit: () => void;
-  onTidy: () => void;
-  onAdd: (objectType: string) => void;
-}) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
-
-  return (
-    <div className="absolute bottom-4 right-4 z-panel flex flex-col items-end gap-1.5">
-      {viewOpen && (
-        <div
-          className="mb-0.5 w-52 rounded-md border border-subtle bg-surface p-1 shadow-lg"
-          onMouseLeave={() => setViewOpen(false)}
-        >
-          <p className="mono px-2 py-1 text-fg-tertiary">Lines</p>
-          {(
-            [
-              ["none", "Off"],
-              ["selected", "Only for selection"],
-              ["all", "All"],
-            ] as const
-          ).map(([mode, label]) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => onEdgeModeChange(mode)}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover"
-            >
-              <Tick on={edgeMode === mode} />
-              {label}
-            </button>
-          ))}
-
-          <p className="mono mt-1 border-t border-subtle px-2 pb-1 pt-2 text-fg-tertiary">Show</p>
-          {allPlugins().map((plugin) => (
-            <button
-              key={plugin.type}
-              type="button"
-              onClick={() => onToggleType(plugin.type)}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover"
-            >
-              <Tick on={!hiddenTypes.has(plugin.type)} />
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ background: `var(${plugin.color})` }}
-              />
-              {plugin.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {addOpen && (
-        <div
-          className="mb-0.5 rounded-md border border-subtle bg-surface p-1 shadow-lg"
-          onMouseLeave={() => setAddOpen(false)}
-        >
-          {allPlugins().map((plugin) => (
-            <button
-              key={plugin.type}
-              type="button"
-              onClick={() => {
-                onAdd(plugin.type);
-                setAddOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover"
-            >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ background: `var(${plugin.color})` }}
-              />
-              {plugin.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-col overflow-hidden rounded-md border border-subtle bg-surface shadow-sm">
-        <ToolButton
-          label="Add object"
-          onClick={() => {
-            setViewOpen(false);
-            setAddOpen((open) => !open);
-          }}
-        >
-          <path d="M7 2.5v9M2.5 7h9" strokeLinecap="round" />
-        </ToolButton>
-        <ToolButton
-          label={`View — lines ${edgeMode === "none" ? "off" : edgeMode}`}
-          onClick={() => {
-            setAddOpen(false);
-            setViewOpen((open) => !open);
-          }}
-        >
-          <path d="M1 7s2.2-3.8 6-3.8S13 7 13 7s-2.2 3.8-6 3.8S1 7 1 7Z" strokeLinejoin="round" />
-          <circle cx="7" cy="7" r="1.6" />
-        </ToolButton>
-
-        <Divider />
-
-        <ToolButton label="Undo (⌘Z)" onClick={onUndo} disabled={!canUndo}>
-          <path d="M3 6.5h5.2a2.8 2.8 0 0 1 0 5.6H5.5" strokeLinecap="round" />
-          <path d="M5.2 3.6 2.4 6.5l2.8 2.9" strokeLinecap="round" strokeLinejoin="round" />
-        </ToolButton>
-        <ToolButton label="Redo (⇧⌘Z)" onClick={onRedo} disabled={!canRedo}>
-          <path d="M11 6.5H5.8a2.8 2.8 0 0 0 0 5.6h2.7" strokeLinecap="round" />
-          <path d="M8.8 3.6l2.8 2.9-2.8 2.9" strokeLinecap="round" strokeLinejoin="round" />
-        </ToolButton>
-
-        <Divider />
-
-        <ToolButton label="Zoom in" onClick={onZoomIn}>
-          <path d="M7 3.5v7M3.5 7h7" strokeLinecap="round" />
-        </ToolButton>
-        <button
-          type="button"
-          title="Reset zoom to 100%"
-          onClick={onZoomReset}
-          className="mono px-1 py-1 text-center text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-        >
-          {Math.round(zoom * 100)}
-        </button>
-        <ToolButton label="Zoom out" onClick={onZoomOut}>
-          <path d="M3.5 7h7" strokeLinecap="round" />
-        </ToolButton>
-
-        <Divider />
-
-        <ToolButton label="Fit view (⇧1)" onClick={onFit}>
-          <path d="M1.5 5V1.5h3.5M12.5 5V1.5H9M1.5 9v3.5h3.5M12.5 9v3.5H9" />
-        </ToolButton>
-        <ToolButton label="Tidy layout" onClick={onTidy}>
-          <path d="M2 2.5h4v3.5H2zM8 2.5h4v9H8zM2 8h4v3.5H2z" strokeLinejoin="round" />
-        </ToolButton>
-      </div>
-    </div>
-  );
-}
-
-function ToolButton({
-  label,
-  onClick,
-  disabled,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      disabled={disabled}
-      className={
-        "grid h-8 w-8 place-items-center transition-colors duration-instant ease-out " +
-        "disabled:pointer-events-none disabled:opacity-30 " +
-        "text-fg-secondary hover:bg-hover hover:text-fg"
-      }
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 14 14"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        aria-hidden
-      >
-        {children}
-      </svg>
-    </button>
-  );
-}
-
-function Divider() {
-  return <span className="h-px bg-[var(--border-subtle)]" aria-hidden />;
-}
-
-function Tick({ on }: { on: boolean }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="shrink-0">
-      {on && (
-        <path
-          d="M2.5 6.2l2.4 2.4 4.6-5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
-    </svg>
-  );
-}
-
-function ConnectMenu({
-  x,
-  y,
-  options,
-  onPick,
-  onClose,
-}: {
-  x: number;
-  y: number;
-  options: { id: ObjectId; title: string }[];
-  onPick: (id: ObjectId) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="z-popover fixed rounded-md border border-subtle bg-surface p-1 shadow-lg"
-      style={{ left: x, top: y }}
-      onMouseLeave={onClose}
-    >
-      <p className="mono px-2 py-1 text-fg-tertiary">Connect to</p>
-      {options.length === 0 ? (
-        <p className="px-2 py-1 text-xs text-fg-tertiary">No other objects</p>
-      ) : (
-        <ul className="max-h-64 overflow-auto">
-          {options.map((o) => (
-            <li key={o.id}>
-              <button
-                type="button"
-                onClick={() => onPick(o.id)}
-                className="block w-full truncate rounded-sm px-2 py-1 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover"
-              >
-                {o.title}
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );

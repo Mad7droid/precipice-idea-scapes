@@ -1,5 +1,6 @@
-import type { Edge, Node } from "@xyflow/react";
+import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type { ObjectId, Scape, ScapeObject } from "@/core/types";
+import type { EdgeMode } from "@/starters";
 
 export const OBJECT_NODE_TYPE = "object";
 
@@ -72,24 +73,23 @@ export function mergeFlowNodes(
     .filter((n): n is Node<ObjectNodeData> => n !== undefined);
 }
 
-/**
- * How much of the relationship graph is drawn.
- *
- * A scape of any size draws as spaghetti when every edge is on at once, and most of the time
- * the lines are not what you are reading — the cards are. So the default is `none`, and the
- * graph is something you ask for.
- */
-export type EdgeMode = "none" | "selected" | "all";
+export type { EdgeMode } from "@/starters";
 
 /**
  * Edges are derived from `scape.relationships` every render rather than stored separately,
  * so they cannot drift out of sync with the graph they describe.
+ *
+ * `mode` decides how much of the graph is drawn and comes from the scape's starter: a mind
+ * map without its edges is not a mind map, while a wall of screens threaded with lines is
+ * unreadable. It used to default to `none` for every scape, which meant the relationship
+ * graph — the thing the whole document is about — was invisible until you found a menu.
  */
 export function toFlowEdges(
   scape: Scape,
   selection: ObjectId[],
   mode: EdgeMode = "all",
   hidden: Set<string> = new Set(),
+  selectedEdgeId: string | null = null,
 ): Edge[] {
   if (mode === "none") return [];
 
@@ -104,29 +104,38 @@ export function toFlowEdges(
       .filter((rel) => visible(rel.from) && visible(rel.to))
       .map((rel) => {
         // An edge reads as active when either end is selected — that is what makes clicking a
-        // node show you what it is connected to.
-        const active = selected.has(rel.from) || selected.has(rel.to);
+        // node show you what it is connected to — or when the edge itself is selected.
+        const active = selected.has(rel.from) || selected.has(rel.to) || selectedEdgeId === rel.id;
         return { rel, active };
       })
       // In `selected` mode the graph is answering one question — "what is this connected to?"
       // — so everything that is not part of the answer is noise.
       .filter(({ active }) => (mode === "selected" ? active : true))
       .map(({ rel, active }) => {
+        const isSelected = selectedEdgeId === rel.id;
         // When something is selected, everything else recedes rather than competing with it.
-        const dimmed = selected.size > 0 && !active;
+        const dimmed = (selected.size > 0 || selectedEdgeId !== null) && !active;
+        const stroke = active ? "var(--edge-stroke-active)" : "var(--edge-stroke)";
         return {
           id: rel.id,
           source: rel.from,
           target: rel.to,
-          // Orthogonal, not bezier: in a dense graph curved edges read as tangle, and a
-          // stepped path makes it possible to follow one line with your eye.
-          type: "smoothstep",
+          type: "simplebezier",
+          selected: isSelected,
+          // A relationship is directed. Without a head, "A relates to B" and "B relates to A"
+          // draw identically, which makes half the graph's meaning unreadable.
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 16,
+            height: 16,
+            color: stroke,
+          },
           // Labels are the densest thing on the canvas and the first thing to become
           // unreadable, so they appear only on the edges currently being asked about.
           ...(rel.label && active ? { label: rel.label } : {}),
           style: {
-            stroke: active ? "var(--edge-stroke-active)" : "var(--edge-stroke)",
-            strokeWidth: active ? 2 : 1.5,
+            stroke,
+            strokeWidth: isSelected ? 2.5 : active ? 2 : 1.5,
             opacity: dimmed ? 0.25 : 1,
           },
           labelStyle: {

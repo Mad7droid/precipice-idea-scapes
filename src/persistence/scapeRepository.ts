@@ -3,8 +3,16 @@ import { emptyScape } from "@/core/fixtures";
 import { newScapeId } from "@/core/ids";
 import { notify } from "@/core/notify";
 import { toPlainScape } from "@/core/serialize";
-import type { LoggedAction, Scape, ScapeId, ScapeRepository, ScapeSummary } from "@/core/types";
+import type {
+  LoggedAction,
+  Scape,
+  ScapeId,
+  ScapeMeta,
+  ScapeRepository,
+  ScapeSummary,
+} from "@/core/types";
 import { db, type PrecipiceDb } from "./db";
+import { summarize } from "./summary";
 
 export class DexieScapeRepository implements ScapeRepository {
   /**
@@ -17,21 +25,19 @@ export class DexieScapeRepository implements ScapeRepository {
   constructor(private readonly database: PrecipiceDb = db) {}
 
   async list(): Promise<ScapeSummary[]> {
+    // Derived from the snapshot rather than the row's denormalised columns: the row is already
+    // being read whole, and a summary that can drift from the document it describes is worse
+    // than one that costs a map.
     const rows = await this.database.scapes.orderBy("updatedAt").reverse().toArray();
-    return rows.map(({ id, name, updatedAt, objectCount }) => ({
-      id,
-      name,
-      updatedAt,
-      objectCount,
-    }));
+    return rows.map((row) => summarize(row.snapshot));
   }
 
   async get(id: ScapeId): Promise<Scape | undefined> {
     return (await this.database.scapes.get(id))?.snapshot;
   }
 
-  async create(name = "Untitled scape"): Promise<Scape> {
-    const scape = emptyScape(newScapeId(), name);
+  async create(name = "Untitled scape", meta?: ScapeMeta): Promise<Scape> {
+    const scape = emptyScape(newScapeId(), name, meta);
     scape.createdAt = Date.now();
     scape.updatedAt = scape.createdAt;
     await this.write(scape);
