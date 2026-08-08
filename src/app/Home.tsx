@@ -105,11 +105,20 @@ export function Home() {
           <ThemeControl value={theme} onChange={setTheme} />
           <button
             type="button"
-            aria-label="Settings"
+            aria-label="Open settings"
+            title="Settings"
             onClick={() => setSettingsOpen(true)}
-            className="grid h-7 w-7 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            className="grid h-9 w-9 place-items-center rounded-md text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
           >
-            ⚙
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path
+                d="M6.38 2.2h3.24l.34 1.35c.38.14.73.34 1.05.6l1.32-.4 1.62 2.8-.98.96c.04.2.06.4.06.6s-.02.4-.06.6l.98.96-1.62 2.8-1.32-.4c-.32.26-.67.46-1.05.6l-.34 1.35H6.38l-.34-1.35a4.16 4.16 0 0 1-1.05-.6l-1.32.4-1.62-2.8.98-.96a4.1 4.1 0 0 1 0-1.2l-.98-.96 1.62-2.8 1.32.4c.32-.26.67-.46 1.05-.6l.34-1.35Z"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinejoin="round"
+              />
+              <circle cx="8" cy="8" r="2.05" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
           </button>
         </div>
       </header>
