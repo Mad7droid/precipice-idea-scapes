@@ -47,12 +47,6 @@ selection, settings, and locally saved scapes.
 
 ![Precipice home with the All-in-one starter](docs/screenshots/home-all-in-one-dark.png)
 
-![Empty canvas in dark mode](docs/screenshots/canvas-empty-dark.png)
-
-![Generation thinking state](docs/screenshots/generation-thinking-dark.png)
-
-![Generation action stream](docs/screenshots/generation-actions-dark.png)
-
 ![Getting started help](docs/screenshots/help-getting-started-dark.png)
 
 ![Keyboard shortcuts help](docs/screenshots/help-shortcuts-dark.png)
@@ -61,13 +55,7 @@ selection, settings, and locally saved scapes.
 
 The canvas connects notes, journeys, and wireframes into a navigable product map.
 
-![Precipice canvas in dark mode](docs/screenshots/canvas-dark-latest.png)
-
 ![Expanded canvas overview](docs/screenshots/canvas-overview-dark.png)
-
-![Precipice canvas in light mode](docs/screenshots/canvas-light-latest.png)
-
-![Connection creation with a retained dotted line](docs/screenshots/connection-create-dark.png)
 
 ![Command palette](docs/screenshots/command-palette-dark.png)
 
@@ -78,23 +66,11 @@ The canvas connects notes, journeys, and wireframes into a navigable product map
 Inspect and edit journey steps or wireframe elements without leaving the canvas.
 Filters and line controls keep larger scapes readable.
 
-![Wireframe inspector](docs/screenshots/wireframe-inspector-dark.png)
-
-![Wireframe inspector with element editing](docs/screenshots/wireframe-inspector-panel-dark.png)
-
 ![Wireframe inspector with editable elements](docs/screenshots/wireframe-inspector-dark-latest.png)
 
 ![Journey inspector with editable steps](docs/screenshots/journey-inspector-dark-latest.png)
 
 ![Settings and local API-key security](docs/screenshots/settings-security-dark.png)
-
-### Development surfaces
-
-The repository also contains standalone harnesses for persistence, canvas,
-objects, and AI work. They are useful for contributors and automated testing,
-but are not required for trying the hosted app.
-
-![Development harnesses](docs/screenshots/dev-harnesses.png)
 
 ## Non-developer setup
 
