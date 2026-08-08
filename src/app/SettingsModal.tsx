@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
-import { DEFAULT_MODEL, MODELS } from "@/ai/provider";
+import { DEFAULT_MODEL, MODELS } from "@/ai/models";
 import { Select } from "@/design/Select";
 import { ThemeControl } from "./ThemeControl";
 
@@ -72,8 +72,9 @@ export function SettingsModal({
             )}
           </div>
           <p className="mt-2 text-xs text-fg-tertiary">
-            Required to generate. Stored unencrypted in this browser and forwarded through the
-            Precipice Worker, which keeps no key of its own and stores nothing.
+            Required to generate. Kept for this tab session and cleared when the tab is closed, then
+            forwarded through the Precipice Worker, which keeps no key of its own and stores
+            nothing.
           </p>
         </div>
 

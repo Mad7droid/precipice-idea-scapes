@@ -2,9 +2,8 @@ import { useCallback, useRef, useState } from "react";
 import { notify } from "@/core/notify";
 import { useScapeStore } from "@/core/store";
 import { starterFor } from "@/starters";
-import { generate, type GenerationEvent, type SkippedEvent } from "./generate";
+import type { GenerationEvent, SkippedEvent } from "./generate";
 import type { Scope } from "./prompt";
-import { ONBOARDING_RECORDING, replayRecording } from "./recording";
 import { CONNECT_TOOL_NAMES } from "./tools";
 
 export type GenerationStatus = "idle" | "streaming" | "done" | "error";
@@ -98,6 +97,9 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
 
       useScapeStore.getState().setGenerating(true);
       try {
+        // The provider SDK is large. It stays out of the initial canvas bundle and loads only
+        // when the user asks the model to generate something.
+        const { generate } = await import("./generate");
         await generate({
           request: options.request,
           scape,
@@ -157,6 +159,8 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
   const startRecorded = useCallback(async () => {
     const scape = useScapeStore.getState().scape;
     if (!scape) return;
+
+    const { ONBOARDING_RECORDING, replayRecording } = await import("./recording");
 
     controller.current?.abort();
     controller.current = new AbortController();

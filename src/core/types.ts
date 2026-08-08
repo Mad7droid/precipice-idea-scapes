@@ -123,7 +123,6 @@ export interface SettingsRepository {
 }
 
 export const SETTING_KEYS = {
-  apiKey: "anthropic.apiKey",
   model: "anthropic.model",
   theme: "ui.theme",
   lastScapeId: "ui.lastScapeId",

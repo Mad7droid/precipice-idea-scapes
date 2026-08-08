@@ -5,10 +5,8 @@ import { SETTING_KEYS } from "@/core/types";
 /**
  * Key/value settings.
  *
- * The Anthropic API key is stored here in plain text. That is the locked decision for v1 —
- * there is nowhere in a browser to put it that would be meaningfully safer, and pretending
- * otherwise would be security theatre. Real encryption arrives with the desktop shell and
- * the OS keychain. The settings UI says all of this plainly.
+ * Durable browser preferences only. The Anthropic API key is intentionally not a setting: it
+ * lives in session storage so it survives reloads but is cleared when the tab session ends.
  */
 export class DexieSettingsRepository implements SettingsRepository {
   constructor(private readonly database: PrecipiceDb = db) {}

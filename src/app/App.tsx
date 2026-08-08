@@ -1,11 +1,20 @@
-import { DevAi } from "@/routes/dev/ai";
-import { DevCanvas } from "@/routes/dev/canvas";
-import { DevObjects } from "@/routes/dev/objects";
-import { DevPersistence } from "@/routes/dev/persistence";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
 import { Link, match, useRoute } from "./router";
 import { ToastHost } from "./ToastHost";
+import { AppSettingsProvider } from "./useAppSettings";
+
+const DevAi = lazy(() => import("@/routes/dev/ai").then(({ DevAi }) => ({ default: DevAi })));
+const DevCanvas = lazy(() =>
+  import("@/routes/dev/canvas").then(({ DevCanvas }) => ({ default: DevCanvas })),
+);
+const DevObjects = lazy(() =>
+  import("@/routes/dev/objects").then(({ DevObjects }) => ({ default: DevObjects })),
+);
+const DevPersistence = lazy(() =>
+  import("@/routes/dev/persistence").then(({ DevPersistence }) => ({ default: DevPersistence })),
+);
 
 const DEV_ROUTES: Array<[string, string]> = [
   ["/dev/objects", "Object plugins — all types, both themes, 1× and 0.4×"],
@@ -16,20 +25,40 @@ const DEV_ROUTES: Array<[string, string]> = [
 
 export function App() {
   return (
-    <>
+    <AppSettingsProvider>
       <Routes />
       <ToastHost />
-    </>
+    </AppSettingsProvider>
   );
 }
 
 function Routes() {
   const route = useRoute();
 
-  if (route === "/dev/objects") return <DevObjects />;
-  if (route === "/dev/canvas") return <DevCanvas />;
-  if (route === "/dev/persistence") return <DevPersistence />;
-  if (route === "/dev/ai") return <DevAi />;
+  if (route === "/dev/objects")
+    return (
+      <DevRoute>
+        <DevObjects />
+      </DevRoute>
+    );
+  if (route === "/dev/canvas")
+    return (
+      <DevRoute>
+        <DevCanvas />
+      </DevRoute>
+    );
+  if (route === "/dev/persistence")
+    return (
+      <DevRoute>
+        <DevPersistence />
+      </DevRoute>
+    );
+  if (route === "/dev/ai")
+    return (
+      <DevRoute>
+        <DevAi />
+      </DevRoute>
+    );
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
 
   const scapeId = match("/s", route);
@@ -38,6 +67,20 @@ function Routes() {
   if (scapeId) return <Editor key={scapeId} scapeId={scapeId} />;
 
   return <Home />;
+}
+
+function DevRoute({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <main className="grid h-full place-items-center bg-base" role="status">
+          Loading development harness…
+        </main>
+      }
+    >
+      {children}
+    </Suspense>
+  );
 }
 
 function DevIndex({ route }: { route: string }) {

@@ -63,7 +63,6 @@ The canvas connects notes, journeys, and wireframes into a navigable product map
 
 ![Connection creation with a retained dotted line](docs/screenshots/connection-create-dark.png)
 
-
 ### Inspectors and controls
 
 Inspect and edit journey steps or wireframe elements without leaving the canvas.
@@ -118,13 +117,17 @@ Zustand, and the Vercel AI SDK with Anthropic support.
 ## Security and privacy
 
 - Scapes and settings are stored locally in the browser through IndexedDB; the hosted app does not provide a shared server-side scape database.
-- AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is stored unencrypted in your browser's IndexedDB and forwarded for generation requests only.
+- AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.
 - The Worker holds no Anthropic credential of its own and stores nothing. It exists to add CORS headers, and it rejects any request that does not carry a key.
-- The Worker forwards an allowlist of headers upstream, limits request bodies to 256 KiB, and returns `Cache-Control: no-store`. Its per-IP counter is best-effort abuse damping only: Worker isolates do not share memory, so it is not a dependable rate limit.
+- The Worker forwards an allowlist of headers upstream, limits request bodies to 256 KiB, and returns `Cache-Control: no-store`. Its per-IP counter is best-effort abuse damping only: Worker isolates do not share memory, so it is not a dependable rate limit. Configure the Cloudflare dashboard rate-limiting rule below for authoritative edge protection.
 - Its origin check gates CORS, not authorization. `Origin` is forgeable by any non-browser client, so nothing sensitive is placed behind it.
 - The development AI harness and the main workspace may accept a locally supplied API key. Treat it as sensitive browser-local data and never paste production secrets into screenshots, issues, commits, or chat logs.
 - Do not commit `.env` files, API keys, Cloudflare tokens, or generated credentials. Use GitHub Actions secrets for deployment credentials.
 - Report suspected vulnerabilities privately through [GitHub’s security advisory form](https://github.com/Mad7droid/precipice-idea-scapes/security/advisories/new). See [SECURITY.md](SECURITY.md) for the reporting policy.
+
+### Cloudflare edge rate limit
+
+In the Cloudflare dashboard for `precipice-ai-proxy`, add a rate-limiting rule for its Worker hostname: match `POST` requests whose path is exactly `/v1/messages`, use the client IP as the characteristic, and set a threshold of 60 requests per 60 seconds. Block matching clients for 60 seconds. This is deliberately generous enough for normal use and the five-request development eval while protecting Worker capacity from automated loops.
 
 ## Project status and contributing
 
