@@ -44,6 +44,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [composerCollapsed, setComposerCollapsed] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(248);
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
   const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
 
@@ -51,6 +55,25 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const commands = useRef<CanvasCommands | null>(null);
   const inspector = useRef<HTMLElement | null>(null);
   const composerInput = useRef<HTMLTextAreaElement | null>(null);
+
+  const startPanelResize = (side: "left" | "right") => (event: React.PointerEvent) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = side === "left" ? leftPanelWidth : rightPanelWidth;
+    const onMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const next = side === "left" ? startWidth + delta : startWidth - delta;
+      const clamped = Math.max(220, Math.min(440, next));
+      if (side === "left") setLeftPanelWidth(clamped);
+      else setRightPanelWidth(clamped);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
   const busy = generation.state.status === "streaming";
@@ -121,6 +144,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
     else if (generation.state.status === "done") setComposerCollapsed(true);
   }, [busy, generation.state.status]);
 
+  // A selected block is the thing the user is working on. Keep the full composer out of its
+  // way; the compact actions still make the selection-aware AI path immediately available.
+  // This only reacts when the selection changes, so choosing “Ask AI” keeps the composer open.
+  useEffect(() => {
+    if (selection.length > 0 && !busy) setComposerCollapsed(true);
+  }, [selection.length, busy]);
+
   // Global Cmd+Z / Cmd+Shift+Z — not just canvas-scoped, since the inspector and outline sit
   // right next to it and a drag's undo shouldn't depend on which panel last had focus.
   useEffect(() => {
@@ -129,6 +159,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
       if (meta && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen(true);
+        return;
+      }
+      if (meta && event.key === "/") {
+        event.preventDefault();
+        const collapse = !(leftPanelCollapsed && rightPanelCollapsed);
+        setLeftPanelCollapsed(collapse);
+        setRightPanelCollapsed(collapse);
         return;
       }
       if (
@@ -150,7 +187,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [leftPanelCollapsed, rightPanelCollapsed]);
 
   const requireKey = () => {
     if (apiKey.trim()) return true;
@@ -203,7 +240,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     { id: "tidy", label: "Tidy layout", run: () => commands.current?.relayout() },
     {
       id: "ask-ai",
-      label: "Ask AI",
+      label: "Tell AI what to do",
       hint: "Open the composer",
       run: focusComposer,
     },
@@ -231,14 +268,29 @@ export function Editor({ scapeId }: { scapeId: string }) {
       />
 
       <div className="flex min-h-0 flex-1">
-        <Outline
-          scape={scape}
-          selection={selection}
-          onSelect={selectFromOutline}
-          onAdd={(type) => commands.current?.addObject(type)}
-          onConnectLoose={(ids) => void handleConnect(ids)}
-          busy={busy}
-        />
+        <div
+          className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
+          style={{ width: leftPanelCollapsed ? 32 : leftPanelWidth }}
+        >
+          <Outline
+            scape={scape}
+            selection={selection}
+            onSelect={selectFromOutline}
+            onAdd={(type) => commands.current?.addObject(type)}
+            onConnectLoose={(ids) => void handleConnect(ids)}
+            busy={busy}
+            isCollapsed={leftPanelCollapsed}
+            onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
+          />
+          {!leftPanelCollapsed && (
+            <span
+              role="separator"
+              aria-label="Resize outline"
+              onPointerDown={startPanelResize("left")}
+              className="absolute right-0 top-0 z-panel h-full w-1 cursor-col-resize transition-colors hover:bg-accent/40"
+            />
+          )}
+        </div>
 
         <div className="relative min-w-0 flex-1">
           <Canvas
@@ -260,7 +312,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
               />
             </div>
 
-            {selection.length > 0 && !busy && (
+            {selection.length > 0 && !busy && composerCollapsed && (
               <div className="pointer-events-auto flex items-center gap-1.5">
                 <QuickAction onClick={() => void handleConnect(selection)}>
                   {selection.length > 1 ? "Connect these" : "Connect this"}
@@ -283,9 +335,31 @@ export function Editor({ scapeId }: { scapeId: string }) {
               <button
                 type="button"
                 onClick={focusComposer}
-                className="pointer-events-auto flex items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                aria-label="Open AI composer"
+                className="pointer-events-auto flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-left text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
               >
-                <span className="text-fg">Ask AI</span>
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 15 15"
+                  fill="none"
+                  aria-hidden
+                  className="shrink-0 text-fg-tertiary"
+                >
+                  <path
+                    d="M7.5 1.75v2M7.5 11.25v2M1.75 7.5h2M11.25 7.5h2M3.43 3.43l1.42 1.42M10.15 10.15l1.42 1.42M11.57 3.43l-1.42 1.42M4.85 10.15l-1.42 1.42"
+                    stroke="currentColor"
+                    strokeWidth="1.15"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="7.5" cy="7.5" r="2.15" stroke="currentColor" strokeWidth="1.15" />
+                </svg>
+                <span className="min-w-0 flex-1 truncate">
+                  {selection.length
+                    ? "Tell AI what to do with this selection…"
+                    : "Tell AI what to do in this scape…"}
+                </span>
+                <kbd className="mono shrink-0 normal-case tracking-normal">⌘K</kbd>
               </button>
             ) : (
               <div className="pointer-events-auto w-full max-w-[720px]">
@@ -301,7 +375,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   onTypesChange={setTypes}
                   availableTypes={starter.types}
                   selectionCount={selection.length}
-                  placeholder={starter.placeholder}
+                  placeholder={
+                    selection.length
+                      ? "Tell AI what to do with this selection…"
+                      : starter.placeholder
+                  }
                   inputRef={composerInput}
                 />
               </div>
@@ -309,42 +387,84 @@ export function Editor({ scapeId }: { scapeId: string }) {
           </div>
         </div>
 
-        {(selectedEdge || (selectedObject && plugin)) && (
-          <aside
-            ref={inspector}
-            className="z-panel w-[320px] shrink-0 overflow-auto border-l border-subtle bg-surface p-4"
-          >
-            {selectedEdge ? (
-              <RelationshipInspector
-                scape={scape}
-                relationship={selectedEdge}
-                onClose={() => setSelectedEdgeId(null)}
-                onFocusObject={selectFromOutline}
-              />
-            ) : (
-              selectedObject &&
-              plugin && (
-                <>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-fg-secondary">{plugin.label}</span>
-                    <button
-                      type="button"
-                      aria-label="Close inspector"
-                      onClick={() => commands.current?.clearSelection()}
-                      className="grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <plugin.Inspector
-                    object={selectedObject}
-                    dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+        <div
+          className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
+          style={{
+            width: rightPanelCollapsed
+              ? 32
+              : selectedEdge || (selectedObject && plugin)
+                ? rightPanelWidth
+                : 0,
+          }}
+        >
+          {rightPanelCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setRightPanelCollapsed(false)}
+              aria-label="Expand inspector"
+              title="Expand inspector (⌘/)"
+              className="grid h-full w-full place-items-start pt-2 text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            >
+              ‹
+            </button>
+          ) : (
+            (selectedEdge || (selectedObject && plugin)) && (
+              <aside
+                ref={inspector}
+                className="z-panel h-full w-full overflow-auto border-l border-subtle bg-surface p-4"
+              >
+                {selectedEdge ? (
+                  <RelationshipInspector
+                    scape={scape}
+                    relationship={selectedEdge}
+                    onClose={() => setSelectedEdgeId(null)}
+                    onFocusObject={selectFromOutline}
                   />
-                </>
-              )
-            )}
-          </aside>
-        )}
+                ) : (
+                  selectedObject &&
+                  plugin && (
+                    <>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-fg-secondary">{plugin.label}</span>
+                        <button
+                          type="button"
+                          aria-label="Close inspector"
+                          onClick={() => commands.current?.clearSelection()}
+                          className="grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <plugin.Inspector
+                        object={selectedObject}
+                        dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+                      />
+                    </>
+                  )
+                )}
+              </aside>
+            )
+          )}
+          {!rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
+            <button
+              type="button"
+              onClick={() => setRightPanelCollapsed(true)}
+              aria-label="Collapse inspector"
+              title="Collapse inspector (⌘/)"
+              className="absolute right-1 top-2 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            >
+              ›
+            </button>
+          )}
+          {!rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
+            <span
+              role="separator"
+              aria-label="Resize inspector"
+              onPointerDown={startPanelResize("right")}
+              className="absolute left-0 top-0 z-panel h-full w-1 cursor-col-resize transition-colors hover:bg-accent/40"
+            />
+          )}
+        </div>
       </div>
 
       {settingsOpen && (

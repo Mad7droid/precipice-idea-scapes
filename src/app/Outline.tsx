@@ -11,10 +11,9 @@ import { starterFor } from "@/starters";
  * That moved to the home page, which freed this space for something contextual to the thing
  * you actually have open.
  *
- * It is deliberately not a flat layers panel. Objects are grouped by type, and everything with
- * no relationships at all is pulled out into "Loose ends" at the bottom, with the AI connect
- * action sitting right there. That section is the honest measure of whether a generation
- * finished its job, and it puts the fix where the problem is visible.
+ * It is deliberately not a flat layers panel. Objects stay in one predictable type group, while
+ * a compact status row calls out any unconnected blocks. Keeping an object in both a type group
+ * and “Loose ends” made the rail look like two competing structures.
  */
 export function Outline({
   scape,
@@ -23,6 +22,8 @@ export function Outline({
   onAdd,
   onConnectLoose,
   busy,
+  isCollapsed = false,
+  onToggleCollapse,
 }: {
   scape: Scape;
   selection: ObjectId[];
@@ -31,11 +32,13 @@ export function Outline({
   onAdd: (objectType: string) => void;
   onConnectLoose: (ids: ObjectId[]) => void;
   busy: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
   const starter = starterFor(scape);
   const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [sectionCollapsed, setSectionCollapsed] = useState<Set<string>>(new Set());
 
   const { groups, loose, degree } = useMemo(() => {
     const degree = new Map<ObjectId, number>();
@@ -50,10 +53,7 @@ export function Outline({
     for (const id of scape.objectOrder) {
       const object = scape.objects[id];
       if (!object) continue;
-      if (degree.get(id) === 0) {
-        loose.push(id);
-        continue;
-      }
+      if (degree.get(id) === 0) loose.push(id);
       const list = byType.get(object.type) ?? [];
       list.push(id);
       byType.set(object.type, list);
@@ -74,7 +74,7 @@ export function Outline({
     return !queryText || !!object?.title.toLowerCase().includes(queryText);
   };
   const toggle = (section: string) =>
-    setCollapsed((current) => {
+    setSectionCollapsed((current) => {
       const next = new Set(current);
       if (next.has(section)) next.delete(section);
       else next.add(section);
@@ -82,110 +82,124 @@ export function Outline({
     });
 
   return (
-    <aside className="flex w-[248px] shrink-0 flex-col border-r border-subtle bg-surface">
-      <div className="flex-1 overflow-auto px-2 py-2">
-        <label className="sr-only" htmlFor="outline-search">
-          Search canvas
-        </label>
-        <input
-          id="outline-search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search canvas"
-          className="focus-self mb-2 w-full rounded-sm border border-subtle bg-inset px-2 py-1 text-xs text-fg placeholder:text-fg-tertiary"
-        />
-        {scape.objectOrder.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-fg-tertiary">
-            Nothing on the canvas yet. Add a block below, or describe what you want.
-          </p>
-        ) : (
-          <>
-            {groups.map(({ plugin, ids }) => {
-              const visibleIds = ids.filter(matches);
-              if (visibleIds.length === 0) return null;
-              return (
-                <Section
-                  key={plugin.type}
-                  label={plugin.label}
-                  count={visibleIds.length}
-                  collapsed={collapsed.has(plugin.type)}
-                  onToggle={() => toggle(plugin.type)}
-                >
-                  {visibleIds.map((id) => (
-                    <Row
-                      key={id}
-                      scape={scape}
-                      id={id}
-                      links={degree.get(id) ?? 0}
-                      selected={selection.includes(id)}
-                      onSelect={onSelect}
-                      onDelete={() => dispatchTx([{ type: "DeleteObject", id }])}
-                    />
-                  ))}
-                </Section>
-              );
-            })}
-
-            {loose.filter(matches).length > 0 && (
-              <Section
-                label="Loose ends"
-                count={loose.filter(matches).length}
-                collapsed={collapsed.has("loose")}
-                onToggle={() => toggle("loose")}
-              >
-                {loose.filter(matches).map((id) => (
-                  <Row
-                    key={id}
-                    scape={scape}
-                    id={id}
-                    links={0}
-                    selected={selection.includes(id)}
-                    onSelect={onSelect}
-                    onDelete={() => dispatchTx([{ type: "DeleteObject", id }])}
-                  />
-                ))}
-                <button
-                  type="button"
-                  disabled={busy || scape.objectOrder.length < 2}
-                  onClick={() => onConnectLoose(loose)}
-                  className={
-                    "mt-1 w-full rounded-sm border border-subtle px-2 py-1.5 text-xs " +
-                    "text-fg-secondary transition-colors duration-instant ease-out " +
-                    "hover:bg-hover hover:text-fg disabled:pointer-events-none disabled:opacity-40"
-                  }
-                >
-                  Connect these with AI
-                </button>
-              </Section>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="border-t border-subtle p-2">
-        <p className="mono px-1 pb-1.5">Add</p>
-        <div className="flex flex-wrap gap-1">
-          {addable.map((type) => {
-            const plugin = getPlugin(type);
-            if (!plugin) return null;
-            return (
-              <button
-                key={type}
-                type="button"
-                onClick={() => onAdd(type)}
-                className="flex items-center gap-1.5 rounded-full border border-subtle px-2.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-              >
-                <span
-                  aria-hidden
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: `var(${plugin.color})` }}
-                />
-                {plugin.label}
-              </button>
-            );
-          })}
+    <aside className="flex h-full w-full shrink-0 flex-col border-r border-subtle bg-surface">
+      {isCollapsed ? (
+        <div className="flex h-full flex-col items-center pt-2">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label="Expand outline"
+            title="Expand outline (⌘/)"
+            className="grid h-8 w-8 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          >
+            ›
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-auto px-2 py-2">
+            <label className="sr-only" htmlFor="outline-search">
+              Search canvas
+            </label>
+            <input
+              id="outline-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search canvas"
+              className="focus-self mb-2 w-full rounded-sm border border-subtle bg-inset px-2 py-1 text-xs text-fg placeholder:text-fg-tertiary"
+            />
+            {scape.objectOrder.length === 0 ? (
+              <p className="px-2 py-3 text-xs text-fg-tertiary">
+                Nothing on the canvas yet. Add a block below, or describe what you want.
+              </p>
+            ) : (
+              <>
+                {loose.length > 0 && (
+                  <div className="mb-3 rounded-md border border-subtle bg-inset p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-fg-secondary">
+                        {loose.length} unconnected {loose.length === 1 ? "block" : "blocks"}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={busy || loose.length < 2}
+                        onClick={() => onConnectLoose(loose)}
+                        className="whitespace-nowrap rounded-sm px-1.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        Connect with AI
+                      </button>
+                    </div>
+                    {loose.length === 1 && (
+                      <p className="mt-1 text-xs text-fg-tertiary">
+                        Add another block, then connect them.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {groups.map(({ plugin, ids }) => {
+                  const visibleIds = ids.filter(matches);
+                  if (visibleIds.length === 0) return null;
+                  return (
+                    <Section
+                      key={plugin.type}
+                      label={plugin.label}
+                      count={visibleIds.length}
+                      collapsed={sectionCollapsed.has(plugin.type)}
+                      onToggle={() => toggle(plugin.type)}
+                    >
+                      {visibleIds.map((id) => (
+                        <Row
+                          key={id}
+                          scape={scape}
+                          id={id}
+                          links={degree.get(id) ?? 0}
+                          selected={selection.includes(id)}
+                          onSelect={onSelect}
+                          onDelete={() => dispatchTx([{ type: "DeleteObject", id }])}
+                        />
+                      ))}
+                    </Section>
+                  );
+                })}
+              </>
+            )}
+          </div>
+
+          <div className="border-t border-subtle p-2">
+            <p className="mono px-1 pb-1.5">Add</p>
+            <div className="flex flex-wrap gap-1">
+              {addable.map((type) => {
+                const plugin = getPlugin(type);
+                if (!plugin) return null;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => onAdd(type)}
+                    className="flex items-center gap-1.5 rounded-full border border-subtle px-2.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                  >
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: `var(${plugin.color})` }}
+                    />
+                    {plugin.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label="Collapse outline"
+            title="Collapse outline (⌘/)"
+            className="absolute left-[calc(100%-1px)] top-2 z-panel grid h-7 w-5 place-items-center rounded-r-sm border border-subtle bg-surface text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          >
+            ‹
+          </button>
+        </>
+      )}
     </aside>
   );
 }

@@ -51,13 +51,13 @@ export interface Starter {
 
 export const BLANK: Starter = {
   id: "blank",
-  label: "Blank",
-  blurb: "An empty canvas. Every type available.",
+  label: "All-in-one",
+  blurb: "A flexible canvas with every block type available.",
   types: [],
   layout: "LR",
   edgeMode: "all",
   promptHint: "",
-  placeholder: "Describe what you want on the canvas.",
+  placeholder: "Tell AI what to do in this scape…",
 };
 
 const JOURNEY_MAP: Starter = {

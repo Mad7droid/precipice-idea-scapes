@@ -30,7 +30,7 @@ export function CommandPalette({ items, onClose }: { items: CommandItem[]; onClo
 
   return (
     <div
-      className="fixed inset-0 z-modal grid place-items-start bg-black/30 pt-[18vh]"
+      className="fixed inset-0 z-modal grid place-items-center bg-black/30 p-4"
       onMouseDown={onClose}
     >
       <div
@@ -118,6 +118,7 @@ const SHORTCUT_GROUPS = [
     shortcuts: [
       ["⌘↵", "Send AI prompt"],
       ["⌘K", "Open commands"],
+      ["⌘/", "Minimize or restore side panels"],
       ["Esc", "Clear selection or close a menu"],
     ],
   },

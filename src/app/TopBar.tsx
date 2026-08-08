@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Scape, ThemePreference } from "@/core/types";
 import { starterFor } from "@/starters";
 import { ThemeControl } from "./ThemeControl";
+import { Brand } from "./Brand";
 
 /**
  * The editor's chrome.
@@ -59,7 +60,7 @@ export function TopBar({
             strokeLinejoin="round"
           />
         </svg>
-        Precipice
+        <Brand compact />
       </button>
 
       <span aria-hidden className="text-fg-tertiary">

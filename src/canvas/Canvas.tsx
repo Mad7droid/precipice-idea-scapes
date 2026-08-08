@@ -207,7 +207,11 @@ function CanvasSurface({
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(readHiddenTypes);
 
   const edgeMode = edgeModes[scapeId] ?? starter.edgeMode;
-  const layoutMode = starter.layout;
+  // The starter supplies the first layout only. After the user chooses an arrangement, the
+  // toolbar needs to reflect that choice instead of leaving its tick on the starter forever.
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(starter.layout);
+
+  useEffect(() => setLayoutMode(starter.layout), [scapeId, starter.layout]);
 
   useEffect(() => {
     try {
@@ -748,7 +752,10 @@ function CanvasSurface({
           })
         }
         layoutMode={layoutMode}
-        onTidy={relayout}
+        onTidy={(mode) => {
+          setLayoutMode(mode);
+          relayout(mode);
+        }}
         zoom={zoom}
         canUndo={undoDepth > 0}
         canRedo={redoDepth > 0}

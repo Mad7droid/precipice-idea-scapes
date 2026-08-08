@@ -12,6 +12,7 @@ import { setPendingWork } from "./pending";
 import { navigate, scapeRoute } from "./router";
 import { SettingsModal } from "./SettingsModal";
 import { HelpPanel } from "./ProductivityOverlays";
+import { Brand } from "./Brand";
 import { StarterPicker } from "./StarterPicker";
 import { ThemeControl } from "./ThemeControl";
 import { useAppSettings } from "./useAppSettings";
@@ -101,7 +102,7 @@ export function Home() {
   return (
     <div className="h-full overflow-auto bg-base">
       <header className="flex items-center justify-between px-6 py-3">
-        <span className="text-fg">Precipice</span>
+        <Brand />
         <div className="flex items-center gap-2">
           <ImportButton onFile={(file) => void onImport(file)} />
           <ThemeControl value={theme} onChange={setTheme} />
@@ -135,7 +136,7 @@ export function Home() {
       </header>
 
       <main className="mx-auto w-full max-w-[860px] px-6 pb-24">
-        <h1 className="pb-6 pt-12 text-center text-3xl text-fg">What are we mapping?</h1>
+        <h1 className="font-pixel pb-6 pt-12 text-center text-3xl text-fg">What are we mapping?</h1>
 
         <Composer
           onSend={(text) => void create(text)}
@@ -149,7 +150,7 @@ export function Home() {
           onTypesChange={setTypes}
           availableTypes={starter.types}
           selectionCount={0}
-          placeholder={starter.placeholder}
+          placeholder="Tell AI what would you like to map…"
           // No selection to scope to, and the starter cards below already decide the types.
           controls={{ scope: false, types: false }}
         />
@@ -166,7 +167,7 @@ export function Home() {
             className="text-fg-accent underline decoration-dotted underline-offset-2 hover:no-underline"
           >
             {starter.id === "blank"
-              ? "open an empty canvas"
+              ? "open the all-in-one canvas"
               : `start a blank ${starter.label.toLowerCase()}`}
           </button>{" "}
           and build it by hand.

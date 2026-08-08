@@ -45,6 +45,7 @@ export function WireframeInspector({
   const primitives = (data.primitives ?? []).filter(Boolean);
   const columns = columnsOf(data);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [presetsOpen, setPresetsOpen] = useState(false);
 
   /**
@@ -142,19 +143,32 @@ export function WireframeInspector({
               key={p.id}
               draggable
               onDragStart={() => setDragIndex(i)}
-              onDragEnd={() => setDragIndex(null)}
-              onDragOver={(e) => e.preventDefault()}
+              onDragEnd={() => {
+                setDragIndex(null);
+                setDropIndex(null);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropIndex(i);
+              }}
               onDrop={(e) => {
                 e.preventDefault();
                 if (dragIndex !== null) move(dragIndex, i);
                 setDragIndex(null);
+                setDropIndex(null);
               }}
               className={
-                "rounded-md border border-subtle bg-surface p-2 transition-opacity " +
+                "relative rounded-md border border-subtle bg-surface p-2 transition-all " +
                 "duration-fast ease-out " +
                 (dragIndex === i ? "opacity-40" : "opacity-100")
               }
             >
+              {dropIndex === i && dragIndex !== null && dragIndex !== i && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -top-1 left-2 right-2 z-10 h-0.5 rounded-full bg-accent shadow-[0_0_0_2px_var(--accent-subtle)]"
+                />
+              )}
               <PrimitiveRow
                 index={i}
                 primitive={p}
@@ -265,6 +279,13 @@ function PrimitiveRow({
   return (
     <details className="group rounded-sm" aria-label={`Element ${index + 1}`}>
       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-sm px-1 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover">
+        <span
+          aria-hidden
+          title="Drag to reorder"
+          className="cursor-grab select-none text-fg-tertiary active:cursor-grabbing"
+        >
+          ⠿
+        </span>
         <span aria-hidden className="mono text-fg-tertiary group-open:rotate-90">
           ›
         </span>
