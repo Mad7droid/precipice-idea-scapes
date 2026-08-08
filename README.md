@@ -16,10 +16,10 @@ Open the hosted app at **[precipice.pages.dev](https://precipice.pages.dev)**.
 For a first look:
 
 1. Open the link in a modern browser.
-2. Choose **New scape** in the sidebar, or open the example scape if it is already present.
+2. Choose a starter such as **Blank**, **Journey map**, **Mind map**, or **Screens**, or open an existing scape from the home page.
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
 4. Select a Wireframe object to inspect its grid, elements, labels, widths, and alignment controls.
-5. Switch between Light, Dark, and System themes from the lower-left theme control.
+5. Switch between Light, Dark, and System themes from the top-right theme control.
 
 The hosted version stores scapes locally in your browser. It is not a shared
 cloud workspace, so exporting a `.scape` file is the safest way to move work
@@ -40,14 +40,18 @@ shared key behind a public endpoint is a shared key anyone can spend.
 
 ## Screenshots
 
-### Workspace
+### Home and generation
 
-The main workspace begins with a prompt surface and a scape sidebar. Both themes
-are supported.
+The home surface combines prompt-driven creation, starter scapes, imports, theme
+selection, settings, and locally saved scapes.
 
-![Precipice workspace in dark mode](docs/screenshots/workspace-dark.png)
+![Precipice home in dark mode](docs/screenshots/home-dark.png)
 
-![Precipice workspace in light mode](docs/screenshots/workspace-light.png)
+![Empty canvas in dark mode](docs/screenshots/canvas-empty-dark.png)
+
+![Generation thinking state](docs/screenshots/generation-thinking-dark.png)
+
+![Generation action stream](docs/screenshots/generation-actions-dark.png)
 
 ### Canvas
 
@@ -57,26 +61,17 @@ The canvas connects notes, journeys, and wireframes into a navigable product map
 
 ![Precipice canvas in light mode](docs/screenshots/canvas-light-latest.png)
 
-![Wireframe and connected canvas in light mode](docs/screenshots/wireframe-canvas-light.png)
+![Connection creation with a retained dotted line](docs/screenshots/connection-create-dark.png)
 
-![Wireframe and connected canvas in dark mode](docs/screenshots/wireframe-canvas-dark.png)
 
 ### Inspectors and controls
 
 Inspect and edit journey steps or wireframe elements without leaving the canvas.
 Filters and line controls keep larger scapes readable.
 
-![Journey inspector](docs/screenshots/journey-inspector-dark.png)
-
 ![Wireframe inspector](docs/screenshots/wireframe-inspector-dark.png)
 
-![Wireframe controls](docs/screenshots/wireframe-controls-dark.png)
-
-![Object type filter](docs/screenshots/type-filter-dark.png)
-
-![Model selector](docs/screenshots/model-selector-dark.png)
-
-![Relationship line filter](docs/screenshots/line-filter-dark.png)
+![Wireframe inspector with element editing](docs/screenshots/wireframe-inspector-panel-dark.png)
 
 ### Development surfaces
 

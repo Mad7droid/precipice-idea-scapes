@@ -14,6 +14,10 @@ milestone is published.
 - Generation now requires your own Anthropic API key. The hosted Worker no longer
   falls back to a server-side key, so leaving the field blank prompts for a key
   instead of silently generating on a shared account.
+- Refreshed the public README screenshots with the current home, generation,
+  canvas, connection, and wireframe-inspector experiences.
+- Updated the hosted-app instructions to match the starter-based home flow and
+  top-right theme controls.
 
 ### Security
 
