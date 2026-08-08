@@ -1,5 +1,9 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
+import { MODELS, type ModelChoice } from "./models";
+
+export { DEFAULT_MODEL, MODELS } from "./models";
+export type { ModelChoice } from "./models";
 
 /**
  * Anthropic only in v1.
@@ -14,35 +18,6 @@ export interface Provider {
   /** Throws if a direct key is missing — callers surface that as "add a key in settings". */
   model: (modelId: string, apiKey: string) => LanguageModel;
 }
-
-export interface ModelChoice {
-  id: string;
-  label: string;
-  hint: string;
-}
-
-/**
- * Model ids are exact Anthropic API ids, and these are the current ones — bare aliases with
- * no date suffix. The previous pair, `claude-sonnet-4-20250514` and `claude-opus-4-20250514`,
- * were dated snapshots that had passed their retirement date. Prefer the undated alias so a
- * snapshot retirement can't break generation later.
- *
- * Sonnet stays the default for structured, tool-heavy work at a lower cost than Opus.
- */
-export const MODELS: ModelChoice[] = [
-  {
-    id: "claude-sonnet-5",
-    label: "Sonnet 5",
-    hint: "Fast and good at structured output. The default.",
-  },
-  {
-    id: "claude-opus-5",
-    label: "Opus 5",
-    hint: "Slower and pricier. Better on genuinely hard briefs.",
-  },
-];
-
-export const DEFAULT_MODEL = MODELS[0].id;
 
 const DEFAULT_PROXY_ORIGIN = "https://precipice-ai-proxy.precipice.workers.dev";
 

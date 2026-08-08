@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@/app/router";
+import { useAppSettings } from "@/app/useAppSettings";
 import { fixtureScape } from "@/core/fixtures";
-import { SETTING_KEYS } from "@/core/types";
 import { useScapeStore } from "@/core/store";
-import { DEFAULT_MODEL, MODELS } from "@/ai/provider";
+import { MODELS } from "@/ai/models";
 import { projectScape } from "@/ai/context";
 import { EVALS, formatEvalTable, runEvals, type EvalResult } from "@/ai/evals";
 import { useGeneration } from "@/ai/useGeneration";
 import { Ribbon } from "@/ai/Ribbon";
 import { Composer } from "@/ai/Composer";
 import { Select } from "@/design/Select";
-import { settingsRepository } from "@/persistence/settings";
 
 /**
  * Workstream C's harness. Exercises the full generation loop — provider, context projection,
@@ -18,8 +17,7 @@ import { settingsRepository } from "@/persistence/settings";
  */
 export function DevAi() {
   const scape = useScapeStore((s) => s.scape);
-  const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState(DEFAULT_MODEL);
+  const { apiKey, setApiKey, modelId, setModelId } = useAppSettings();
   const [scope, setScope] = useState<"scape" | "selection">("scape");
   const [types, setTypes] = useState<string[]>([]);
   const [evalResults, setEvalResults] = useState<EvalResult[] | null>(null);
@@ -30,13 +28,7 @@ export function DevAi() {
 
   useEffect(() => {
     if (!scape) useScapeStore.getState().loadScape(fixtureScape());
-    void settingsRepository.get<string>(SETTING_KEYS.apiKey).then((k) => k && setApiKey(k));
   }, [scape]);
-
-  const onKeyChange = useCallback((next: string) => {
-    setApiKey(next);
-    void settingsRepository.set(SETTING_KEYS.apiKey, next);
-  }, []);
 
   const projection = scape
     ? projectScape(scape, { selection: useScapeStore.getState().selection })
@@ -75,7 +67,7 @@ export function DevAi() {
           <input
             type="password"
             value={apiKey}
-            onChange={(e) => onKeyChange(e.target.value)}
+            onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-ant-…"
             aria-label="Anthropic API key"
             className="mono w-[280px] rounded-md border border-subtle bg-inset px-2 py-1.5 text-fg"

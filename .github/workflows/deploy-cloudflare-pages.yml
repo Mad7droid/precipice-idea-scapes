@@ -39,7 +39,7 @@ jobs:
         run: pnpm build
 
       - name: Deploy AI proxy
-        run: pnpm dlx wrangler deploy
+        run: pnpm exec wrangler deploy
 
       - name: Deploy
-        run: pnpm dlx wrangler pages deploy dist --project-name precipice --branch main
+        run: pnpm exec wrangler pages deploy dist --project-name precipice --branch main

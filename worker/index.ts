@@ -22,6 +22,7 @@ const ALLOWED_ORIGINS = new Set([
 const MAX_BODY_BYTES = 256 * 1024;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
+const MAX_TRACKED_IPS = 10_000;
 
 /** Everything else the caller sends is dropped rather than relayed to Anthropic. */
 const FORWARDED_HEADERS = ["content-type", "accept", "anthropic-version", "anthropic-beta"];
@@ -29,7 +30,8 @@ const FORWARDED_HEADERS = ["content-type", "accept", "anthropic-version", "anthr
 /**
  * Best-effort abuse damping, not a rate limit. This map lives in one isolate, and Cloudflare
  * runs many and recycles them freely, so the real ceiling is some unknown multiple of this.
- * It costs nothing and slows a naive loop. Treat anything stronger as unimplemented.
+ * Its size is capped so a flood of distinct IPs cannot retain unbounded memory in a warm
+ * isolate. Treat anything stronger as unimplemented.
  */
 const buckets = new Map<string, { started: number; count: number }>();
 
@@ -55,6 +57,14 @@ function withinRateLimit(ip: string): boolean {
   const now = Date.now();
   const bucket = buckets.get(ip);
   if (!bucket || now - bucket.started >= WINDOW_MS) {
+    if (!bucket && buckets.size >= MAX_TRACKED_IPS) {
+      for (const [candidate, entry] of buckets) {
+        if (now - entry.started >= WINDOW_MS) buckets.delete(candidate);
+      }
+      // A full map of active buckets is still safer to discard than to let an attacker grow
+      // it indefinitely. This only makes the guard less effective under an active flood.
+      if (buckets.size >= MAX_TRACKED_IPS) buckets.clear();
+    }
     buckets.set(ip, { started: now, count: 1 });
     return true;
   }

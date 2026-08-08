@@ -1,5 +1,7 @@
 allowBuilds:
   esbuild: true
+  # Wrangler's locally bundled Cloudflare runtime.
+  workerd: true
 
 # Transitive via @ai-sdk/*. Not reachable from browser code, but it carries advisories and
 # pinning it forward costs nothing. pnpm 11 reads overrides here, not from package.json.
