@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { allPlugins } from "@/core/registry";
 import { Select } from "@/design/Select";
 import type { Scope } from "./prompt";
-import { MODELS } from "./provider";
+import { MODELS } from "./models";
 
 /** Auto-grow to six lines, then scroll. Roughly six × --leading-base plus the padding. */
 const MAX_HEIGHT_PX = 168;
@@ -30,6 +30,8 @@ export interface ComposerProps {
   placeholder?: string;
   /** Rendered to the left of the send button — the starter badge on the home page. */
   slot?: React.ReactNode;
+  /** Lets the editor's command palette return focus to the prompt after expanding it. */
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   /**
    * Which pills to draw.
    *
@@ -59,13 +61,15 @@ export function Composer({
   disabled,
   placeholder = "Describe what you want on the canvas.",
   slot,
+  inputRef,
   controls,
 }: ComposerProps) {
   const showScope = controls?.scope ?? true;
   const showTypes = controls?.types ?? true;
   const [value, setValue] = useState("");
   const [focused, setFocused] = useState(false);
-  const textarea = useRef<HTMLTextAreaElement>(null);
+  const localTextarea = useRef<HTMLTextAreaElement>(null);
+  const textarea = inputRef ?? localTextarea;
 
   useLayoutEffect(() => {
     const el = textarea.current;

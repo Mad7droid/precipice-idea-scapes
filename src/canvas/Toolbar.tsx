@@ -26,6 +26,7 @@ export interface ToolbarProps {
   onZoomReset: () => void;
   onFit: () => void;
   onAdd: () => void;
+  onHelp: () => void;
 }
 
 export function Toolbar({
@@ -45,6 +46,7 @@ export function Toolbar({
   onZoomReset,
   onFit,
   onAdd,
+  onHelp,
 }: ToolbarProps) {
   const [viewOpen, setViewOpen] = useState(false);
   const [tidyOpen, setTidyOpen] = useState(false);
@@ -100,8 +102,13 @@ export function Toolbar({
       )}
 
       <div className="flex flex-col overflow-hidden rounded-md border border-subtle bg-surface shadow-sm">
-        <ToolButton label="Add object" onClick={onAdd}>
+        <ToolButton label="Add object (N, J, W)" onClick={onAdd}>
           <path d="M7 2.5v9M2.5 7h9" strokeLinecap="round" />
+        </ToolButton>
+        <ToolButton label="Help and keyboard shortcuts (?)" onClick={onHelp}>
+          <circle cx="7" cy="7" r="5.5" />
+          <path d="M5.6 5.4a1.55 1.55 0 1 1 2.75 1c-.56.7-1.35.9-1.35 1.85" strokeLinecap="round" />
+          <path d="M7 10.3h.01" strokeLinecap="round" strokeWidth="2" />
         </ToolButton>
         <ToolButton
           label={`View — lines ${edgeMode === "none" ? "off" : edgeMode}`}
@@ -132,7 +139,7 @@ export function Toolbar({
         </ToolButton>
         <button
           type="button"
-          title="Reset zoom to 100%"
+          title="Reset zoom to 100% (0)"
           onClick={onZoomReset}
           className="mono px-1 py-1 text-center transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
         >

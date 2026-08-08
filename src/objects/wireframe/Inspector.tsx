@@ -263,120 +263,131 @@ function PrimitiveRow({
   const isSection = primitive.kind === "section";
 
   return (
-    <div className="flex items-start gap-1.5">
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <Select
-          label={`Element ${index + 1} kind`}
-          value={primitive.kind}
-          onChange={(v) => onChange({ ...primitive, kind: v as PrimitiveKind })}
-          options={PRIMITIVE_KINDS.map((kind) => ({ value: kind, label: kind }))}
-          className="mono"
-        />
-        <TextInput
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder={isSection ? "Region name" : "Label (optional)"}
-          aria-label={`Element ${index + 1} label`}
-        />
-        {/* A section is always the full row, so a width control on it would be a lie. */}
-        {!isSection && (
-          <>
-            <SpanBar
-              span={primitive.span}
-              columns={columns}
-              label={`Element ${index + 1} width`}
-              onChange={(span) => onChange({ ...primitive, span })}
-            />
-            <div className="flex flex-wrap gap-1.5">
-              <Segmented
-                label={`Element ${index + 1} alignment`}
-                value={primitive.align ?? "fill"}
-                options={[
-                  { value: "fill", label: "fill" },
-                  { value: "start", label: "left" },
-                  { value: "center", label: "centre" },
-                  { value: "end", label: "right" },
-                ]}
-                onChange={(v) =>
-                  onChange(
-                    v === "fill"
-                      ? omit(primitive, "align")
-                      : { ...primitive, align: v as "start" | "center" | "end" },
-                  )
-                }
+    <details className="group rounded-sm" aria-label={`Element ${index + 1}`}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-sm px-1 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover">
+        <span aria-hidden className="mono text-fg-tertiary group-open:rotate-90">
+          ›
+        </span>
+        <span className="mono">{primitive.kind}</span>
+        <span className="min-w-0 flex-1 truncate text-xs">
+          {primitive.label || "Untitled element"}
+        </span>
+      </summary>
+      <div className="mt-1 flex items-start gap-1.5">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Select
+            label={`Element ${index + 1} kind`}
+            value={primitive.kind}
+            onChange={(v) => onChange({ ...primitive, kind: v as PrimitiveKind })}
+            options={PRIMITIVE_KINDS.map((kind) => ({ value: kind, label: kind }))}
+            className="mono"
+          />
+          <TextInput
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={isSection ? "Region name" : "Label (optional)"}
+            aria-label={`Element ${index + 1} label`}
+          />
+          {/* A section is always the full row, so a width control on it would be a lie. */}
+          {!isSection && (
+            <>
+              <SpanBar
+                span={primitive.span}
+                columns={columns}
+                label={`Element ${index + 1} width`}
+                onChange={(span) => onChange({ ...primitive, span })}
               />
-              {SIZEABLE.includes(primitive.kind) && (
+              <div className="flex flex-wrap gap-1.5">
                 <Segmented
-                  label={`Element ${index + 1} height`}
-                  value={primitive.size ?? "auto"}
+                  label={`Element ${index + 1} alignment`}
+                  value={primitive.align ?? "fill"}
                   options={[
-                    { value: "auto", label: "auto" },
-                    { value: "sm", label: "S" },
-                    { value: "md", label: "M" },
-                    { value: "lg", label: "L" },
+                    { value: "fill", label: "fill" },
+                    { value: "start", label: "left" },
+                    { value: "center", label: "centre" },
+                    { value: "end", label: "right" },
                   ]}
                   onChange={(v) =>
                     onChange(
-                      v === "auto"
-                        ? omit(primitive, "size")
-                        : { ...primitive, size: v as "sm" | "md" | "lg" },
+                      v === "fill"
+                        ? omit(primitive, "align")
+                        : { ...primitive, align: v as "start" | "center" | "end" },
                     )
                   }
                 />
-              )}
-            </div>
-          </>
-        )}
+                {SIZEABLE.includes(primitive.kind) && (
+                  <Segmented
+                    label={`Element ${index + 1} height`}
+                    value={primitive.size ?? "auto"}
+                    options={[
+                      { value: "auto", label: "auto" },
+                      { value: "sm", label: "S" },
+                      { value: "md", label: "M" },
+                      { value: "lg", label: "L" },
+                    ]}
+                    onChange={(v) =>
+                      onChange(
+                        v === "auto"
+                          ? omit(primitive, "size")
+                          : { ...primitive, size: v as "sm" | "md" | "lg" },
+                      )
+                    }
+                  />
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="-mr-1 flex shrink-0 flex-col">
+          <IconButton
+            label={`Move element ${index + 1} up`}
+            onClick={canMoveUp ? onMoveUp : () => {}}
+          >
+            <Chevron up disabled={!canMoveUp} />
+          </IconButton>
+          <IconButton
+            label={`Move element ${index + 1} down`}
+            onClick={canMoveDown ? onMoveDown : () => {}}
+          >
+            <Chevron disabled={!canMoveDown} />
+          </IconButton>
+          <IconButton label={`Duplicate element ${index + 1}`} onClick={onDuplicate}>
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+              <rect
+                x="1.2"
+                y="1.2"
+                width="6.6"
+                height="6.6"
+                rx="1.2"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                fill="none"
+              />
+              <rect
+                x="4.2"
+                y="4.2"
+                width="6.6"
+                height="6.6"
+                rx="1.2"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                fill="none"
+              />
+            </svg>
+          </IconButton>
+          <IconButton label={`Delete element ${index + 1}`} onClick={onRemove} danger>
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+              <path
+                d="M2.5 2.5l7 7M9.5 2.5l-7 7"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                fill="none"
+              />
+            </svg>
+          </IconButton>
+        </div>
       </div>
-      <div className="-mr-1 flex shrink-0 flex-col">
-        <IconButton
-          label={`Move element ${index + 1} up`}
-          onClick={canMoveUp ? onMoveUp : () => {}}
-        >
-          <Chevron up disabled={!canMoveUp} />
-        </IconButton>
-        <IconButton
-          label={`Move element ${index + 1} down`}
-          onClick={canMoveDown ? onMoveDown : () => {}}
-        >
-          <Chevron disabled={!canMoveDown} />
-        </IconButton>
-        <IconButton label={`Duplicate element ${index + 1}`} onClick={onDuplicate}>
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-            <rect
-              x="1.2"
-              y="1.2"
-              width="6.6"
-              height="6.6"
-              rx="1.2"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              fill="none"
-            />
-            <rect
-              x="4.2"
-              y="4.2"
-              width="6.6"
-              height="6.6"
-              rx="1.2"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              fill="none"
-            />
-          </svg>
-        </IconButton>
-        <IconButton label={`Delete element ${index + 1}`} onClick={onRemove} danger>
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-            <path
-              d="M2.5 2.5l7 7M9.5 2.5l-7 7"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              fill="none"
-            />
-          </svg>
-        </IconButton>
-      </div>
-    </div>
+    </details>
   );
 }
 

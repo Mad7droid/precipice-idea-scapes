@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import type { ObjectId, Scape } from "@/core/types";
@@ -34,6 +34,8 @@ export function Outline({
 }) {
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
   const starter = starterFor(scape);
+  const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const { groups, loose, degree } = useMemo(() => {
     const degree = new Map<ObjectId, number>();
@@ -66,35 +68,72 @@ export function Outline({
   }, [scape]);
 
   const addable = starter.types.length > 0 ? starter.types : allPlugins().map((p) => p.type);
+  const queryText = query.trim().toLowerCase();
+  const matches = (id: ObjectId) => {
+    const object = scape.objects[id];
+    return !queryText || !!object?.title.toLowerCase().includes(queryText);
+  };
+  const toggle = (section: string) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
 
   return (
     <aside className="flex w-[248px] shrink-0 flex-col border-r border-subtle bg-surface">
       <div className="flex-1 overflow-auto px-2 py-2">
+        <label className="sr-only" htmlFor="outline-search">
+          Search canvas
+        </label>
+        <input
+          id="outline-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search canvas"
+          className="focus-self mb-2 w-full rounded-sm border border-subtle bg-inset px-2 py-1 text-xs text-fg placeholder:text-fg-tertiary"
+        />
         {scape.objectOrder.length === 0 ? (
           <p className="px-2 py-3 text-xs text-fg-tertiary">
             Nothing on the canvas yet. Add a block below, or describe what you want.
           </p>
         ) : (
           <>
-            {groups.map(({ plugin, ids }) => (
-              <Section key={plugin.type} label={plugin.label} count={ids.length}>
-                {ids.map((id) => (
-                  <Row
-                    key={id}
-                    scape={scape}
-                    id={id}
-                    links={degree.get(id) ?? 0}
-                    selected={selection.includes(id)}
-                    onSelect={onSelect}
-                    onDelete={() => dispatchTx([{ type: "DeleteObject", id }])}
-                  />
-                ))}
-              </Section>
-            ))}
+            {groups.map(({ plugin, ids }) => {
+              const visibleIds = ids.filter(matches);
+              if (visibleIds.length === 0) return null;
+              return (
+                <Section
+                  key={plugin.type}
+                  label={plugin.label}
+                  count={visibleIds.length}
+                  collapsed={collapsed.has(plugin.type)}
+                  onToggle={() => toggle(plugin.type)}
+                >
+                  {visibleIds.map((id) => (
+                    <Row
+                      key={id}
+                      scape={scape}
+                      id={id}
+                      links={degree.get(id) ?? 0}
+                      selected={selection.includes(id)}
+                      onSelect={onSelect}
+                      onDelete={() => dispatchTx([{ type: "DeleteObject", id }])}
+                    />
+                  ))}
+                </Section>
+              );
+            })}
 
-            {loose.length > 0 && (
-              <Section label="Loose ends" count={loose.length}>
-                {loose.map((id) => (
+            {loose.filter(matches).length > 0 && (
+              <Section
+                label="Loose ends"
+                count={loose.filter(matches).length}
+                collapsed={collapsed.has("loose")}
+                onToggle={() => toggle("loose")}
+              >
+                {loose.filter(matches).map((id) => (
                   <Row
                     key={id}
                     scape={scape}
@@ -154,19 +193,33 @@ export function Outline({
 function Section({
   label,
   count,
+  collapsed,
+  onToggle,
   children,
 }: {
   label: string;
   count: number;
+  collapsed: boolean;
+  onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
     <section className="pb-3">
-      <p className="mono flex items-center justify-between px-2 pb-1">
-        <span>{label}</span>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        className="mono flex w-full items-center justify-between rounded-sm px-2 pb-1 text-left transition-colors duration-instant ease-out hover:bg-hover"
+      >
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="text-fg-tertiary">
+            {collapsed ? "›" : "⌄"}
+          </span>
+          {label}
+        </span>
         <span>{count}</span>
-      </p>
-      {children}
+      </button>
+      {!collapsed && children}
     </section>
   );
 }

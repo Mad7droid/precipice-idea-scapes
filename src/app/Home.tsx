@@ -11,6 +11,7 @@ import { ImportButton, ScapeList } from "./ScapeList";
 import { setPendingWork } from "./pending";
 import { navigate, scapeRoute } from "./router";
 import { SettingsModal } from "./SettingsModal";
+import { HelpPanel } from "./ProductivityOverlays";
 import { StarterPicker } from "./StarterPicker";
 import { ThemeControl } from "./ThemeControl";
 import { useAppSettings } from "./useAppSettings";
@@ -37,6 +38,7 @@ export function Home() {
   const [starterId, setStarterId] = useState("blank");
   const [query, setQuery] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [theme, setTheme] = useTheme();
   const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
 
@@ -120,6 +122,15 @@ export function Home() {
               <circle cx="8" cy="8" r="2.05" stroke="currentColor" strokeWidth="1.2" />
             </svg>
           </button>
+          <button
+            type="button"
+            aria-label="Open help"
+            title="Help and keyboard shortcuts"
+            onClick={() => setHelpOpen(true)}
+            className="grid h-9 w-9 place-items-center rounded-md text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          >
+            <span className="mono text-base">?</span>
+          </button>
         </div>
       </header>
 
@@ -192,8 +203,13 @@ export function Home() {
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
           onThemeChange={setTheme}
+          onOpenHelp={() => {
+            setSettingsOpen(false);
+            setHelpOpen(true);
+          }}
         />
       )}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

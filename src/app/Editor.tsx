@@ -16,6 +16,7 @@ import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
 import { Outline } from "./Outline";
 import { takePendingWork } from "./pending";
+import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverlays";
 import { RelationshipInspector } from "./RelationshipInspector";
 import { navigate } from "./router";
 import { SettingsModal } from "./SettingsModal";
@@ -40,12 +41,16 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [scope, setScope] = useState<Scope>("scape");
   const [selectedEdgeId, setSelectedEdgeId] = useState<RelationshipId | null>(null);
   const [booted, setBooted] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [composerCollapsed, setComposerCollapsed] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
   const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
 
   const autosave = useRef<AutosaveHandle | null>(null);
   const commands = useRef<CanvasCommands | null>(null);
   const inspector = useRef<HTMLElement | null>(null);
+  const composerInput = useRef<HTMLTextAreaElement | null>(null);
 
   const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
   const busy = generation.state.status === "streaming";
@@ -109,10 +114,23 @@ export function Editor({ scapeId }: { scapeId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booted, ready]);
 
+  // A finished generation has left its compact action summary behind; reclaim the canvas for
+  // the work itself while keeping the next prompt one click away.
+  useEffect(() => {
+    if (busy) setComposerCollapsed(false);
+    else if (generation.state.status === "done") setComposerCollapsed(true);
+  }, [busy, generation.state.status]);
+
   // Global Cmd+Z / Cmd+Shift+Z — not just canvas-scoped, since the inspector and outline sit
   // right next to it and a drag's undo shouldn't depend on which panel last had focus.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const meta = event.metaKey || event.ctrlKey;
+      if (meta && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+        return;
+      }
       if (
         (event.target as HTMLElement | null)?.closest?.(
           "input, textarea, select, [contenteditable]",
@@ -120,7 +138,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
       ) {
         return;
       }
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+      if (event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+      if (!meta || event.key.toLowerCase() !== "z") return;
       event.preventDefault();
       if (event.shiftKey) useScapeStore.getState().redo();
       else useScapeStore.getState().undo();
@@ -152,9 +175,46 @@ export function Editor({ scapeId }: { scapeId: string }) {
     commands.current?.focus(id);
   };
 
+  const focusComposer = () => {
+    setComposerCollapsed(false);
+    window.requestAnimationFrame(() => composerInput.current?.focus());
+  };
+
   const selectedObject = selection.length === 1 && scape ? scape.objects[selection[0]] : undefined;
   const plugin = selectedObject ? getPlugin(selectedObject.type) : undefined;
   const selectedEdge = selectedEdgeId && scape ? scape.relationships[selectedEdgeId] : undefined;
+  const commandItems: CommandItem[] = [
+    ...(["note", "journey", "wireframe"] as const)
+      .filter((type) => starter.types.length === 0 || starter.types.includes(type))
+      .map((type) => ({
+        id: `add-${type}`,
+        label: `Add ${type}`,
+        hint: "Create at canvas centre",
+        shortcut: type === "note" ? "N" : type === "journey" ? "J" : "W",
+        run: () => commands.current?.addObject(type),
+      })),
+    { id: "fit", label: "Fit canvas", shortcut: "⇧1", run: () => commands.current?.fit() },
+    {
+      id: "zoom-reset",
+      label: "Reset zoom",
+      shortcut: "0",
+      run: () => commands.current?.resetZoom(),
+    },
+    { id: "tidy", label: "Tidy layout", run: () => commands.current?.relayout() },
+    {
+      id: "ask-ai",
+      label: "Ask AI",
+      hint: "Open the composer",
+      run: focusComposer,
+    },
+    { id: "settings", label: "Open settings", run: () => setSettingsOpen(true) },
+    {
+      id: "shortcuts",
+      label: "Help and keyboard shortcuts",
+      shortcut: "?",
+      run: () => setShortcutsOpen(true),
+    },
+  ];
 
   if (!booted || !ready || !scape) return null;
 
@@ -185,6 +245,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
             onReady={(c) => (commands.current = c)}
             onOpenInspector={focusInspector}
             onEdgeSelect={setSelectedEdgeId}
+            onOpenHelp={() => setShortcutsOpen(true)}
             isGenerating={busy}
             colorMode={resolvedTheme}
           />
@@ -218,22 +279,33 @@ export function Editor({ scapeId }: { scapeId: string }) {
               </div>
             )}
 
-            <div className="pointer-events-auto w-full max-w-[720px]">
-              <Composer
-                onSend={(text) => void handleSend(text)}
-                onCancel={generation.cancel}
-                busy={busy}
-                modelId={modelId}
-                onModelChange={setModelId}
-                scope={scope}
-                onScopeChange={setScope}
-                types={types}
-                onTypesChange={setTypes}
-                availableTypes={starter.types}
-                selectionCount={selection.length}
-                placeholder={starter.placeholder}
-              />
-            </div>
+            {composerCollapsed && !busy ? (
+              <button
+                type="button"
+                onClick={focusComposer}
+                className="pointer-events-auto flex items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+              >
+                <span className="text-fg">Ask AI</span>
+              </button>
+            ) : (
+              <div className="pointer-events-auto w-full max-w-[720px]">
+                <Composer
+                  onSend={(text) => void handleSend(text)}
+                  onCancel={generation.cancel}
+                  busy={busy}
+                  modelId={modelId}
+                  onModelChange={setModelId}
+                  scope={scope}
+                  onScopeChange={setScope}
+                  types={types}
+                  onTypesChange={setTypes}
+                  availableTypes={starter.types}
+                  selectionCount={selection.length}
+                  placeholder={starter.placeholder}
+                  inputRef={composerInput}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -282,8 +354,14 @@ export function Editor({ scapeId }: { scapeId: string }) {
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
           onThemeChange={setTheme}
+          onOpenHelp={() => {
+            setSettingsOpen(false);
+            setShortcutsOpen(true);
+          }}
         />
       )}
+      {commandOpen && <CommandPalette items={commandItems} onClose={() => setCommandOpen(false)} />}
+      {shortcutsOpen && <HelpPanel onClose={() => setShortcutsOpen(false)} />}
     </div>
   );
 }

@@ -11,12 +11,14 @@ export function SettingsModal({
   apiKey,
   onApiKeyChange,
   onThemeChange,
+  onOpenHelp,
 }: {
   onClose: () => void;
   theme: ThemePreference;
   apiKey: string;
   onApiKeyChange: (apiKey: string) => void;
   onThemeChange: (next: ThemePreference) => void;
+  onOpenHelp?: () => void;
 }) {
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
 
@@ -91,8 +93,15 @@ export function SettingsModal({
 
         <button
           type="button"
+          onClick={onOpenHelp}
+          className="mt-5 w-full rounded-full border border-subtle px-4 py-2 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+        >
+          Help & keyboard shortcuts
+        </button>
+        <button
+          type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-full bg-accent px-4 py-2 text-on-accent transition-colors duration-instant ease-out hover:bg-accent-hover"
+          className="mt-2 w-full rounded-full bg-accent px-4 py-2 text-on-accent transition-colors duration-instant ease-out hover:bg-accent-hover"
         >
           Done
         </button>

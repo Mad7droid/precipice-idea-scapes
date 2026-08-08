@@ -145,6 +145,8 @@ export interface CanvasCommands {
   clearSelection: () => void;
   /** Adds an object of the given type at the centre of the current view. */
   addObject: (objectType: string) => void;
+  fit: () => void;
+  resetZoom: () => void;
 }
 
 export interface CanvasProps {
@@ -159,6 +161,8 @@ export interface CanvasProps {
   colorMode?: "light" | "dark";
   /** Selecting an edge opens the relationship inspector, which the app shell owns. */
   onEdgeSelect?: (id: RelationshipId | null) => void;
+  /** Opens the app-level guide; the canvas owns only the visible trigger. */
+  onOpenHelp?: () => void;
 }
 
 export function Canvas(props: CanvasProps) {
@@ -175,6 +179,7 @@ function CanvasSurface({
   isGenerating = false,
   colorMode = "light",
   onEdgeSelect,
+  onOpenHelp,
 }: CanvasProps) {
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
@@ -388,7 +393,7 @@ function CanvasSurface({
    * the canvas back exactly as it was.
    */
   const createAt = useCallback(
-    (objectType: string, at: { x: number; y: number }, from?: ObjectId) => {
+    (objectType: string, at: { x: number; y: number }, from?: ObjectId, to?: ObjectId) => {
       const plugin = allPlugins().find((p) => p.type === objectType);
       if (!plugin) return;
 
@@ -410,14 +415,17 @@ function CanvasSurface({
         },
       ];
       if (from) payloads.push({ type: "ConnectObjects", id: newRelId(), from, to: id });
+      if (to) payloads.push({ type: "ConnectObjects", id: newRelId(), from: id, to });
 
       dispatchTx(payloads);
       // Select it so the inspector opens ready to edit — a new object with a placeholder
       // title is not finished, and the next thing anyone does is rename it.
       setSelection([id]);
       selectEdge(null);
+      // A created object has a placeholder title. Let the next keystroke finish the thought.
+      window.setTimeout(() => onOpenInspector?.(id), 0);
     },
-    [dispatchTx, setSelection, selectEdge],
+    [dispatchTx, onOpenInspector, setSelection, selectEdge],
   );
 
   const addObject = useCallback(
@@ -438,6 +446,73 @@ function CanvasSurface({
     setAddMenu(anchorFrom(rect.left + rect.width / 2, rect.top + rect.height / 2));
   }, [anchorFrom]);
 
+  const resetZoom = useCallback(() => {
+    zoomTo(1, { duration: prefersReducedMotion() ? 0 : 130 });
+  }, [zoomTo]);
+
+  const extendSelection = useCallback(
+    (id: ObjectId, direction: "forward" | "backward") => {
+      const current = useScapeStore.getState().scape;
+      const object = current?.objects[id];
+      if (!object) return;
+      const measured = getInternalNode(id)?.measured;
+      const width = measured?.width ?? widthFor(object.type);
+      const gap = 140;
+      const point = {
+        x: direction === "forward" ? object.x + width + gap : object.x - gap,
+        y: object.y + (measured?.height ?? 120) / 2,
+      };
+      // Notes are the fastest neutral continuation of a thought. The connection direction
+      // follows the spatial gesture: Tab extends out, Shift+Tab adds what leads into it.
+      createAt(
+        "note",
+        point,
+        direction === "forward" ? id : undefined,
+        direction === "backward" ? id : undefined,
+      );
+    },
+    [createAt, getInternalNode],
+  );
+
+  const focusNearest = useCallback(
+    (id: ObjectId, direction: "up" | "down" | "left" | "right") => {
+      const current = useScapeStore.getState().scape;
+      const source = current?.objects[id];
+      if (!current || !source) return;
+      const candidates = current.objectOrder
+        .map((candidateId) => current.objects[candidateId])
+        .filter(
+          (candidate): candidate is NonNullable<typeof candidate> =>
+            !!candidate && candidate.id !== id,
+        )
+        .map((candidate) => {
+          const dx = candidate.x - source.x;
+          const dy = candidate.y - source.y;
+          const inDirection =
+            (direction === "left" && dx < 0) ||
+            (direction === "right" && dx > 0) ||
+            (direction === "up" && dy < 0) ||
+            (direction === "down" && dy > 0);
+          if (!inDirection) return undefined;
+          // Prefer objects that are both close and actually in the requested lane.
+          const axial = direction === "left" || direction === "right" ? Math.abs(dx) : Math.abs(dy);
+          const lateral =
+            direction === "left" || direction === "right" ? Math.abs(dy) : Math.abs(dx);
+          return { candidate, score: axial + lateral * 1.8 };
+        })
+        .filter(
+          (candidate): candidate is { candidate: NonNullable<typeof source>; score: number } =>
+            !!candidate,
+        )
+        .sort((a, b) => a.score - b.score)[0]?.candidate;
+      if (!candidates) return;
+      setSelection([candidates.id]);
+      selectEdge(null);
+      focus(candidates.id);
+    },
+    [focus, selectEdge, setSelection],
+  );
+
   const deleteEdge = useCallback(
     (id: RelationshipId) => {
       dispatchTx([{ type: "DisconnectObjects", id }]);
@@ -448,8 +523,8 @@ function CanvasSurface({
 
   // Hand the parent the imperative surface once. All four are stable.
   useEffect(() => {
-    onReady?.({ relayout, focus, clearSelection, addObject });
-  }, [onReady, relayout, focus, clearSelection, addObject]);
+    onReady?.({ relayout, focus, clearSelection, addObject, fit, resetZoom });
+  }, [onReady, relayout, focus, clearSelection, addObject, fit, resetZoom]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -460,6 +535,25 @@ function CanvasSurface({
 
       const ids = useScapeStore.getState().selection;
       const meta = event.metaKey || event.ctrlKey;
+
+      if (event.key === "0" && !meta) {
+        event.preventDefault();
+        resetZoom();
+        return;
+      }
+
+      if (event.key === "Tab" && ids.length === 1) {
+        event.preventDefault();
+        extendSelection(ids[0], event.shiftKey ? "backward" : "forward");
+        return;
+      }
+
+      const quickType = { n: "note", j: "journey", w: "wireframe" }[event.key.toLowerCase()];
+      if (!meta && quickType && (starter.types.length === 0 || starter.types.includes(quickType))) {
+        event.preventDefault();
+        addObject(quickType);
+        return;
+      }
 
       if (event.key === "Escape") {
         clearSelection();
@@ -518,6 +612,19 @@ function CanvasSurface({
         event.preventDefault();
         const current = useScapeStore.getState().scape;
         if (!current) return;
+        if (event.altKey && ids.length === 1) {
+          const direction =
+            event.key === "ArrowUp"
+              ? "up"
+              : event.key === "ArrowDown"
+                ? "down"
+                : event.key === "ArrowLeft"
+                  ? "left"
+                  : "right";
+          focusNearest(ids[0], direction);
+          return;
+        }
+        const amount = event.shiftKey ? NUDGE * 10 : NUDGE;
         // One transaction for the whole nudge, so a multi-select nudge is one undo.
         dispatchTx(
           ids
@@ -526,13 +633,26 @@ function CanvasSurface({
             .map((o) => ({
               type: "MoveObject" as const,
               id: o.id,
-              x: o.x + delta[0],
-              y: o.y + delta[1],
+              x: o.x + delta[0] * amount,
+              y: o.y + delta[1] * amount,
             })),
         );
       }
     },
-    [clearSelection, deleteEdge, dispatchTx, fit, onOpenInspector, selectedEdgeId, setSelection],
+    [
+      addObject,
+      clearSelection,
+      deleteEdge,
+      dispatchTx,
+      extendSelection,
+      fit,
+      focusNearest,
+      onOpenInspector,
+      resetZoom,
+      selectedEdgeId,
+      setSelection,
+      starter.types,
+    ],
   );
 
   if (!scape) return <div className="h-full bg-canvas" />;
@@ -636,9 +756,10 @@ function CanvasSurface({
         onRedo={() => useScapeStore.getState().redo()}
         onZoomIn={() => zoomIn({ duration: prefersReducedMotion() ? 0 : 130 })}
         onZoomOut={() => zoomOut({ duration: prefersReducedMotion() ? 0 : 130 })}
-        onZoomReset={() => zoomTo(1, { duration: prefersReducedMotion() ? 0 : 130 })}
+        onZoomReset={resetZoom}
         onFit={fit}
         onAdd={openAddMenuAtCentre}
+        onHelp={() => onOpenHelp?.()}
       />
 
       {addMenu && (
