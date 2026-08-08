@@ -18,6 +18,11 @@ milestone is published.
   canvas, connection, and wireframe-inspector experiences.
 - Updated the hosted-app instructions to match the starter-based home flow and
   top-right theme controls.
+- Refreshed the README with the current All-in-one home, canvas, inspectors,
+  help, command palette, light-theme, and Settings screenshots.
+- Added [Security and local data](docs/security-and-local-data.md), documenting
+  local Scape storage, Claude/Anthropic API-key handling, AI request boundaries,
+  deployment hygiene, and incident response guidance.
 
 ### Security
 

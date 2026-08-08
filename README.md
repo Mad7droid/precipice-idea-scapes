@@ -16,7 +16,7 @@ Open the hosted app at **[precipice.pages.dev](https://precipice.pages.dev)**.
 For a first look:
 
 1. Open the link in a modern browser.
-2. Choose a starter such as **Blank**, **Journey map**, **Mind map**, or **Screens**, or open an existing scape from the home page.
+2. Choose a starter such as **All-in-one**, **Journey map**, **Mind map**, or **Screens**, or open an existing scape from the home page.
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
 4. Select a Wireframe object to inspect its grid, elements, labels, widths, and alignment controls.
 5. Switch between Light, Dark, and System themes from the top-right theme control.
@@ -45,7 +45,7 @@ shared key behind a public endpoint is a shared key anyone can spend.
 The home surface combines prompt-driven creation, starter scapes, imports, theme
 selection, settings, and locally saved scapes.
 
-![Precipice home in dark mode](docs/screenshots/home-dark.png)
+![Precipice home with the All-in-one starter](docs/screenshots/home-all-in-one-dark.png)
 
 ![Empty canvas in dark mode](docs/screenshots/canvas-empty-dark.png)
 
@@ -53,15 +53,25 @@ selection, settings, and locally saved scapes.
 
 ![Generation action stream](docs/screenshots/generation-actions-dark.png)
 
+![Getting started help](docs/screenshots/help-getting-started-dark.png)
+
+![Keyboard shortcuts help](docs/screenshots/help-shortcuts-dark.png)
+
 ### Canvas
 
 The canvas connects notes, journeys, and wireframes into a navigable product map.
 
 ![Precipice canvas in dark mode](docs/screenshots/canvas-dark-latest.png)
 
+![Expanded canvas overview](docs/screenshots/canvas-overview-dark.png)
+
 ![Precipice canvas in light mode](docs/screenshots/canvas-light-latest.png)
 
 ![Connection creation with a retained dotted line](docs/screenshots/connection-create-dark.png)
+
+![Command palette](docs/screenshots/command-palette-dark.png)
+
+![Canvas in light mode with a selected domain map](docs/screenshots/canvas-domain-light.png)
 
 ### Inspectors and controls
 
@@ -71,6 +81,12 @@ Filters and line controls keep larger scapes readable.
 ![Wireframe inspector](docs/screenshots/wireframe-inspector-dark.png)
 
 ![Wireframe inspector with element editing](docs/screenshots/wireframe-inspector-panel-dark.png)
+
+![Wireframe inspector with editable elements](docs/screenshots/wireframe-inspector-dark-latest.png)
+
+![Journey inspector with editable steps](docs/screenshots/journey-inspector-dark-latest.png)
+
+![Settings and local API-key security](docs/screenshots/settings-security-dark.png)
 
 ### Development surfaces
 
@@ -115,6 +131,9 @@ The project uses TypeScript, React, Vite, Vitest, React Flow, Dagre, Dexie,
 Zustand, and the Vercel AI SDK with Anthropic support.
 
 ## Security and privacy
+
+For the full data-flow and Claude/Anthropic API-key model, see
+[Security and local data](docs/security-and-local-data.md).
 
 - Scapes and settings are stored locally in the browser through IndexedDB; the hosted app does not provide a shared server-side scape database.
 - AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.
