@@ -2,7 +2,11 @@ import { z } from "zod";
 import { actionSchema } from "./actions";
 import type { Scape } from "./types";
 
-export const SCAPE_FILE_VERSION = 1;
+/**
+ * Version 2 moves the card width from plugin-owned `data.width` to the shared object field.
+ * Older files are upgraded by `persistence/migrate.ts` before this schema sees them.
+ */
+export const SCAPE_FILE_VERSION = 2;
 
 const relationship = z.object({
   id: z.string().min(1),
@@ -18,6 +22,7 @@ const scapeObject = z.object({
   data: z.record(z.string(), z.unknown()),
   x: z.number(),
   y: z.number(),
+  width: z.number().min(200).max(900).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

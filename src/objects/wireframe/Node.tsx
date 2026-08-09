@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
+import { useCanvasReadOnly } from "@/canvas/readOnly";
 import { EmptyHint } from "../ui";
 import { columnsOf, isSection, type Primitive, type WireframeData } from "./schema";
 
@@ -11,6 +12,7 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
   const primitives = (data.primitives ?? []).filter(Boolean);
   const columns = columnsOf(data);
   const [editingTitle, setEditingTitle] = useState(false);
+  const readOnly = useCanvasReadOnly();
 
   return (
     <>
@@ -20,11 +22,13 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
           defaultValue={object.title}
           onBlur={(e) => {
             setEditingTitle(false);
-            useScapeStore
-              .getState()
-              .dispatchTx([
-                { type: "UpdateObject", id: object.id, patch: { title: e.currentTarget.value } },
-              ]);
+            if (!readOnly) {
+              useScapeStore
+                .getState()
+                .dispatchTx([
+                  { type: "UpdateObject", id: object.id, patch: { title: e.currentTarget.value } },
+                ]);
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.currentTarget.blur();
@@ -34,7 +38,7 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
         />
       ) : (
         <h4
-          onClick={() => setEditingTitle(true)}
+          onClick={() => !readOnly && setEditingTitle(true)}
           className="nodrag cursor-text text-sm font-medium leading-snug text-fg"
         >
           {object.title || "Untitled"}

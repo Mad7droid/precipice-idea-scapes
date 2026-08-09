@@ -19,6 +19,16 @@ export interface ScapeObject {
   data: Record<string, unknown>;
   x: number;
   y: number;
+  /**
+   * Card width. Absent means "use the type's default" — the width is not stamped onto every
+   * object at creation, so changing a default later still moves the cards that never had one
+   * set by hand.
+   *
+   * This lives on the object rather than in `data` because it is a property of the card, not
+   * of a wireframe or a note: all three types resize through the same path, and a width kept
+   * per plugin has to be re-implemented (and re-tested) once per plugin.
+   */
+  width?: number;
   createdAt: number;
   updatedAt: number;
 }

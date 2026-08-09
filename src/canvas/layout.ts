@@ -35,8 +35,8 @@ export function widthFor(type: string): number {
 export const MIN_OBJECT_WIDTH = 200;
 export const MAX_OBJECT_WIDTH = 900;
 
-export function objectWidth(object: { type: string; data: Record<string, unknown> }): number {
-  const stored = object.data?.width;
+export function objectWidth(object: { type: string; width?: number }): number {
+  const stored = object.width;
   if (typeof stored === "number" && Number.isFinite(stored)) {
     return Math.min(MAX_OBJECT_WIDTH, Math.max(MIN_OBJECT_WIDTH, stored));
   }

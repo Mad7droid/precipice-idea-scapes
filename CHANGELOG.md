@@ -11,6 +11,10 @@ milestone is published.
 
 ### Changed
 
+- Scapes now use a single editable tab. A second tab stays fully readable and can take over
+  editing with one click, without overwriting the first tab's latest work.
+- Promoted card width to shared object geometry. Existing v1 `.scape` files migrate their
+  wireframe widths automatically when opened.
 - Generation now requires your own Anthropic API key. The hosted Worker no longer
   falls back to a server-side key, so leaving the field blank prompts for a key
   instead of silently generating on a shared account.
@@ -36,6 +40,11 @@ milestone is published.
   with a test that fails if the inline theme script's hash drifts.
 - Added `.env`, `.env.*`, and `.wrangler` to `.gitignore`.
 - Pinned `undici` past its known advisories.
+
+### Fixed
+
+- Added an offline app shell, proactive browser-storage persistence, quota-pressure guidance,
+  and bounded action-log retention so local Scapes remain available and durable over time.
 
 ## 2026-08-02
 

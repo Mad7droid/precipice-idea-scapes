@@ -100,6 +100,86 @@ describe("applyAction — inverse round-trips", () => {
     );
     expectRoundTrip(state, act({ type: "LayoutScape", positions }));
   });
+
+  it("MergeObjectData", () => {
+    expectRoundTrip(
+      fixtureScape(),
+      act({ type: "MergeObjectData", id: "brief", data: { body: "rewritten" } }),
+    );
+  });
+
+  it("ResizeObject", () => {
+    expectRoundTrip(fixtureScape(), act({ type: "ResizeObject", id: "brief", width: 520 }));
+  });
+});
+
+describe("MergeObjectData", () => {
+  it("merges into data rather than replacing it", () => {
+    const state = fixtureScape();
+    const before = state.objects["brief"].data;
+    const result = applyAction(
+      state,
+      act({ type: "MergeObjectData", id: "brief", data: { pinned: true } }),
+    );
+
+    expect(result.state.objects["brief"].data).toEqual({ ...before, pinned: true });
+  });
+
+  /**
+   * The reason this action exists at all. A merge cannot express "remove the key I added",
+   * so a counter-merge would leave `pinned` behind forever and undo would quietly stop
+   * meaning undo.
+   */
+  it("inverts to a total replace, so undo removes a key the merge added", () => {
+    const state = fixtureScape();
+    const action = act({ type: "MergeObjectData", id: "brief", data: { pinned: true } });
+    const forward = applyAction(state, action);
+
+    expect(forward.inverse).toMatchObject({ type: "UpdateObject", id: "brief" });
+
+    const back = applyAction(forward.state, forward.inverse!);
+    expect(back.state.objects["brief"].data).not.toHaveProperty("pinned");
+    expect(back.state.objects["brief"].data).toEqual(state.objects["brief"].data);
+  });
+
+  it("leaves keys the merge did not mention alone", () => {
+    const state = fixtureScape();
+    const merged = applyAction(
+      state,
+      act({ type: "MergeObjectData", id: "brief", data: { pinned: true } }),
+    ).state;
+
+    for (const [key, value] of Object.entries(state.objects["brief"].data)) {
+      expect(merged.objects["brief"].data[key]).toEqual(value);
+    }
+  });
+});
+
+describe("ResizeObject", () => {
+  it("omits width on the inverse when the card had no explicit width", () => {
+    const state = fixtureScape();
+    const forward = applyAction(state, act({ type: "ResizeObject", id: "brief", width: 520 }));
+
+    // Not `width: <today's default>`: an inverse that stamps the current default would freeze
+    // it onto the card, so changing the default later would no longer move it.
+    expect(forward.inverse).toEqual({
+      type: "ResizeObject",
+      id: "brief",
+      txId: "tx_test",
+      ts: TS,
+    });
+    expect(applyAction(forward.state, forward.inverse!).state.objects["brief"]).not.toHaveProperty(
+      "width",
+    );
+  });
+
+  it("round-trips back to a previous explicit width", () => {
+    const sized = applyAction(
+      fixtureScape(),
+      act({ type: "ResizeObject", id: "brief", width: 300 }),
+    ).state;
+    expectRoundTrip(sized, act({ type: "ResizeObject", id: "brief", width: 520 }));
+  });
 });
 
 describe("applyAction — no-ops produce no inverse", () => {
@@ -114,6 +194,10 @@ describe("applyAction — no-ops produce no inverse", () => {
     ["move to the current position", { type: "MoveObject", id: "brief", x: 0, y: 0 }],
     ["rename to the current name", { type: "RenameScape", name: "Fintech onboarding" }],
     ["update with an empty patch", { type: "UpdateObject", id: "brief", patch: {} }],
+    ["merge an empty object", { type: "MergeObjectData", id: "brief", data: {} }],
+    ["merge into a missing object", { type: "MergeObjectData", id: "nope", data: { a: 1 } }],
+    ["resize a missing object", { type: "ResizeObject", id: "nope", width: 400 }],
+    ["resize to the width it already has", { type: "ResizeObject", id: "brief" }],
   ];
 
   for (const [name, payload] of cases) {

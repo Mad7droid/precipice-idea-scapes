@@ -245,9 +245,9 @@ describe("wireframe layout", () => {
   });
 
   it("rejects a width outside what a card can usefully be", () => {
-    expect(wireframeSchema.safeParse({ primitives: [], width: 40 }).success).toBe(false);
-    expect(wireframeSchema.safeParse({ primitives: [], width: 4000 }).success).toBe(false);
-    expect(wireframeSchema.safeParse({ primitives: [], width: 480 }).success).toBe(true);
+    // Card width is shared object geometry, not plugin data. The wireframe schema remains
+    // strict so an obsolete v1 export must go through the document migration.
+    expect(wireframeSchema.safeParse({ primitives: [], width: 480 }).success).toBe(false);
   });
 
   it("keeps existing elements and gives every inserted one a fresh id", () => {
@@ -278,8 +278,8 @@ describe("wireframe layout", () => {
     unmount();
   });
 
-  it("carries the rest of data through when one key changes, since the reducer replaces it", () => {
-    const object = { ...wireframe(), data: { ...wireframe().data, width: 520 } };
+  it("carries the rest of data through when one key changes", () => {
+    const object = { ...wireframe(), width: 520 };
     const dispatch = vi.fn<(payload: ActionPayload) => void>();
     const plugin = getPlugin("wireframe")!;
     const { container, unmount } = render(<plugin.Inspector object={object} dispatch={dispatch} />);
@@ -288,9 +288,9 @@ describe("wireframe layout", () => {
     act(() => add.click());
 
     const payload = dispatch.mock.calls[0][0] as unknown as {
-      patch: { data: { width: number; primitives: unknown[] } };
+      patch: { data: { primitives: unknown[] } };
     };
-    expect(payload.patch.data.width).toBe(520);
+    expect(payload.patch.data).not.toHaveProperty("width");
     expect(payload.patch.data.primitives.length).toBeGreaterThan(0);
 
     unmount();

@@ -12,6 +12,15 @@ export interface AutosaveHandle {
   stop: () => void;
 }
 
+export interface AutosaveOptions {
+  /**
+   * False while another tab holds the scape's lease. A snapshot is the whole document, so a
+   * read-only tab that wrote one would replace the holder's work with its own stale copy —
+   * the exact data loss the lease exists to prevent.
+   */
+  canWrite?: () => boolean;
+}
+
 /**
  * Debounced full-snapshot autosave, plus an append-only action log.
  *
@@ -19,7 +28,10 @@ export interface AutosaveHandle {
  * screen is either already written or will be within 300ms — and that closing the tab does
  * not cost you the last 300ms of work.
  */
-export function startAutosave(repository: ScapeRepository): AutosaveHandle {
+export function startAutosave(
+  repository: ScapeRepository,
+  { canWrite }: AutosaveOptions = {},
+): AutosaveHandle {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: Scape | null = null;
   let seq = 0;
@@ -40,6 +52,11 @@ export function startAutosave(repository: ScapeRepository): AutosaveHandle {
     // unboundedly while no scape is loaded.
     const actions = useScapeStore.getState().drainActionLog();
     if (!scape) return;
+
+    // A follower tab drains and discards. Its edits are not persisted anywhere, which is why
+    // the UI is read-only while it follows; on promotion it reloads from the repository, so
+    // there is nothing here worth keeping.
+    if (canWrite && !canWrite()) return;
 
     writes += 1;
     lastSavedAt = Date.now();
@@ -79,6 +96,9 @@ export function startAutosave(repository: ScapeRepository): AutosaveHandle {
     writes: () => writes,
     lastSavedAt: () => lastSavedAt,
     stop: () => {
+      // Flush first. Leaving the editor is a navigation, not a discard, and the last edit
+      // before it is routinely inside the 300ms debounce window.
+      write();
       stopped = true;
       if (timer) clearTimeout(timer);
       unsubscribe();

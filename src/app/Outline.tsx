@@ -22,6 +22,7 @@ export function Outline({
   onAdd,
   onConnectLoose,
   busy,
+  readOnly = false,
   isCollapsed = false,
   onToggleCollapse,
 }: {
@@ -32,6 +33,8 @@ export function Outline({
   onAdd: (objectType: string) => void;
   onConnectLoose: (ids: ObjectId[]) => void;
   busy: boolean;
+  /** Another tab holds the scape. Search, navigation and the counts stay; the edits go. */
+  readOnly?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
@@ -122,7 +125,7 @@ export function Outline({
                       </span>
                       <button
                         type="button"
-                        disabled={busy || loose.length < 2}
+                        disabled={busy || readOnly || loose.length < 2}
                         onClick={() => onConnectLoose(loose)}
                         className="whitespace-nowrap rounded-sm px-1.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg disabled:pointer-events-none disabled:opacity-40"
                       >
@@ -155,7 +158,9 @@ export function Outline({
                           links={degree.get(id) ?? 0}
                           selected={selection.includes(id)}
                           onSelect={onSelect}
-                          onDelete={() => dispatchTx([{ type: "DeleteObject", id }])}
+                          onDelete={
+                            readOnly ? undefined : () => dispatchTx([{ type: "DeleteObject", id }])
+                          }
                         />
                       ))}
                     </Section>
@@ -165,30 +170,32 @@ export function Outline({
             )}
           </div>
 
-          <div className="border-t border-subtle p-2">
-            <p className="mono px-1 pb-1.5">Add</p>
-            <div className="flex flex-wrap gap-1">
-              {addable.map((type) => {
-                const plugin = getPlugin(type);
-                if (!plugin) return null;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => onAdd(type)}
-                    className="flex items-center gap-1.5 rounded-full border border-subtle px-2.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-                  >
-                    <span
-                      aria-hidden
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: `var(${plugin.color})` }}
-                    />
-                    {plugin.label}
-                  </button>
-                );
-              })}
+          {!readOnly && (
+            <div className="border-t border-subtle p-2">
+              <p className="mono px-1 pb-1.5">Add</p>
+              <div className="flex flex-wrap gap-1">
+                {addable.map((type) => {
+                  const plugin = getPlugin(type);
+                  if (!plugin) return null;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => onAdd(type)}
+                      className="flex items-center gap-1.5 rounded-full border border-subtle px-2.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                    >
+                      <span
+                        aria-hidden
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: `var(${plugin.color})` }}
+                      />
+                      {plugin.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -251,7 +258,8 @@ function Row({
   links: number;
   selected: boolean;
   onSelect: (id: ObjectId) => void;
-  onDelete: () => void;
+  /** Absent in a read-only tab, which removes the control rather than greying it out. */
+  onDelete?: () => void;
 }) {
   const object = scape.objects[id];
   if (!object) return null;
@@ -276,14 +284,16 @@ function Row({
         <span className="min-w-0 flex-1 truncate text-fg">{object.title || "Untitled"}</span>
         {links > 0 && <span className="mono shrink-0">{links}</span>}
       </button>
-      <button
-        type="button"
-        aria-label={`Delete ${object.title || id}`}
-        onClick={onDelete}
-        className="shrink-0 rounded-sm px-1 py-1 text-fg-tertiary opacity-0 transition-colors duration-instant ease-out hover:text-danger group-hover:opacity-100"
-      >
-        ✕
-      </button>
+      {onDelete && (
+        <button
+          type="button"
+          aria-label={`Delete ${object.title || id}`}
+          onClick={onDelete}
+          className="shrink-0 rounded-sm px-1 py-1 text-fg-tertiary opacity-0 transition-colors duration-instant ease-out hover:text-danger group-hover:opacity-100"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }

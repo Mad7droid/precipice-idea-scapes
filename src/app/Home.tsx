@@ -6,6 +6,7 @@ import { Composer } from "@/ai/Composer";
 import { getStarter } from "@/starters";
 import { downloadScape, importScape, ScapeImportError } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
+import { requestPersistence, warnIfStorageTight } from "@/persistence/storage";
 import { settingsRepository } from "@/persistence/settings";
 import { ImportButton, ScapeList } from "./ScapeList";
 import { setPendingWork } from "./pending";
@@ -53,6 +54,9 @@ export function Home() {
     useScapeStore.getState().loadScape(null);
     void settingsRepository.set(SETTING_KEYS.lastScapeId, null);
     void refresh();
+    // Between sessions rather than mid-edit: being told storage is nearly full while you are
+    // typing is both alarming and badly timed.
+    void warnIfStorageTight();
   }, []);
 
   /**
@@ -70,6 +74,10 @@ export function Home() {
 
     const name = request ? titleFromPrompt(request) : `Untitled ${starter.label.toLowerCase()}`;
     const scape = await scapeRepository.create(name, { starter: starter.id });
+
+    // The first scape is the moment the user has something worth not losing, and the moment a
+    // storage prompt makes sense to them. Not awaited: nothing here should delay the canvas.
+    void requestPersistence();
 
     // No brief means nobody is about to fill this canvas, so the starter seeds one root
     // object — an empty grid is a worse answer to "make me a mind map" than a single note.

@@ -25,6 +25,7 @@ import { mergeFlowNodes, toFlowEdges, OBJECT_NODE_TYPE, type ObjectNodeData } fr
 import { layoutAction, widthFor } from "./layout";
 import { ObjectNode } from "./ObjectNode";
 import { AddPalette, ConnectMenu } from "./pickers";
+import { ReadOnlyContext } from "./readOnly";
 import { Toolbar } from "./Toolbar";
 
 /** Stable identity — a fresh object here remounts every node on every render. */
@@ -163,12 +164,22 @@ export interface CanvasProps {
   onEdgeSelect?: (id: RelationshipId | null) => void;
   /** Opens the app-level guide; the canvas owns only the visible trigger. */
   onOpenHelp?: () => void;
+  /**
+   * Another tab holds this scape's lease, so nothing here may change the document.
+   *
+   * Reading stays fully live: pan, zoom, fit, filters, selection and the inspector all work,
+   * because a tab you opened to look something up should let you look it up. Only the paths
+   * that dispatch an action are closed.
+   */
+  readOnly?: boolean;
 }
 
 export function Canvas(props: CanvasProps) {
   return (
     <ReactFlowProvider>
-      <CanvasSurface {...props} />
+      <ReadOnlyContext.Provider value={props.readOnly ?? false}>
+        <CanvasSurface {...props} />
+      </ReadOnlyContext.Provider>
     </ReactFlowProvider>
   );
 }
@@ -180,6 +191,7 @@ function CanvasSurface({
   colorMode = "light",
   onEdgeSelect,
   onOpenHelp,
+  readOnly = false,
 }: CanvasProps) {
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
@@ -276,6 +288,7 @@ function CanvasSurface({
   /** One action per drag, on drag end. Forty per drag would poison undo and the action log. */
   const onNodeDragStop = useCallback(
     (_: unknown, node: Node) => {
+      if (readOnly) return;
       dispatchTx([
         {
           type: "MoveObject",
@@ -285,7 +298,7 @@ function CanvasSurface({
         },
       ]);
     },
-    [dispatchTx],
+    [dispatchTx, readOnly],
   );
 
   const onSelectionChange = useCallback(
@@ -298,12 +311,13 @@ function CanvasSurface({
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (readOnly) return;
       if (!connection.source || !connection.target) return;
       dispatchTx([
         { type: "ConnectObjects", id: newRelId(), from: connection.source, to: connection.target },
       ]);
     },
-    [dispatchTx],
+    [dispatchTx, readOnly],
   );
 
   const anchorFrom = useCallback(
@@ -355,6 +369,7 @@ function CanvasSurface({
 
   const relayout = useCallback(
     (mode: LayoutMode = layoutMode) => {
+      if (readOnly) return;
       const current = useScapeStore.getState().scape;
       if (!current) return;
       // Real measured heights beat the per-type fallbacks, so a five-step journey and a
@@ -375,7 +390,7 @@ function CanvasSurface({
       // --dur-canvas so the reflow and the camera read as one motion.
       fitView({ padding: 0.15, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 420 });
     },
-    [dispatchTx, fitView, getInternalNode, layoutMode],
+    [dispatchTx, fitView, getInternalNode, layoutMode, readOnly],
   );
 
   const clearSelection = useCallback(() => {
@@ -398,6 +413,7 @@ function CanvasSurface({
    */
   const createAt = useCallback(
     (objectType: string, at: { x: number; y: number }, from?: ObjectId, to?: ObjectId) => {
+      if (readOnly) return;
       const plugin = allPlugins().find((p) => p.type === objectType);
       if (!plugin) return;
 
@@ -429,7 +445,7 @@ function CanvasSurface({
       // A created object has a placeholder title. Let the next keystroke finish the thought.
       window.setTimeout(() => onOpenInspector?.(id), 0);
     },
-    [dispatchTx, onOpenInspector, setSelection, selectEdge],
+    [dispatchTx, onOpenInspector, readOnly, setSelection, selectEdge],
   );
 
   const addObject = useCallback(
@@ -546,14 +562,19 @@ function CanvasSurface({
         return;
       }
 
-      if (event.key === "Tab" && ids.length === 1) {
+      if (!readOnly && event.key === "Tab" && ids.length === 1) {
         event.preventDefault();
         extendSelection(ids[0], event.shiftKey ? "backward" : "forward");
         return;
       }
 
       const quickType = { n: "note", j: "journey", w: "wireframe" }[event.key.toLowerCase()];
-      if (!meta && quickType && (starter.types.length === 0 || starter.types.includes(quickType))) {
+      if (
+        !readOnly &&
+        !meta &&
+        quickType &&
+        (starter.types.length === 0 || starter.types.includes(quickType))
+      ) {
         event.preventDefault();
         addObject(quickType);
         return;
@@ -576,13 +597,17 @@ function CanvasSurface({
 
       // A selected relationship is deletable like anything else on the canvas. Before this,
       // `DisconnectObjects` existed in the protocol and was reachable only by the model.
-      if (selectedEdgeId && (event.key === "Delete" || event.key === "Backspace")) {
+      if (!readOnly && selectedEdgeId && (event.key === "Delete" || event.key === "Backspace")) {
         event.preventDefault();
         deleteEdge(selectedEdgeId);
         return;
       }
 
       if (!ids.length) return;
+
+      // Everything below changes the document. Alt+arrow is the exception and is handled
+      // further down, because moving your attention is not an edit.
+      if (readOnly && !(event.altKey && ids.length === 1)) return;
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
@@ -652,6 +677,7 @@ function CanvasSurface({
       fit,
       focusNearest,
       onOpenInspector,
+      readOnly,
       resetZoom,
       selectedEdgeId,
       setSelection,
@@ -688,6 +714,7 @@ function CanvasSurface({
         onNodeDoubleClick={(_, node) => onOpenInspector?.(node.id)}
         onNodeContextMenu={(event, node) => {
           event.preventDefault();
+          if (readOnly) return;
           setAddMenu(null);
           setPendingConnection(null);
           setConnectMenu(anchorFrom(event.clientX, event.clientY, node.id));
@@ -706,6 +733,7 @@ function CanvasSurface({
         // Double-click on empty canvas adds an object there. The alternative — hunting for a
         // toolbar button and then dragging the result into place — is two steps too many.
         onDoubleClick={(event: React.MouseEvent) => {
+          if (readOnly) return;
           if ((event.target as HTMLElement).closest(".react-flow__node")) return;
           setConnectMenu(null);
           setAddMenu(anchorFrom(event.clientX, event.clientY));
@@ -713,11 +741,15 @@ function CanvasSurface({
         }}
         onMove={(_, viewport) => {
           setZoom(viewport.zoom);
-          onViewportChange(viewport);
+          if (!readOnly) onViewportChange(viewport);
         }}
         // Our own handlers, wired to applyAction. React Flow's built-ins would mutate state
         // behind the reducer's back and leave undo with nothing to reverse.
         deleteKeyCode={null}
+        // Selection stays on in read-only: the point of the second tab is to look at things,
+        // and the inspector is how you look at them.
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         // Fit only when the scape has no camera of its own yet; once the user has panned,
@@ -767,6 +799,7 @@ function CanvasSurface({
         onFit={fit}
         onAdd={openAddMenuAtCentre}
         onHelp={() => onOpenHelp?.()}
+        readOnly={readOnly}
       />
 
       {addMenu && (

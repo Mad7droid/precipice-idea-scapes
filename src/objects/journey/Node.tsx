@@ -1,21 +1,25 @@
 import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
+import { useCanvasReadOnly } from "@/canvas/readOnly";
 import { EmptyHint } from "../ui";
 import type { JourneyData, JourneyStep } from "./schema";
 
 export function JourneyNode({ object }: { object: ScapeObject; selected: boolean }) {
   const steps = ((object.data as Partial<JourneyData>).steps ?? []).filter(Boolean);
   const [editing, setEditing] = useState<"title" | number | null>(null);
+  const readOnly = useCanvasReadOnly();
 
   const dispatch = useScapeStore.getState().dispatchTx;
 
   const commitTitle = (title: string) =>
-    dispatch([{ type: "UpdateObject", id: object.id, patch: { title } }]);
+    !readOnly && dispatch([{ type: "UpdateObject", id: object.id, patch: { title } }]);
 
   const commitStep = (index: number, label: string) => {
     const next: JourneyStep[] = steps.map((s, i) => (i === index ? { ...s, label } : s));
-    dispatch([{ type: "UpdateObject", id: object.id, patch: { data: { steps: next } } }]);
+    if (!readOnly) {
+      dispatch([{ type: "UpdateObject", id: object.id, patch: { data: { steps: next } } }]);
+    }
   };
 
   return (
@@ -36,7 +40,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
         />
       ) : (
         <h4
-          onClick={() => setEditing("title")}
+          onClick={() => !readOnly && setEditing("title")}
           className="nodrag cursor-text text-sm font-medium leading-snug text-fg"
         >
           {object.title || "Untitled"}
@@ -74,7 +78,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                       />
                     ) : (
                       <span
-                        onClick={() => setEditing(i)}
+                        onClick={() => !readOnly && setEditing(i)}
                         className="nodrag block cursor-text text-fg-secondary"
                       >
                         {step.label}

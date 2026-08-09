@@ -12,3 +12,9 @@
   X-Content-Type-Options: nosniff
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+
+# The service worker decides what every later request is allowed to use from cache, so a
+# cached copy of it outlives any single deploy. Revalidating it on every load is what keeps a
+# bad one from being permanent.
+/sw.js
+  Cache-Control: no-cache

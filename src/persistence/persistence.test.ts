@@ -1,11 +1,14 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { notify } from "@/core/notify";
 import { emptyScape, fixtureScape } from "@/core/fixtures";
 import { useScapeStore } from "@/core/store";
 import { toPlainScape } from "@/core/serialize";
+import type { Action } from "@/core/actions";
 import type { Scape, ScapeRepository } from "@/core/types";
 import { startAutosave } from "./autosave";
 import { PrecipiceDb } from "./db";
+import { CURRENT_DOC_VERSION } from "./migrate";
 import { MemoryScapeRepository } from "./memoryRepository";
 import { DexieScapeRepository } from "./scapeRepository";
 import { importScape, parseScapeFile, ScapeImportError, serializeScape } from "./portable";
@@ -206,6 +209,23 @@ describe("export and import", () => {
     expect(() => parseScapeFile(text)).toThrow(/version 99/);
   });
 
+  it("opens a v1 export and promotes its wireframe card width", () => {
+    const legacy = fixtureScape();
+    const wireframe = legacy.objects["wf-welcome"]!;
+    legacy.objects[wireframe.id] = {
+      ...wireframe,
+      data: { ...wireframe.data, width: 520 },
+    };
+
+    const parsed = parseScapeFile(
+      JSON.stringify({ version: 1, scape: legacy, actionLog: [] }),
+    );
+
+    expect(parsed.version).toBe(CURRENT_DOC_VERSION);
+    expect(parsed.scape.objects[wireframe.id]).toMatchObject({ width: 520 });
+    expect(parsed.scape.objects[wireframe.id]!.data).not.toHaveProperty("width");
+  });
+
   it("names the offending field when the shape is wrong", () => {
     const text = JSON.stringify({
       version: 1,
@@ -213,6 +233,109 @@ describe("export and import", () => {
       actionLog: [],
     });
     expect(() => parseScapeFile(text)).toThrow(/zoom/);
+  });
+});
+
+describe("Dexie repository — stored document versions", () => {
+  it("opens a row written before snapshots carried a version", async () => {
+    const database = new PrecipiceDb(`v-${Math.random()}`);
+    const repo = new DexieScapeRepository(database);
+    const scape = fixtureScape();
+
+    // Exactly what an older build wrote: no `version` column at all.
+    await database.scapes.put({
+      id: scape.id,
+      name: scape.name,
+      updatedAt: scape.updatedAt,
+      objectCount: scape.objectOrder.length,
+      snapshot: toPlainScape(scape),
+    });
+
+    const loaded = await repo.get(scape.id);
+    expect(loaded?.objectOrder).toEqual(scape.objectOrder);
+    expect(await repo.list()).toHaveLength(1);
+  });
+
+  it("stamps the current version on everything it writes", async () => {
+    const database = new PrecipiceDb(`v-${Math.random()}`);
+    const repo = new DexieScapeRepository(database);
+    const created = await repo.create("Versioned");
+
+    expect((await database.scapes.get(created.id))?.version).toBe(CURRENT_DOC_VERSION);
+  });
+
+  it("skips a scape from a newer build instead of failing the whole library", async () => {
+    const error = vi.spyOn(notify, "error").mockImplementation(() => 0);
+    const database = new PrecipiceDb(`v-${Math.random()}`);
+    const repo = new DexieScapeRepository(database);
+    const readable = await repo.create("Readable");
+
+    const scape = fixtureScape();
+    await database.scapes.put({
+      id: scape.id,
+      name: "From the future",
+      updatedAt: Date.now(),
+      objectCount: 0,
+      snapshot: toPlainScape(scape),
+      version: CURRENT_DOC_VERSION + 1,
+    });
+
+    const list = await repo.list();
+    expect(list.map((s) => s.id)).toEqual([readable.id]);
+    expect(error).toHaveBeenCalled();
+    // Left on disk untouched, so a later build can still read it.
+    expect(await database.scapes.get(scape.id)).toBeDefined();
+    error.mockRestore();
+  });
+});
+
+describe("action log growth", () => {
+  const logAction = (i: number): Action => ({
+    type: "CreateObject",
+    id: `n${i}`,
+    objectType: "note",
+    title: `N${i}`,
+    txId: `tx_${i}`,
+    ts: 1_700_000_000_000 + i,
+  });
+
+  it("keeps the newest entries and drops the oldest once the log outgrows its cap", async () => {
+    const database = new PrecipiceDb(`log-${Math.random()}`);
+    // Production caps at 5000 and measures every 200; the policy is what is under test, not
+    // the constants.
+    const repo = new DexieScapeRepository(database, { maxLoggedActions: 10, trimCheckEvery: 4 });
+    const scape = await repo.create("Chatty");
+
+    for (let i = 0; i < 40; i++) await repo.appendActions(scape.id, [logAction(i)]);
+
+    const log = await repo.getActionLog(scape.id);
+    expect(log).toHaveLength(10);
+    expect(log.map((entry) => entry.txId)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `tx_${30 + i}`),
+    );
+  });
+
+  it("does not trim a log that is within its cap", async () => {
+    const database = new PrecipiceDb(`log-${Math.random()}`);
+    const repo = new DexieScapeRepository(database, { maxLoggedActions: 10, trimCheckEvery: 1 });
+    const scape = await repo.create("Quiet");
+
+    for (let i = 0; i < 8; i++) await repo.appendActions(scape.id, [logAction(i)]);
+
+    expect(await repo.getActionLog(scape.id)).toHaveLength(8);
+  });
+
+  it("trims one scape's history without touching another's", async () => {
+    const database = new PrecipiceDb(`log-${Math.random()}`);
+    const repo = new DexieScapeRepository(database, { maxLoggedActions: 5, trimCheckEvery: 2 });
+    const loud = await repo.create("Loud");
+    const quiet = await repo.create("Quiet");
+
+    for (let i = 0; i < 20; i++) await repo.appendActions(loud.id, [logAction(i)]);
+    await repo.appendActions(quiet.id, [logAction(99)]);
+
+    expect(await repo.getActionLog(loud.id)).toHaveLength(5);
+    expect(await repo.getActionLog(quiet.id)).toHaveLength(1);
   });
 });
 
@@ -295,6 +418,53 @@ describe("autosave", () => {
     await vi.advanceTimersByTimeAsync(600);
 
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("flushes on stop, so leaving the editor mid-debounce does not lose the last edit", async () => {
+    const repo = new MemoryScapeRepository();
+    const save = vi.spyOn(repo, "saveSnapshot");
+    const autosave = startAutosave(repo);
+
+    useScapeStore
+      .getState()
+      .dispatchTx([{ type: "CreateObject", id: "n1", objectType: "note", title: "N" }]);
+    expect(save).not.toHaveBeenCalled();
+
+    autosave.stop();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0][0].objects["n1"]).toBeDefined();
+  });
+
+  /**
+   * A snapshot is the whole document. A follower tab that wrote one would replace the holding
+   * tab's work with its own stale copy — the data loss the lease exists to prevent.
+   */
+  it("writes nothing while another tab holds the lease", async () => {
+    const repo = new MemoryScapeRepository();
+    const save = vi.spyOn(repo, "saveSnapshot");
+    const append = vi.spyOn(repo, "appendActions");
+    let holder = false;
+    const autosave = startAutosave(repo, { canWrite: () => holder });
+
+    useScapeStore
+      .getState()
+      .dispatchTx([{ type: "CreateObject", id: "n1", objectType: "note", title: "N" }]);
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
+    // Drained rather than queued: a follower pans and zooms, and those actions would otherwise
+    // pile up in memory for as long as the tab stays open.
+    expect(useScapeStore.getState().actionLog).toHaveLength(0);
+
+    holder = true;
+    useScapeStore
+      .getState()
+      .dispatchTx([{ type: "CreateObject", id: "n2", objectType: "note", title: "N2" }]);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    autosave.stop();
   });
 });
 

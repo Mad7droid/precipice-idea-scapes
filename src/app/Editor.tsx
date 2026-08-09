@@ -11,6 +11,7 @@ import { useGeneration } from "@/ai/useGeneration";
 import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
 import { starterFor } from "@/starters";
 import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
+import { acquireScapeLease, type ScapeLease } from "@/persistence/lease";
 import { downloadScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
@@ -51,7 +52,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [theme, setTheme, resolvedTheme] = useTheme();
   const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
 
+  const [readOnly, setReadOnly] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
+
   const autosave = useRef<AutosaveHandle | null>(null);
+  const lease = useRef<ScapeLease | null>(null);
+  /** Identifies this tab to the other tabs, and breaks ties when two claim at once. */
+  const tabId = useRef(`tab_${Math.random().toString(36).slice(2, 10)}`);
   const commands = useRef<CanvasCommands | null>(null);
   const inspector = useRef<HTMLElement | null>(null);
   const composerInput = useRef<HTMLTextAreaElement | null>(null);
@@ -96,11 +103,37 @@ export function Editor({ scapeId }: { scapeId: string }) {
     inspector.current?.querySelector<HTMLElement>("input, textarea")?.focus();
   };
 
-  // Boot: start autosave, load the scape named in the route, then run whatever brief was
-  // written on the home page.
+  // Boot: claim the scape's write lease, start autosave, load the scape named in the route,
+  // then run whatever brief was written on the home page.
   useEffect(() => {
-    autosave.current = startAutosave(scapeRepository);
     let cancelled = false;
+
+    const reload = async () => {
+      const fresh = await scapeRepository.get(scapeId);
+      if (!cancelled && fresh) useScapeStore.getState().loadScape(fresh);
+    };
+
+    lease.current = acquireScapeLease({
+      scapeId,
+      holderId: tabId.current,
+      // Flush before the other tab reads. Autosave still holds the lease at this point, by
+      // construction — the lease downgrades only after this returns.
+      onYield: () => autosave.current?.flush(),
+      onChange: (status, change) => {
+        if (cancelled) return;
+        setReadOnly(status === "follower");
+        if (status === "holder" && change === "promoted") {
+          // Whatever this tab has in memory is older than what the outgoing holder just
+          // wrote. Read theirs before writing anything, or the handover loses their edits.
+          void reload();
+          setTakingOver(false);
+        }
+      },
+    });
+
+    autosave.current = startAutosave(scapeRepository, {
+      canWrite: () => lease.current?.status() === "holder",
+    });
 
     void (async () => {
       const loaded = await scapeRepository.get(scapeId);
@@ -119,6 +152,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
       cancelled = true;
       autosave.current?.stop();
       autosave.current = null;
+      // Order matters: the flush inside stop() has to land while this tab still holds the
+      // lease, because releasing it lets another tab read immediately.
+      lease.current?.stop();
+      lease.current = null;
     };
   }, [scapeId]);
 
@@ -182,12 +219,31 @@ export function Editor({ scapeId }: { scapeId: string }) {
       }
       if (!meta || event.key.toLowerCase() !== "z") return;
       event.preventDefault();
+      // Undo is an edit. In a follower tab it would change a document this tab cannot save,
+      // so the canvas would silently drift from what is on disk.
+      if (readOnly) return;
       if (event.shiftKey) useScapeStore.getState().redo();
       else useScapeStore.getState().undo();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [leftPanelCollapsed, rightPanelCollapsed]);
+  }, [leftPanelCollapsed, rightPanelCollapsed, readOnly]);
+
+  /**
+   * The one place an edit can be attempted while another tab holds the scape. The canvas and
+   * the inspector are already inert by then; this covers the paths that are not — the
+   * composer, the quick actions and the title field.
+   */
+  const requireLease = () => {
+    if (!readOnly) return true;
+    notify.info("This scape is open in another tab", "Choose “Edit here” to move editing to it.");
+    return false;
+  };
+
+  const takeOver = async () => {
+    setTakingOver(true);
+    await lease.current?.takeOver();
+  };
 
   const requireKey = () => {
     if (apiKey.trim()) return true;
@@ -197,11 +253,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const handleSend = async (request: string) => {
+    if (!requireLease()) return;
     if (!requireKey()) return;
     await generation.start({ request, apiKey: apiKey.trim(), modelId, allowedTypes, scope });
   };
 
   const handleConnect = async (ids?: ObjectId[]) => {
+    if (!requireLease()) return;
     if (!requireKey()) return;
     await generation.connect(apiKey.trim(), modelId, ids);
   };
@@ -220,29 +278,37 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const selectedObject = selection.length === 1 && scape ? scape.objects[selection[0]] : undefined;
   const plugin = selectedObject ? getPlugin(selectedObject.type) : undefined;
   const selectedEdge = selectedEdgeId && scape ? scape.relationships[selectedEdgeId] : undefined;
+  // A palette that lists what you cannot do is a palette you stop trusting. In a follower tab
+  // the commands that change the document are absent, not present-and-inert.
+  const editCommands: CommandItem[] = readOnly
+    ? [{ id: "take-over", label: "Edit here", hint: "Move editing to this tab", run: takeOver }]
+    : [
+        ...(["note", "journey", "wireframe"] as const)
+          .filter((type) => starter.types.length === 0 || starter.types.includes(type))
+          .map((type) => ({
+            id: `add-${type}`,
+            label: `Add ${type}`,
+            hint: "Create at canvas centre",
+            shortcut: type === "note" ? "N" : type === "journey" ? "J" : "W",
+            run: () => commands.current?.addObject(type),
+          })),
+        { id: "tidy", label: "Tidy layout", run: () => commands.current?.relayout() },
+        {
+          id: "ask-ai",
+          label: "Tell AI what to do",
+          hint: "Open the composer",
+          run: focusComposer,
+        },
+      ];
+
   const commandItems: CommandItem[] = [
-    ...(["note", "journey", "wireframe"] as const)
-      .filter((type) => starter.types.length === 0 || starter.types.includes(type))
-      .map((type) => ({
-        id: `add-${type}`,
-        label: `Add ${type}`,
-        hint: "Create at canvas centre",
-        shortcut: type === "note" ? "N" : type === "journey" ? "J" : "W",
-        run: () => commands.current?.addObject(type),
-      })),
+    ...editCommands,
     { id: "fit", label: "Fit canvas", shortcut: "⇧1", run: () => commands.current?.fit() },
     {
       id: "zoom-reset",
       label: "Reset zoom",
       shortcut: "0",
       run: () => commands.current?.resetZoom(),
-    },
-    { id: "tidy", label: "Tidy layout", run: () => commands.current?.relayout() },
-    {
-      id: "ask-ai",
-      label: "Tell AI what to do",
-      hint: "Open the composer",
-      run: focusComposer,
     },
     { id: "settings", label: "Open settings", run: () => setSettingsOpen(true) },
     {
@@ -260,7 +326,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
       <TopBar
         scape={scape}
         onBack={() => navigate("/")}
-        onRename={(name) => dispatchTx([{ type: "RenameScape", name }])}
+        onRename={(name) => {
+          if (!requireLease()) return;
+          dispatchTx([{ type: "RenameScape", name }]);
+        }}
         onExport={() => downloadScape(scape)}
         onOpenSettings={() => setSettingsOpen(true)}
         theme={theme}
@@ -279,6 +348,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
             onAdd={(type) => commands.current?.addObject(type)}
             onConnectLoose={(ids) => void handleConnect(ids)}
             busy={busy}
+            readOnly={readOnly}
             isCollapsed={leftPanelCollapsed}
             onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
           />
@@ -300,7 +370,24 @@ export function Editor({ scapeId }: { scapeId: string }) {
             onOpenHelp={() => setShortcutsOpen(true)}
             isGenerating={busy}
             colorMode={resolvedTheme}
+            readOnly={readOnly}
           />
+
+          {readOnly && (
+            <div className="pointer-events-none absolute inset-x-0 top-3 z-composer flex justify-center px-4">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-subtle bg-surface px-3 py-1.5 shadow-md">
+                <span className="text-fg-secondary">Open in another tab</span>
+                <button
+                  type="button"
+                  onClick={() => void takeOver()}
+                  disabled={takingOver}
+                  className="rounded-full border border-subtle px-2.5 py-0.5 text-fg transition-colors duration-instant ease-out hover:bg-hover disabled:text-fg-tertiary"
+                >
+                  {takingOver ? "Moving…" : "Edit here"}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4">
             <div className="pointer-events-auto w-full max-w-[720px]">
@@ -414,12 +501,17 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 className="z-panel h-full w-full overflow-auto border-l border-subtle bg-surface p-4"
               >
                 {selectedEdge ? (
-                  <RelationshipInspector
-                    scape={scape}
-                    relationship={selectedEdge}
-                    onClose={() => setSelectedEdgeId(null)}
-                    onFocusObject={selectFromOutline}
-                  />
+                  // `display: contents` so this changes what the controls do and nothing about
+                  // where they sit; a disabled fieldset disables every control inside it
+                  // regardless of how it is laid out.
+                  <fieldset disabled={readOnly} className="contents">
+                    <RelationshipInspector
+                      scape={scape}
+                      relationship={selectedEdge}
+                      onClose={() => setSelectedEdgeId(null)}
+                      onFocusObject={selectFromOutline}
+                    />
+                  </fieldset>
                 ) : (
                   selectedObject &&
                   plugin && (
@@ -435,10 +527,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           ✕
                         </button>
                       </div>
-                      <plugin.Inspector
-                        object={selectedObject}
-                        dispatch={(payload: ActionPayload) => dispatchTx([payload])}
-                      />
+                      <fieldset disabled={readOnly} className="contents">
+                        <plugin.Inspector
+                          object={selectedObject}
+                          dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+                        />
+                      </fieldset>
                     </>
                   )
                 )}

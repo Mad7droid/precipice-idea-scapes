@@ -43,6 +43,8 @@ export const scapeObjectSchema = z.object({
   data: z.record(z.string(), z.unknown()),
   x: z.number(),
   y: z.number(),
+  /** Absent means "the type's default width". See ScapeObject.width. */
+  width: z.number().min(200).max(900).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -112,6 +114,35 @@ export const moveObjectSchema = z.object({
   y: z.number(),
 });
 
+/**
+ * A shallow merge into `data`, where `UpdateObject.patch.data` replaces it wholesale.
+ *
+ * Both exist because their inverses differ. A replace inverts to the previous `data`; a merge
+ * cannot invert to another merge, because a merge has no way to express "remove the key I just
+ * added". So its inverse is a total `UpdateObject` carrying the whole prior `data`.
+ *
+ * Engine-only, deliberately: a model that can merge can also grow `data` one key at a time
+ * past whatever the plugin schema validated. Every AI write stays a full, validated object.
+ */
+export const mergeObjectDataSchema = z.object({
+  ...envelope,
+  type: z.literal("MergeObjectData"),
+  id: z.string().min(1),
+  data: z.record(z.string(), z.unknown()),
+});
+
+/**
+ * Width only. Height is intrinsic — cards grow to their content — so there is nothing to
+ * store and nothing to invert for it.
+ */
+export const resizeObjectSchema = z.object({
+  ...envelope,
+  type: z.literal("ResizeObject"),
+  id: z.string().min(1),
+  /** Omitted resets the card to its type's default width. */
+  width: z.number().min(200).max(900).optional(),
+});
+
 export const duplicateObjectSchema = z.object({
   ...envelope,
   type: z.literal("DuplicateObject"),
@@ -155,6 +186,8 @@ export const actionSchema = z.discriminatedUnion("type", [
   connectObjectsSchema,
   disconnectObjectsSchema,
   renameScapeSchema,
+  mergeObjectDataSchema,
+  resizeObjectSchema,
   moveObjectSchema,
   duplicateObjectSchema,
   setViewStateSchema,
@@ -176,6 +209,8 @@ export type ActionPayload = DistributiveOmit<Action, "txId" | "ts">;
 
 export type CreateObjectAction = z.infer<typeof createObjectSchema>;
 export type UpdateObjectAction = z.infer<typeof updateObjectSchema>;
+export type MergeObjectDataAction = z.infer<typeof mergeObjectDataSchema>;
+export type ResizeObjectAction = z.infer<typeof resizeObjectSchema>;
 export type DeleteObjectAction = z.infer<typeof deleteObjectSchema>;
 export type ConnectObjectsAction = z.infer<typeof connectObjectsSchema>;
 export type DisconnectObjectsAction = z.infer<typeof disconnectObjectsSchema>;
@@ -221,6 +256,10 @@ export function describeAction(action: Action): string {
       return action.id;
     case "RenameScape":
       return `"${action.name}"`;
+    case "MergeObjectData":
+      return `${action.id} · ${Object.keys(action.data).join(", ")}`;
+    case "ResizeObject":
+      return `${action.id} · ${action.width === undefined ? "default" : `${Math.round(action.width)}px`}`;
     case "MoveObject":
       return `${action.id} · ${Math.round(action.x)},${Math.round(action.y)}`;
     case "DuplicateObject":

@@ -29,16 +29,7 @@ export const PRIMITIVE_KINDS = [
  * simple screen, and a four-column grid makes halves and thirds land exactly. */
 export const COLUMN_CHOICES = [4, 6, 12] as const;
 
-export const MIN_WIDTH = 200;
-export const MAX_WIDTH = 900;
 export const DEFAULT_COLUMNS = 12;
-
-/**
- * The width a wireframe card is drawn at when nobody has resized it. Kept in step with the
- * canvas's per-type default by hand: `src/canvas/layout.ts` owns layout and this module
- * cannot import it without crossing a workstream boundary.
- */
-export const DEFAULT_WIDTH = 380;
 
 /**
  * Every field beyond `id`/`kind`/`span` is optional, on purpose: a wireframe written before
@@ -57,8 +48,9 @@ export const primitiveSchema = z.object({
 
 export const wireframeSchema = z.object({
   primitives: z.array(primitiveSchema),
-  /** Card width in px. Set by dragging the card's edge, or from the inspector. */
-  width: z.number().min(MIN_WIDTH).max(MAX_WIDTH).optional(),
+  // Version 1 put card geometry here. Keep rejecting it rather than silently dropping a
+  // caller mistake; import migration is the one supported compatibility path.
+  width: z.never().optional(),
   columns: z.union([z.literal(4), z.literal(6), z.literal(12)]).optional(),
 });
 

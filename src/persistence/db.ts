@@ -14,6 +14,15 @@ export interface ScapeRow {
   objectCount: number;
   /** Full snapshot. Load is a read of this row, not a replay of the action log. */
   snapshot: Scape;
+  /**
+   * The document shape `snapshot` was written at — see migrate.ts. Absent on rows written
+   * before versioning, which are version 1 by definition.
+   *
+   * This is deliberately not a Dexie schema version: Dexie's `version()` describes tables and
+   * indexes, and the shape that actually changes is the blob inside this column. Bumping
+   * Dexie for a field inside a blob it never reads would upgrade nothing.
+   */
+  version?: number;
 }
 
 export interface ActionRow {

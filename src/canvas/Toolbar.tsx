@@ -27,6 +27,12 @@ export interface ToolbarProps {
   onFit: () => void;
   onAdd: () => void;
   onHelp: () => void;
+  /**
+   * Another tab holds this scape. The controls that change the document are removed rather
+   * than disabled: a row of greyed-out buttons is a worse explanation of why you cannot edit
+   * than the strip over the canvas that says so in words.
+   */
+  readOnly?: boolean;
 }
 
 export function Toolbar({
@@ -47,6 +53,7 @@ export function Toolbar({
   onFit,
   onAdd,
   onHelp,
+  readOnly = false,
 }: ToolbarProps) {
   const [viewOpen, setViewOpen] = useState(false);
   const [tidyOpen, setTidyOpen] = useState(false);
@@ -83,7 +90,7 @@ export function Toolbar({
         </Menu>
       )}
 
-      {tidyOpen && (
+      {tidyOpen && !readOnly && (
         <Menu onClose={() => setTidyOpen(false)}>
           <p className="mono px-2 py-1">Arrange</p>
           {(Object.keys(LAYOUT_LABELS) as LayoutMode[]).map((mode) => (
@@ -102,9 +109,11 @@ export function Toolbar({
       )}
 
       <div className="flex flex-col overflow-hidden rounded-md border border-subtle bg-surface shadow-sm">
-        <ToolButton label="Add object (N, J, W)" onClick={onAdd}>
-          <path d="M7 2.5v9M2.5 7h9" strokeLinecap="round" />
-        </ToolButton>
+        {!readOnly && (
+          <ToolButton label="Add object (N, J, W)" onClick={onAdd}>
+            <path d="M7 2.5v9M2.5 7h9" strokeLinecap="round" />
+          </ToolButton>
+        )}
         <ToolButton label="Help and keyboard shortcuts (?)" onClick={onHelp}>
           <circle cx="7" cy="7" r="5.5" />
           <path d="M5.6 5.4a1.55 1.55 0 1 1 2.75 1c-.56.7-1.35.9-1.35 1.85" strokeLinecap="round" />
@@ -123,16 +132,20 @@ export function Toolbar({
 
         <Divider />
 
-        <ToolButton label="Undo (⌘Z)" onClick={onUndo} disabled={!canUndo}>
-          <path d="M3 6.5h5.2a2.8 2.8 0 0 1 0 5.6H5.5" strokeLinecap="round" />
-          <path d="M5.2 3.6 2.4 6.5l2.8 2.9" strokeLinecap="round" strokeLinejoin="round" />
-        </ToolButton>
-        <ToolButton label="Redo (⇧⌘Z)" onClick={onRedo} disabled={!canRedo}>
-          <path d="M11 6.5H5.8a2.8 2.8 0 0 0 0 5.6h2.7" strokeLinecap="round" />
-          <path d="M8.8 3.6l2.8 2.9-2.8 2.9" strokeLinecap="round" strokeLinejoin="round" />
-        </ToolButton>
+        {!readOnly && (
+          <>
+            <ToolButton label="Undo (⌘Z)" onClick={onUndo} disabled={!canUndo}>
+              <path d="M3 6.5h5.2a2.8 2.8 0 0 1 0 5.6H5.5" strokeLinecap="round" />
+              <path d="M5.2 3.6 2.4 6.5l2.8 2.9" strokeLinecap="round" strokeLinejoin="round" />
+            </ToolButton>
+            <ToolButton label="Redo (⇧⌘Z)" onClick={onRedo} disabled={!canRedo}>
+              <path d="M11 6.5H5.8a2.8 2.8 0 0 0 0 5.6h2.7" strokeLinecap="round" />
+              <path d="M8.8 3.6l2.8 2.9-2.8 2.9" strokeLinecap="round" strokeLinejoin="round" />
+            </ToolButton>
 
-        <Divider />
+            <Divider />
+          </>
+        )}
 
         <ToolButton label="Zoom in" onClick={onZoomIn}>
           <path d="M7 3.5v7M3.5 7h7" strokeLinecap="round" />
@@ -154,15 +167,17 @@ export function Toolbar({
         <ToolButton label="Fit view (⇧1)" onClick={onFit}>
           <path d="M1.5 5V1.5h3.5M12.5 5V1.5H9M1.5 9v3.5h3.5M12.5 9v3.5H9" />
         </ToolButton>
-        <ToolButton
-          label={`Tidy — ${LAYOUT_LABELS[layoutMode].toLowerCase()}`}
-          onClick={() => {
-            setViewOpen(false);
-            setTidyOpen((open) => !open);
-          }}
-        >
-          <path d="M2 2.5h4v3.5H2zM8 2.5h4v9H8zM2 8h4v3.5H2z" strokeLinejoin="round" />
-        </ToolButton>
+        {!readOnly && (
+          <ToolButton
+            label={`Tidy — ${LAYOUT_LABELS[layoutMode].toLowerCase()}`}
+            onClick={() => {
+              setViewOpen(false);
+              setTidyOpen((open) => !open);
+            }}
+          >
+            <path d="M2 2.5h4v3.5H2zM8 2.5h4v9H8zM2 8h4v3.5H2z" strokeLinejoin="round" />
+          </ToolButton>
+        )}
       </div>
     </div>
   );

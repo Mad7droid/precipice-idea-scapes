@@ -10,6 +10,7 @@ import {
   type ScapeFile,
 } from "@/core/serialize";
 import type { Scape, ScapeRepository } from "@/core/types";
+import { migrateDocument } from "./migrate";
 
 /** A `.scape` is plain JSON, indented, readable in a text editor on purpose. */
 export function toScapeFile(scape: Scape, actionLog: Action[] = []): ScapeFile {
@@ -44,6 +45,10 @@ export class ScapeImportError extends Error {}
 /**
  * Parses a `.scape`, rejecting loudly and specifically. "Invalid file" is not a message a
  * person can act on, so failures name the field and what was wrong with it.
+ *
+ * An *older* file is migrated rather than refused. Refusing one orphans every export somebody
+ * has already made, which is the opposite of what a portable format is for. A *newer* file is
+ * still refused, because this build cannot know what its fields mean.
  */
 export function parseScapeFile(text: string): ScapeFile {
   let json: unknown;
@@ -53,14 +58,31 @@ export function parseScapeFile(text: string): ScapeFile {
     throw new ScapeImportError("That file is not valid JSON.");
   }
 
-  const result = scapeFileSchema.safeParse(json);
-  if (!result.success) {
-    const version = (json as { version?: unknown })?.version;
-    if (typeof version === "number" && version !== SCAPE_FILE_VERSION) {
-      throw new ScapeImportError(
-        `That file is version ${version}; this build reads version ${SCAPE_FILE_VERSION}.`,
-      );
+  const version = (json as { version?: unknown })?.version;
+  if (typeof version === "number" && version > SCAPE_FILE_VERSION) {
+    throw new ScapeImportError(
+      `That file is version ${version}; this build reads version ${SCAPE_FILE_VERSION}.`,
+    );
+  }
+
+  // Migrate before validating: an older document is not expected to satisfy today's schema,
+  // which is the whole reason the step exists.
+  let candidate = json;
+  if (typeof version === "number" && version < SCAPE_FILE_VERSION) {
+    const file = json as { scape?: unknown };
+    try {
+      candidate = {
+        ...file,
+        version: SCAPE_FILE_VERSION,
+        scape: migrateDocument((file.scape ?? {}) as Record<string, unknown>, version),
+      };
+    } catch (error) {
+      throw new ScapeImportError(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  const result = scapeFileSchema.safeParse(candidate);
+  if (!result.success) {
     throw new ScapeImportError(describeParseError(result.error as z.ZodError));
   }
   return result.data;

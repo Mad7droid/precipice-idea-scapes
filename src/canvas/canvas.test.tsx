@@ -273,17 +273,17 @@ describe("unregistered object types", () => {
 
 describe("card width", () => {
   it("falls back to the type's default when nothing has been dragged", () => {
-    const object = { type: "wireframe", data: {} };
+    const object = { type: "wireframe" };
     expect(objectWidth(object)).toBe(widthFor("wireframe"));
-    expect(objectWidth({ type: "note", data: {} })).toBe(widthFor("note"));
+    expect(objectWidth({ type: "note" })).toBe(widthFor("note"));
   });
 
   it("prefers a width stored on the object, clamped to what a card can be", () => {
-    expect(objectWidth({ type: "note", data: { width: 460 } })).toBe(460);
-    expect(objectWidth({ type: "note", data: { width: 5 } })).toBe(200);
-    expect(objectWidth({ type: "note", data: { width: 5000 } })).toBe(900);
+    expect(objectWidth({ type: "note", width: 460 })).toBe(460);
+    expect(objectWidth({ type: "note", width: 5 })).toBe(200);
+    expect(objectWidth({ type: "note", width: 5000 })).toBe(900);
     // A width that is not a number is not a width.
-    expect(objectWidth({ type: "note", data: { width: "wide" } })).toBe(widthFor("note"));
+    expect(objectWidth({ type: "note", width: "wide" as unknown as number })).toBe(widthFor("note"));
   });
 
   it("lays out a resized card at the width it was dragged to", () => {
@@ -293,7 +293,7 @@ describe("card width", () => {
       ...scape,
       objects: {
         ...scape.objects,
-        [first]: { ...scape.objects[first], data: { ...scape.objects[first].data, width: 880 } },
+        [first]: { ...scape.objects[first], width: 880 },
       },
     };
     const before = layoutPositions(scape, "LR");

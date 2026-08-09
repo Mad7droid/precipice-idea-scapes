@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MAX_OBJECT_WIDTH, MIN_OBJECT_WIDTH, widthFor } from "@/canvas/layout";
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
 import { Select } from "@/design/Select";
@@ -7,9 +8,6 @@ import { PRESETS, scaleSpan } from "./presets";
 import {
   columnsOf,
   COLUMN_CHOICES,
-  DEFAULT_WIDTH,
-  MAX_WIDTH,
-  MIN_WIDTH,
   PRIMITIVE_KINDS,
   type Primitive,
   type PrimitiveKind,
@@ -50,8 +48,8 @@ export function WireframeInspector({
 
   /**
    * `UpdateObject` replaces `data` wholesale rather than merging it, so every write has to
-   * carry the keys it is not changing. Forgetting this is how a width silently disappears
-   * the next time someone edits an element.
+   * carry the keys it is not changing. Card width is intentionally not among them: it belongs
+   * to `ScapeObject`, not this wireframe's content.
    */
   const patch = (next: Partial<WireframeData>) =>
     dispatch({
@@ -108,15 +106,17 @@ export function WireframeInspector({
           <div className="flex items-center gap-1.5">
             <input
               type="range"
-              min={MIN_WIDTH}
-              max={MAX_WIDTH}
+              min={MIN_OBJECT_WIDTH}
+              max={MAX_OBJECT_WIDTH}
               step={10}
-              value={data.width ?? DEFAULT_WIDTH}
+              value={object.width ?? widthFor(object.type)}
               aria-label="Card width"
-              onChange={(e) => patch({ width: Number(e.target.value) })}
+              onChange={(e) =>
+                dispatch({ type: "ResizeObject", id: object.id, width: Number(e.target.value) })
+              }
               className="range-field min-w-0 flex-1"
             />
-            <span className="mono shrink-0">{data.width ?? DEFAULT_WIDTH}</span>
+            <span className="mono shrink-0">{object.width ?? widthFor(object.type)}</span>
           </div>
         </div>
         <div>

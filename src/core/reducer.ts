@@ -136,6 +136,54 @@ function reduce(state: Scape, action: Action): ApplyResult {
       };
     }
 
+    case "MergeObjectData": {
+      const existing = state.objects[action.id];
+      if (!existing) return { state, inverse: null };
+
+      const keys = Object.keys(action.data);
+      if (keys.length === 0) return { state, inverse: null };
+      // A merge that changes nothing is a no-op, so repeated writes of the same value from a
+      // controlled input do not each become an undo step.
+      if (keys.every((key) => Object.is(existing.data[key], action.data[key]))) {
+        return { state, inverse: null };
+      }
+
+      const merged = { ...existing.data, ...action.data };
+      return {
+        state: {
+          ...state,
+          objects: { ...state.objects, [action.id]: { ...existing, data: merged } },
+        },
+        // Total, not a counter-merge: only a full replace can remove a key this merge added.
+        inverse: inv(action, {
+          type: "UpdateObject",
+          id: action.id,
+          patch: { data: existing.data },
+        }),
+      };
+    }
+
+    case "ResizeObject": {
+      const existing = state.objects[action.id];
+      if (!existing) return { state, inverse: null };
+      if (existing.width === action.width) return { state, inverse: null };
+
+      const next = { ...existing };
+      if (action.width === undefined) delete next.width;
+      else next.width = action.width;
+
+      return {
+        state: { ...state, objects: { ...state.objects, [action.id]: next } },
+        // `width` omitted when the object had none, so undo restores "use the default"
+        // rather than freezing today's default onto the card.
+        inverse: inv(action, {
+          type: "ResizeObject",
+          id: action.id,
+          ...(existing.width !== undefined ? { width: existing.width } : {}),
+        }),
+      };
+    }
+
     case "MoveObject": {
       const existing = state.objects[action.id];
       if (!existing) return { state, inverse: null };

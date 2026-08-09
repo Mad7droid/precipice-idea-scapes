@@ -4,6 +4,7 @@ import { getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { MAX_OBJECT_WIDTH, MIN_OBJECT_WIDTH, objectWidth } from "./layout";
+import { useCanvasReadOnly } from "./readOnly";
 import type { ObjectNodeData } from "./edges";
 
 /**
@@ -105,7 +106,7 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
  * Drag the card's right edge to set its width.
  *
  * A card is only as useful as the content you can read on it, and a twelve-column wireframe
- * needs more room than a note. Width is stored on the object's own `data`, so it survives a
+ * needs more room than a note. Width is stored on the object itself, so it survives a
  * reload and an export, and it is written once on pointer-up — one entry on the undo stack,
  * not one per frame. Dagre already prefers React Flow's measured width, so a resized card
  * lays out correctly on the next tidy with nothing else to tell it.
@@ -115,6 +116,7 @@ function useResizeGrip(object: ScapeObject) {
   const [draft, setDraft] = useState<number | null>(null);
   const start = useRef({ x: 0, width: 0 });
   const { getZoom } = useReactFlow();
+  const readOnly = useCanvasReadOnly();
 
   // A width the user is mid-drag on is local; everything else comes from the store, so undo
   // and a collaborator's edit both land immediately.
@@ -122,14 +124,9 @@ function useResizeGrip(object: ScapeObject) {
 
   const commit = useCallback(
     (next: number | undefined) => {
-      const data = { ...object.data };
-      if (next === undefined) delete data.width;
-      else data.width = next;
-      useScapeStore
-        .getState()
-        .dispatchTx([{ type: "UpdateObject", id: object.id, patch: { data } }]);
+      useScapeStore.getState().dispatchTx([{ type: "ResizeObject", id: object.id, width: next }]);
     },
-    [object.data, object.id],
+    [object.id],
   );
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -193,7 +190,9 @@ function useResizeGrip(object: ScapeObject) {
     </div>
   );
 
-  return { width, grip };
+  // No grip at all while another tab holds the scape — a handle that follows the pointer and
+  // then silently snaps back on release is worse than no handle.
+  return { width, grip: readOnly ? null : grip };
 }
 
 /**

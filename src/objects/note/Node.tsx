@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
+import { useCanvasReadOnly } from "@/canvas/readOnly";
 import { EmptyHint } from "../ui";
 import type { NoteData } from "./schema";
 
@@ -8,9 +9,12 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
   const data = object.data as Partial<NoteData>;
   const body = data.body?.trim() ?? "";
   const [editing, setEditing] = useState<"title" | "body" | null>(null);
+  const readOnly = useCanvasReadOnly();
 
-  const commit = (patch: { title?: string } | { data: Partial<NoteData> }) =>
+  const commit = (patch: { title?: string } | { data: Partial<NoteData> }) => {
+    if (readOnly) return;
     useScapeStore.getState().dispatchTx([{ type: "UpdateObject", id: object.id, patch }]);
+  };
 
   if (editing === "title") {
     return (
@@ -51,7 +55,7 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
   return (
     <>
       <h4
-        onClick={() => setEditing("title")}
+        onClick={() => !readOnly && setEditing("title")}
         className="nodrag cursor-text text-sm font-medium leading-snug text-fg"
       >
         {object.title || "Untitled"}
@@ -59,13 +63,13 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
       <div className="mt-1.5">
         {body ? (
           <p
-            onClick={() => setEditing("body")}
+            onClick={() => !readOnly && setEditing("body")}
             className="nodrag cursor-text text-xs text-fg-secondary"
           >
             {body}
           </p>
         ) : (
-          <span onClick={() => setEditing("body")} className="nodrag cursor-text">
+          <span onClick={() => !readOnly && setEditing("body")} className="nodrag cursor-text">
             <EmptyHint>No body yet</EmptyHint>
           </span>
         )}
