@@ -43,6 +43,8 @@ milestone is published.
 
 ### Fixed
 
+- Local development now works on any Vite/Conductor port, not only `5173`, so AI requests no
+  longer fail with a misleading connection error when another local service occupies that port.
 - Added an offline app shell, proactive browser-storage persistence, quota-pressure guidance,
   and bounded action-log retention so local Scapes remain available and durable over time.
 

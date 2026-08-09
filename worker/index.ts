@@ -9,16 +9,30 @@
  */
 /**
  * The Vite dev server is here too. That is safe precisely because the Worker holds no
- * credential: this list gates CORS, not access to anything, and every caller still has to
- * supply their own key. Without the dev origins, `pnpm dev` gets a 403 with no
- * `Access-Control-Allow-Origin`, which the browser reports as "Failed to fetch" and the UI
- * shows as "Could not reach Anthropic" — a confusing way to say "you are on localhost".
+ * credential: this check gates CORS, not access to anything, and every caller still has to
+ * supply their own key. Conductor may allocate any free local port, so localhost origins are
+ * accepted by hostname rather than pinning the allowlist to whichever port happened to be
+ * free on the developer's machine. Without this, the browser reports "Failed to fetch" and
+ * the UI shows "Could not reach Anthropic" — a confusing way to say "you are on localhost".
  */
 const ALLOWED_ORIGINS = new Set([
   "https://precipice.pages.dev",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]);
+
+export function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin || ALLOWED_ORIGINS.has(origin)) return !!origin;
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === "http:" &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
 const MAX_BODY_BYTES = 256 * 1024;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
@@ -42,7 +56,7 @@ function cors(origin: string | null): Headers {
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   });
-  if (origin && ALLOWED_ORIGINS.has(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  if (isAllowedOrigin(origin)) headers.set("Access-Control-Allow-Origin", origin!);
   return headers;
 }
 
@@ -80,7 +94,7 @@ export default {
     if (request.method !== "POST" || new URL(request.url).pathname !== "/v1/messages") {
       return json({ error: "Not found" }, 404, origin);
     }
-    if (!origin || !ALLOWED_ORIGINS.has(origin)) {
+    if (!isAllowedOrigin(origin)) {
       return json({ error: "Origin not allowed" }, 403, origin);
     }
 
