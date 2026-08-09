@@ -18,6 +18,22 @@ own Anthropic (Claude) API key.
   system account, backups, and device security. “Local” does not mean encrypted
   or immune to malware.
 
+## Durability and offline behavior
+
+- Autosave writes locally without a Save button. When a Scape is open in more
+  than one tab, only one tab holds the write lease; the others are read-only.
+  Use **Edit here** to take over editing. Precipice does not merge simultaneous
+  changes between tabs.
+- After the first Scape is created, Precipice asks browsers that support it to
+  mark the origin's storage as persistent. A browser may decline, private mode
+  may restrict storage, and no browser setting replaces an exported backup.
+- The action log is retained only up to a bounded size to reduce quota pressure;
+  the current Scape snapshot is what reopens after refresh.
+- The production app registers an offline app shell. After the app has loaded
+  once, it can reopen without a network connection and still read local Scapes.
+  It cannot generate with Anthropic while offline. Local development does not
+  register this service worker.
+
 ## How the Claude/Anthropic key is handled
 
 1. You enter your own Anthropic API key in Settings.
@@ -52,8 +68,12 @@ API plan you use.
 
 - API keys, Cloudflare tokens, `.env` files, and private user data must never be
   committed to GitHub.
+- The deployment workflow requires `CLOUDFLARE_ACCOUNT_ID` and
+  `CLOUDFLARE_API_TOKEN` as GitHub Actions secrets. Do not make a workflow
+  fallback to source-controlled credentials when either secret is absent.
 - Production deployment credentials belong in GitHub Actions secrets or the
-  local Wrangler credential store, not in source files.
+  local Wrangler credential store, not in source files. Use a scoped token with
+  only the Workers and Pages permissions required for this project.
 - The public repository contains only the public proxy URL in `.env.example`.
 - Keep Secret Scanning, push protection, and Dependabot enabled on the GitHub
   repository when available.
@@ -67,6 +87,13 @@ bodies to 256 KiB, forwards an explicit header allowlist, and applies best-effor
 per-isolate request damping. The in-memory damping is not a dependable global
 rate limit. Configure a Cloudflare edge rate-limit rule for `POST /v1/messages`
 on the Worker hostname for authoritative capacity protection.
+
+The Worker accepts the production Pages origin and `http` requests from
+`localhost` or `127.0.0.1` on any port for local development. This local-origin
+rule is a CORS convenience, not authentication: a non-browser caller can forge
+an Origin header, and the Worker intentionally has no shared Anthropic key to
+protect. Do not add a hosted provider key unless the Worker first gains real
+user authentication, authorization, and abuse controls.
 
 ## If you suspect exposure
 

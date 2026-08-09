@@ -18,7 +18,7 @@ For a first look:
 1. Open the link in a modern browser.
 2. Choose a starter such as **All-in-one**, **Journey map**, **Mind map**, or **Screens**, or open an existing scape from the home page.
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
-4. Select a Wireframe object to inspect its grid, elements, labels, widths, and alignment controls.
+4. Select an object to edit it in the inspector; resize any card from its lower-right handle.
 5. Switch between Light, Dark, and System themes from the top-right theme control.
 
 The hosted version stores scapes locally in your browser. It is not a shared
@@ -34,7 +34,8 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - A React Flow canvas with selection, relationships, pan/zoom, layout, and undo.
 - Note, Journey, and Wireframe object types with editable inspectors.
 - Wireframe grids with sections, labelled elements, spans, alignment, sizing, and presets.
-- Local persistence with autosave and `.scape` export/import.
+- Local persistence with autosave, single-writer multi-tab protection, offline app-shell support,
+  and versioned `.scape` export/import.
 - Theme controls, object-type filters, and relationship-line visibility controls.
 - AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
 
@@ -83,7 +84,9 @@ of [Node.js](https://nodejs.org/), then:
 2. Open a terminal in the unzipped `precipice-idea-scapes` folder.
 3. Run `corepack enable`, then `pnpm install`.
 4. Run `pnpm dev`.
-5. Open the local address printed by the command, usually `http://localhost:5173`.
+5. Open the local address printed by the command. It is usually `http://localhost:5173`, but
+   Vite may choose another available port; AI generation supports localhost and `127.0.0.1`
+   on any port.
 
 To make a production build locally, run `pnpm build`. To preview that build,
 run `pnpm preview`.
@@ -103,6 +106,21 @@ pnpm test
 pnpm build
 ```
 
+### Production deployment
+
+Pushing to `main` runs the GitHub Actions deployment workflow, which builds the app, deploys
+the AI Worker, then deploys the Pages frontend. Configure these repository secrets before
+relying on that automation:
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+
+Use a scoped Cloudflare token with only the Workers and Pages permissions needed for this
+project. Never place either value in `wrangler.toml`, an `.env` file that is committed, an
+issue, or a screenshot. A maintainer who is already authenticated with Wrangler can deploy
+manually with `pnpm exec wrangler deploy` followed by
+`pnpm exec wrangler pages deploy dist --project-name precipice --branch main`.
+
 The project uses TypeScript, React, Vite, Vitest, React Flow, Dagre, Dexie,
 Zustand, and the Vercel AI SDK with Anthropic support.
 
@@ -112,6 +130,13 @@ For the full data-flow and Claude/Anthropic API-key model, see
 [Security and local data](docs/security-and-local-data.md).
 
 - Scapes and settings are stored locally in the browser through IndexedDB; the hosted app does not provide a shared server-side scape database.
+- After the first Scape is created, the app asks the browser to protect its local storage from
+  automatic eviction where the browser supports that capability. This is best effort, not a
+  substitute for exporting important work.
+- A Scape has one writable browser tab at a time. Other tabs remain read-only and can take over
+  with one click; Precipice does not merge simultaneous edits.
+- The deployed app can reopen offline after its shell has been loaded once. AI generation still
+  needs a network connection to Anthropic.
 - AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.
 - The Worker holds no Anthropic credential of its own and stores nothing. It exists to add CORS headers, and it rejects any request that does not carry a key.
 - The Worker forwards an allowlist of headers upstream, limits request bodies to 256 KiB, and returns `Cache-Control: no-store`. Its per-IP counter is best-effort abuse damping only: Worker isolates do not share memory, so it is not a dependable rate limit. Configure the Cloudflare dashboard rate-limiting rule below for authoritative edge protection.

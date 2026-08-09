@@ -33,6 +33,9 @@ appropriate.
 - The Worker rejects oversized requests, forwards only an allowlist of headers
   upstream, and returns `Cache-Control: no-store` for upstream AI responses. Its
   per-IP counter is per-isolate and best-effort, not a dependable rate limit.
+- The Worker accepts the production Pages origin plus `localhost` and `127.0.0.1`
+  over HTTP for local development. This is CORS behavior, not authentication;
+  never add a shared Anthropic key to the Worker without real access controls.
 - Configure a Cloudflare dashboard rate-limiting rule for `POST /v1/messages` on
   the Worker hostname: 60 requests per client IP per 60 seconds, blocked for 60
   seconds. This edge rule is the dependable capacity protection.
@@ -40,3 +43,6 @@ appropriate.
   Use throwaway development credentials when testing.
 - Scapes and settings are currently local browser data, not encrypted cloud data.
   Do not store sensitive personal, customer, or production information in them.
+- Browser storage persistence and the offline app shell improve availability but
+  are not encryption or backup. Export important Scapes and protect the device
+  and browser profile that hold them.

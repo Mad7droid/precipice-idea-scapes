@@ -11,6 +11,8 @@ milestone is published.
 
 ### Changed
 
+- Documented current multi-tab, offline, storage-persistence, deployment, and
+  sensitive-data behavior in the README and security guidance.
 - Scapes now use a single editable tab. A second tab stays fully readable and can take over
   editing with one click, without overwriting the first tab's latest work.
 - Promoted card width to shared object geometry. Existing v1 `.scape` files migrate their
