@@ -20,6 +20,8 @@ For a first look:
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
 4. Select an object to edit it in the inspector; resize any card from its lower-right handle.
 5. Switch between Light, Dark, and System themes from the top-right theme control.
+6. Use **Export** in the top bar to download either a `.scape` file for reopening in Precipice or
+   a PDF for sharing and printing.
 
 The hosted version stores scapes locally in your browser. It is not a shared
 cloud workspace, so exporting a `.scape` file is the safest way to move work
@@ -36,6 +38,7 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - Wireframe grids with sections, labelled elements, spans, alignment, sizing, and presets.
 - Local persistence with autosave, single-writer multi-tab protection, offline app-shell support,
   and versioned `.scape` export/import.
+- Export scapes as a portable `.scape` file or a readable PDF with a diagram and full object outline.
 - Theme controls, object-type filters, and relationship-line visibility controls.
 - AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
 

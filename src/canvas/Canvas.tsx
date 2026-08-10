@@ -148,6 +148,8 @@ export interface CanvasCommands {
   addObject: (objectType: string) => void;
   fit: () => void;
   resetZoom: () => void;
+  /** Live measured node geometry. Empty for nodes React Flow has not measured yet. */
+  measuredSizes: () => Record<ObjectId, { width: number; height: number }>;
 }
 
 export interface CanvasProps {
@@ -367,30 +369,35 @@ function CanvasSurface({
     [connectMenu, dispatchTx],
   );
 
+  // Real measured heights beat the per-type fallbacks, so a five-step journey and a one-line
+  // note get the vertical space they actually need. Layout wants them, and so does PDF export.
+  //
+  // They come from getInternalNode, not from our own node array: React Flow v12 keeps
+  // `measured` in its internal lookup and never writes it back to userland nodes.
+  const measuredSizes = useCallback(() => {
+    const current = useScapeStore.getState().scape;
+    const measured: Record<string, { width: number; height: number }> = {};
+    if (!current) return measured;
+    for (const id of current.objectOrder) {
+      const size = getInternalNode(id)?.measured;
+      if (size?.width && size?.height) {
+        measured[id] = { width: size.width, height: size.height };
+      }
+    }
+    return measured;
+  }, [getInternalNode]);
+
   const relayout = useCallback(
     (mode: LayoutMode = layoutMode) => {
       if (readOnly) return;
       const current = useScapeStore.getState().scape;
       if (!current) return;
-      // Real measured heights beat the per-type fallbacks, so a five-step journey and a
-      // one-line note get the vertical space they actually need.
-      //
-      // They come from getInternalNode, not from our own node array: React Flow v12 keeps
-      // `measured` in its internal lookup and never writes it back to userland nodes.
-      const measured: Record<string, { width: number; height: number }> = {};
-      for (const id of current.objectOrder) {
-        const internal = getInternalNode(id);
-        const size = internal?.measured;
-        if (size?.width && size?.height) {
-          measured[id] = { width: size.width, height: size.height };
-        }
-      }
-      dispatchTx([layoutAction(current, mode, measured)]);
+      dispatchTx([layoutAction(current, mode, measuredSizes())]);
       // Reflowing without refitting leaves the scape somewhere off-screen. Both move over
       // --dur-canvas so the reflow and the camera read as one motion.
       fitView({ padding: 0.15, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 420 });
     },
-    [dispatchTx, fitView, getInternalNode, layoutMode, readOnly],
+    [dispatchTx, fitView, layoutMode, measuredSizes, readOnly],
   );
 
   const clearSelection = useCallback(() => {
@@ -541,10 +548,10 @@ function CanvasSurface({
     [dispatchTx, selectEdge],
   );
 
-  // Hand the parent the imperative surface once. All four are stable.
+  // Hand the parent the imperative surface once. All of them are stable.
   useEffect(() => {
-    onReady?.({ relayout, focus, clearSelection, addObject, fit, resetZoom });
-  }, [onReady, relayout, focus, clearSelection, addObject, fit, resetZoom]);
+    onReady?.({ relayout, focus, clearSelection, addObject, fit, resetZoom, measuredSizes });
+  }, [onReady, relayout, focus, clearSelection, addObject, fit, resetZoom, measuredSizes]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {

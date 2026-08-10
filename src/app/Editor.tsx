@@ -21,7 +21,7 @@ import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverl
 import { RelationshipInspector } from "./RelationshipInspector";
 import { navigate } from "./router";
 import { SettingsModal } from "./SettingsModal";
-import { TopBar } from "./TopBar";
+import { TopBar, type ExportFormat } from "./TopBar";
 import { useAppSettings } from "./useAppSettings";
 import { useTheme } from "./theme";
 
@@ -45,6 +45,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [composerCollapsed, setComposerCollapsed] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(248);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -264,6 +265,39 @@ export function Editor({ scapeId }: { scapeId: string }) {
     await generation.connect(apiKey.trim(), modelId, ids);
   };
 
+  /**
+   * A `.scape` is a serialisation and lands instantly. A PDF is a render — big scapes take a
+   * beat — so the button says so, after a frame in which the label can actually paint.
+   */
+  const exportAs = async (format: ExportFormat) => {
+    if (!scape) return;
+    if (format === "scape") {
+      downloadScape(scape);
+      return;
+    }
+    setExporting(true);
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    try {
+      const { exportScapePdf } = await import("@/persistence/pdf");
+      const result = await exportScapePdf(scape, {
+        ...(commands.current ? { measured: commands.current.measuredSizes() } : {}),
+      });
+      notify.success(
+        "Exported.",
+        `${result.objects} ${result.objects === 1 ? "block" : "blocks"} over ${result.pages} ${
+          result.pages === 1 ? "page" : "pages"
+        }.`,
+      );
+    } catch (error) {
+      notify.error(
+        "Could not export the PDF.",
+        error instanceof Error ? error.message : "Try again, or export a scape file instead.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const selectFromOutline = (id: ObjectId) => {
     setSelectedEdgeId(null);
     useScapeStore.getState().setSelection([id]);
@@ -330,7 +364,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
           if (!requireLease()) return;
           dispatchTx([{ type: "RenameScape", name }]);
         }}
-        onExport={() => downloadScape(scape)}
+        onExport={exportAs}
+        exporting={exporting}
         onOpenSettings={() => setSettingsOpen(true)}
         theme={theme}
         onThemeChange={setTheme}

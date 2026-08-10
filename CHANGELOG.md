@@ -11,6 +11,8 @@ milestone is published.
 
 ### Changed
 
+- Added an Export menu with portable `.scape` downloads and vector PDF exports. PDFs include a
+  first-page scape diagram followed by a readable outline of every block and its relationships.
 - Documented current multi-tab, offline, storage-persistence, deployment, and
   sensitive-data behavior in the README and security guidance.
 - Scapes now use a single editable tab. A second tab stays fully readable and can take over

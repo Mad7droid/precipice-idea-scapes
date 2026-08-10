@@ -1,4 +1,6 @@
 allowBuilds:
+  # Transitive via jspdf. Its install script only prints a funding notice — nothing to run.
+  core-js: false
   esbuild: true
   # Wrangler's locally bundled Cloudflare runtime.
   workerd: true

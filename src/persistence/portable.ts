@@ -10,6 +10,7 @@ import {
   type ScapeFile,
 } from "@/core/serialize";
 import type { Scape, ScapeRepository } from "@/core/types";
+import { downloadBlob, filenameFor } from "./download";
 import { migrateDocument } from "./migrate";
 
 /** A `.scape` is plain JSON, indented, readable in a text editor on purpose. */
@@ -23,21 +24,8 @@ export function serializeScape(scape: Scape, actionLog: Action[] = []): string {
 
 export function downloadScape(scape: Scape, actionLog: Action[] = []): void {
   const blob = new Blob([serializeScape(scape, actionLog)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${filenameFor(scape.name)}.scape`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `${filenameFor(scape.name)}.scape`);
   notify.success("Exported.");
-}
-
-function filenameFor(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "scape";
 }
 
 export class ScapeImportError extends Error {}

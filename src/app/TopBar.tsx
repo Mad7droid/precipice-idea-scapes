@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Scape, ThemePreference } from "@/core/types";
+import { Menu, MenuItem } from "@/design/Menu";
 import { starterFor } from "@/starters";
 import { ThemeControl } from "./ThemeControl";
 import { Brand } from "./Brand";
+
+export type ExportFormat = "scape" | "pdf";
 
 /**
  * The editor's chrome.
@@ -15,6 +18,7 @@ export function TopBar({
   onBack,
   onRename,
   onExport,
+  exporting,
   onOpenSettings,
   theme,
   onThemeChange,
@@ -22,7 +26,9 @@ export function TopBar({
   scape: Scape;
   onBack: () => void;
   onRename: (name: string) => void;
-  onExport: () => void;
+  onExport: (format: ExportFormat) => void;
+  /** A PDF of a large scape takes a beat, and a button that looks idle while it renders lies. */
+  exporting?: boolean;
   onOpenSettings: () => void;
   theme: ThemePreference;
   onThemeChange: (next: ThemePreference) => void;
@@ -101,13 +107,7 @@ export function TopBar({
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={onExport}
-          className="rounded-full border border-subtle px-3 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-        >
-          Export
-        </button>
+        <ExportMenu onExport={onExport} busy={exporting ?? false} />
         <ThemeControl value={theme} onChange={onThemeChange} />
         <button
           type="button"
@@ -128,5 +128,75 @@ export function TopBar({
         </button>
       </div>
     </header>
+  );
+}
+
+/**
+ * Two ways out of a scape, and they are not interchangeable: one comes back into Precipice,
+ * the other is for everyone else. The captions say which is which, because the file extension
+ * is not something anyone should have to know.
+ */
+function ExportMenu({
+  onExport,
+  busy,
+}: {
+  onExport: (format: ExportFormat) => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const boundary = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+
+  const close = () => setOpen(false);
+  const choose = (format: ExportFormat) => {
+    close();
+    onExport(format);
+  };
+
+  return (
+    <div ref={boundary} className="relative">
+      <button
+        ref={trigger}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-busy={busy}
+        disabled={busy}
+        onClick={() => setOpen((was) => !was)}
+        className="flex items-center gap-1.5 rounded-full border border-subtle px-3 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg disabled:opacity-60 disabled:hover:bg-transparent"
+      >
+        {busy ? "Exporting…" : "Export"}
+        {!busy && (
+          <svg width="8" height="5" viewBox="0 0 8 5" fill="none" aria-hidden>
+            <path
+              d="m1 1 3 3 3-3"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </button>
+
+      <div className="absolute right-0 top-full z-popover mt-1">
+        <Menu
+          open={open}
+          label="Export"
+          boundaryRef={boundary}
+          onClose={() => {
+            close();
+            trigger.current?.focus();
+          }}
+        >
+          <MenuItem onSelect={() => choose("scape")} caption="Re-opens in Precipice">
+            Scape file
+          </MenuItem>
+          <MenuItem onSelect={() => choose("pdf")} caption="Diagram and written outline">
+            PDF
+          </MenuItem>
+        </Menu>
+      </div>
+    </div>
   );
 }
