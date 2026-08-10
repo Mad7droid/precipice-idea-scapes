@@ -11,9 +11,18 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
   const [editing, setEditing] = useState<"title" | "body" | null>(null);
   const readOnly = useCanvasReadOnly();
 
-  const commit = (patch: { title?: string } | { data: Partial<NoteData> }) => {
+  const commitTitle = (title: string) => {
     if (readOnly) return;
-    useScapeStore.getState().dispatchTx([{ type: "UpdateObject", id: object.id, patch }]);
+    useScapeStore
+      .getState()
+      .dispatchTx([{ type: "UpdateObject", id: object.id, patch: { title } }]);
+  };
+
+  const commitBody = (body: string) => {
+    if (readOnly) return;
+    useScapeStore
+      .getState()
+      .dispatchTx([{ type: "MergeObjectData", id: object.id, data: { body } }]);
   };
 
   if (editing === "title") {
@@ -23,7 +32,7 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
         defaultValue={object.title}
         onBlur={(e) => {
           setEditing(null);
-          commit({ title: e.currentTarget.value });
+          commitTitle(e.currentTarget.value);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
@@ -41,7 +50,7 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
         defaultValue={data.body ?? ""}
         onBlur={(e) => {
           setEditing(null);
-          commit({ data: { body: e.currentTarget.value } });
+          commitBody(e.currentTarget.value);
         }}
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(null);

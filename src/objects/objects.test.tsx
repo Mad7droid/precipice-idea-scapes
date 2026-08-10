@@ -1,6 +1,7 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionPayload } from "@/core/actions";
+import { applyAction, transaction } from "@/core/reducer";
 import { allPlugins, getPlugin } from "@/core/registry";
 import type { ScapeObject } from "@/core/types";
 import { fixtureScape } from "@/core/fixtures";
@@ -209,7 +210,7 @@ describe("inspectors dispatch UpdateObject", () => {
     });
   }
 
-  it("journey: adding a step dispatches one UpdateObject carrying the whole step list", () => {
+  it("journey: adding a step dispatches one MergeObjectData carrying the whole step list", () => {
     const { container, dispatch, object, unmount } = mountInspector("journey");
     const before = (object.data as { steps: unknown[] }).steps.length;
 
@@ -221,10 +222,10 @@ describe("inspectors dispatch UpdateObject", () => {
     expect(dispatch).toHaveBeenCalledTimes(1);
     const payload = dispatch.mock.calls[0][0] as unknown as {
       type: string;
-      patch: { data: { steps: unknown[] } };
+      data: { steps: unknown[] };
     };
-    expect(payload.type).toBe("UpdateObject");
-    expect(payload.patch.data.steps).toHaveLength(before + 1);
+    expect(payload.type).toBe("MergeObjectData");
+    expect(payload.data.steps).toHaveLength(before + 1);
 
     unmount();
   });
@@ -266,10 +267,10 @@ describe("wireframe layout", () => {
     act(() => preset.click());
 
     const payload = dispatch.mock.calls[0][0] as unknown as {
-      patch: { data: { primitives: Array<{ id: string }> } };
+      data: { primitives: Array<{ id: string }> };
     };
     const before = (object.data as { primitives: Array<{ id: string }> }).primitives;
-    const after = payload.patch.data.primitives;
+    const after = payload.data.primitives;
 
     expect(after.length).toBeGreaterThan(before.length);
     expect(after.slice(0, before.length).map((p) => p.id)).toEqual(before.map((p) => p.id));
@@ -279,7 +280,13 @@ describe("wireframe layout", () => {
   });
 
   it("carries the rest of data through when one key changes", () => {
-    const object = { ...wireframe(), width: 520 };
+    // The inspector sends only the key it touched. Everything else surviving is the
+    // reducer's job, so this goes through it rather than trusting the payload shape.
+    const scape = fixtureScape();
+    const source = wireframe();
+    const object = { ...source, data: { ...source.data, columns: 6 } };
+    scape.objects[object.id] = object;
+
     const dispatch = vi.fn<(payload: ActionPayload) => void>();
     const plugin = getPlugin("wireframe")!;
     const { container, unmount } = render(<plugin.Inspector object={object} dispatch={dispatch} />);
@@ -288,10 +295,25 @@ describe("wireframe layout", () => {
     act(() => add.click());
 
     const payload = dispatch.mock.calls[0][0] as unknown as {
-      patch: { data: { primitives: unknown[] } };
+      type: string;
+      data: Record<string, unknown>;
     };
-    expect(payload.patch.data).not.toHaveProperty("width");
-    expect(payload.patch.data.primitives.length).toBeGreaterThan(0);
+    expect(payload.type).toBe("MergeObjectData");
+    expect(Object.keys(payload.data)).toEqual(["primitives"]);
+
+    const [action] = transaction([payload as ActionPayload]);
+    const { state, inverse } = applyAction(scape, action);
+    const after = state.objects[object.id];
+
+    // The untouched key survives, the touched one changed, and width was never data.
+    expect(after.data.columns).toBe(6);
+    expect((after.data.primitives as unknown[]).length).toBeGreaterThan(
+      (source.data.primitives as unknown[]).length,
+    );
+    expect(after.data).not.toHaveProperty("width");
+
+    // And the inverse is total: undo restores data exactly, added key and all.
+    expect(applyAction(state, inverse!).state.objects[object.id].data).toEqual(object.data);
 
     unmount();
   });

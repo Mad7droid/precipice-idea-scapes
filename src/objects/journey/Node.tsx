@@ -18,7 +18,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
   const commitStep = (index: number, label: string) => {
     const next: JourneyStep[] = steps.map((s, i) => (i === index ? { ...s, label } : s));
     if (!readOnly) {
-      dispatch([{ type: "UpdateObject", id: object.id, patch: { data: { steps: next } } }]);
+      dispatch([{ type: "MergeObjectData", id: object.id, data: { steps: next } }]);
     }
   };
 

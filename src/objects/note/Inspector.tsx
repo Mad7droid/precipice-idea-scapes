@@ -17,7 +17,7 @@ export function NoteInspector({
   );
 
   const [body, setBody] = useDebouncedText(data.body ?? "", (next) =>
-    dispatch({ type: "UpdateObject", id: object.id, patch: { data: { ...data, body: next } } }),
+    dispatch({ type: "MergeObjectData", id: object.id, data: { body: next } }),
   );
 
   return (

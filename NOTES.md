@@ -139,13 +139,12 @@ adding the same global `window` keydown listener (guarded against firing while a
 focus) in `src/app/Shell.tsx`, mirroring the dev route's implementation. Confirmed fixed live
 — a drag now reverts correctly on Cmd+Z.
 
-## `tokens.css` gap
+## ~~`tokens.css` gap~~ — closed
 
-`src/design/tokens.css` defines `:root` (light) and a `.dark` override class, but there is no
-`.light` class. Two Scapes can't be shown side-by-side in both themes without one restating
-token values by hand. Not blocking for the walking skeleton — nothing in the eight acceptance
-items needs simultaneous themes — but worth closing before the design system is used beyond
-this build.
+There is now a `:root.light` twin of `:root`, so a surface can force light without restating
+tokens. Both selectors are pinned to `:root`: React Flow puts its own `light`/`dark` class on
+the canvas container, and an unscoped `.light` would match it and hold the whole canvas light
+while the rest of the app went dark.
 
 ## Stubbed / not built (deliberately, per `CLAUDE.md` scope)
 
@@ -161,16 +160,20 @@ this build.
 
 ### Core changes wanted, not made (`src/core` is frozen)
 
-1. **`ScapeObject` has nowhere to put a size.** Card width is stored in the plugin's own
-   `data.width` instead. That works — the schema validates it and it survives export — but a
-   width is a property of the card, not of a wireframe, and notes and journeys are now
-   resizable through the same generic path with no schema entry of their own. A `width?:
-   number` on `ScapeObject` (or a `ResizeObject` action carrying its own inverse) is the
-   honest home for it.
-2. **`UpdateObject.patch.data` replaces rather than merges.** Every call site now has to
-   spread `object.data` before writing one key, and forgetting to is silent — the wireframe
-   inspector had exactly this latent bug before this pass. A shallow merge, or a distinct
-   `MergeObjectData`, would remove a whole class of mistake.
+All three are now closed. Kept here because the reasoning is the record of why the actions
+look the way they do.
+
+1. ~~**`ScapeObject` has nowhere to put a size.**~~ `width?: number` now lives on
+   `ScapeObject`, written by a `ResizeObject` action carrying its own inverse. Absent means
+   "use the type's default", so changing a default still moves every card nobody has resized
+   by hand. v1 `.scape` files migrate their wireframe `data.width` on open.
+2. ~~**`UpdateObject.patch.data` replaces rather than merges.**~~ There is now a distinct
+   `MergeObjectData`. Both actions exist because their inverses differ: a replace inverts to
+   the previous `data`, but a merge cannot invert to another merge — a merge has no way to
+   say "remove the key I just added" — so `MergeObjectData` inverts to a *total*
+   `UpdateObject` carrying the whole prior `data`. It is engine-only and deliberately not an
+   AI tool: a model that can merge can grow `data` one key at a time past whatever the plugin
+   schema validated, so every AI write stays a full, validated object.
 3. ~~**`SETTING_KEYS` has no entry for the composer's type filter.**~~ Fixed in the product
    shape pass: it is `SETTING_KEYS.generateTypes`, read and written through
    `src/app/useAppSettings.ts`. (`src/app/Shell.tsx` no longer exists; it split into
@@ -193,3 +196,50 @@ surface) and the existing `.focus-self`. Shared `Select` primitive now lives at
 
 `/dev/objects` logs a React nesting warning: `PreviewCard` renders a `<button>` that contains
 `ExpandToggle`'s `<button>`. Harness-only, predates this branch.
+
+## Merge migration and bundle pass (`feat/merge-object-data`)
+
+### `MergeObjectData` existed but nothing used it
+
+The action, its inverse and its reducer tests all landed with the width pass. No call site was
+ever migrated, so every plugin still wrote `data` wholesale and had to hand-spread
+`object.data` first — the exact mistake the action was added to make impossible, still
+reachable in five places. All five now merge:
+
+- `note/Inspector.tsx`, `note/Node.tsx` — `body`
+- `journey/Inspector.tsx`, `journey/Node.tsx` — `steps`
+- `wireframe/Inspector.tsx` — its `patch` helper, which no longer spreads anything
+
+The remaining `UpdateObject` dispatches in `src/objects/**` are all title-only, which is what
+that action is now for. No behaviour changes today, because none of the three plugins currently
+keeps a second key in `data` — the point is that adding one is no longer a silent data-loss bug.
+
+`objects.test.tsx`'s "carries the rest of data through" test now runs the dispatched payload
+through the real reducer rather than asserting on the patch shape, and checks the undo as well:
+the payload carries one key, the untouched key survives, and the inverse restores `data`
+exactly.
+
+### jsPDF's raster dependencies are stubbed, not shipped
+
+`render.ts` draws with jsPDF's vector primitives only — no `addImage`, no `.html()`, no SVG —
+but jsPDF statically reaches for `html2canvas`, `canvg` and `dompurify` for paths we never
+call. That was 391 kB raw / 113 kB gzipped of code that could only ever be dead.
+
+`vite.config.ts` now aliases all three to `src/persistence/pdf/no-raster.ts`, which **throws**
+rather than no-ops: reaching one means someone added a raster or SVG path to the export, and
+that decision triples the size of the export chunk, so it should fail loudly. Removing the
+alias restores the real dependencies.
+
+The alias applies to Vitest too, which is what makes the new `render.test.ts` worth having: it
+is the only test that puts the real jsPDF behind the layout (`document.test.ts` deliberately
+uses a fake measurer), so it is what fails if the export ever starts rasterising.
+
+One wrinkle worth knowing: jsdom's `Blob` has no `arrayBuffer()`, and node's `Response` will
+not accept a jsdom `Blob` — it stringifies it to `[object Blob]` and the assertion fails on
+mangled bytes rather than erroring. The test reads through `FileReader`, which jsdom does
+implement.
+
+### Not done
+
+The main entry chunk is still 778 kB (247 kB gzipped) and warns on every build. Splitting it is
+a real piece of work — React Flow and the app shell dominate it — and was out of scope here.

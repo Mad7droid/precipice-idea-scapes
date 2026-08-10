@@ -18,7 +18,7 @@ export function JourneyInspector({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const commitSteps = (next: JourneyStep[]) =>
-    dispatch({ type: "UpdateObject", id: object.id, patch: { data: { steps: next } } });
+    dispatch({ type: "MergeObjectData", id: object.id, data: { steps: next } });
 
   const [title, setTitle] = useDebouncedText(object.title, (next) =>
     dispatch({ type: "UpdateObject", id: object.id, patch: { title: next } }),

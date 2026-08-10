@@ -47,16 +47,11 @@ export function WireframeInspector({
   const [presetsOpen, setPresetsOpen] = useState(false);
 
   /**
-   * `UpdateObject` replaces `data` wholesale rather than merging it, so every write has to
-   * carry the keys it is not changing. Card width is intentionally not among them: it belongs
-   * to `ScapeObject`, not this wireframe's content.
+   * A shallow merge, so a write carries only the keys it changes. Card width is not among
+   * them either way: it belongs to `ScapeObject`, not this wireframe's content.
    */
   const patch = (next: Partial<WireframeData>) =>
-    dispatch({
-      type: "UpdateObject",
-      id: object.id,
-      patch: { data: { ...(object.data as Record<string, unknown>), ...next } },
-    });
+    dispatch({ type: "MergeObjectData", id: object.id, data: next });
 
   const commit = (next: Primitive[]) => patch({ primitives: next });
 
