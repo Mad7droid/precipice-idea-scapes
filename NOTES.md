@@ -243,3 +243,104 @@ implement.
 
 The main entry chunk is still 778 kB (247 kB gzipped) and warns on every build. Splitting it is
 a real piece of work — React Flow and the app shell dominate it — and was out of scope here.
+
+## Publishing wave 0 — integrator, sequential
+
+Per `.context/publishing-plan.md`. Nothing here is a feature; it is the set of single-owner
+files that would otherwise be four merge conflicts.
+
+### `src/core` was opened again, narrowly
+
+Two changes, both flagged in the plan before they were made:
+
+1. **`registry.ts` grew a second glob**, `/src/objects/*/view.ts`, with a `ViewPlugin`
+   interface and `getViewPlugin` / `allViewPlugins`. The alternative was a parallel set of
+   read-only components under `src/viewer/`, which is two renderers per object type forever
+   and guaranteed to drift. The second *file* rather than a second field on `ObjectPlugin` is
+   the whole point: `index.ts` reaches the store, the inspector and the action protocol, and
+   `view.ts` must reach none of them. Splitting the entry point makes that provable by a
+   bundler instead of enforceable by code review.
+
+   `ViewObject` is `ScapeObject` minus the timestamps, because the published projection does
+   not carry them. `ScapeObject` is assignable to it and not the reverse, so one component can
+   serve both surfaces and the narrowing runs the right way.
+
+2. **`types.ts` gained `PublicationRecord` and `PublicationStore`**, and `ScapeRepository`
+   gained a `publications` field. The store hangs off the repository rather than standing
+   alone because two of its invariants are really invariants of `remove` and `duplicate`:
+   deleting a scape must not strand a row keyed on it, and duplicating one must not hand the
+   copy the original's public URL. Both implementations and the conformance suite moved
+   together, and the suite asserts both.
+
+### Dexie is at `version(2)`
+
+Purely additive — one `publications` table, no upgrade function, the three existing stores
+carried forward untouched. It lands in wave 0 even though only agent D consumes it, because a
+schema migration is the one thing that must never be written twice in parallel: two branches
+each defining a `version(2)` produce databases that disagree about what version 2 is, and the
+loser's is already on a user's disk.
+
+`remove()` deletes the local publication row in the same transaction. That is the *local* row
+only — taking the publication down on the server is the caller's job, and the UI is required
+to offer "Unpublish & delete" rather than leaving a public URL serving a document its author
+believes they deleted.
+
+### The build is split, and it is genuinely split
+
+`index.html` and `view.html` are two Rollup inputs, so the separation is structural rather
+than tested-for. Verified against a real build: the viewer's module graph is `view-*.js` plus
+the shared React chunk, and contains no `@ai-sdk`, no `zustand`, no `dexie`.
+
+**One trap for agent B's `bundle.test.ts`:** a naive
+`expect(bundle).not.toContain("dangerouslySetInnerHTML")` over the viewer's whole reachable
+graph **fails today**, because that string lives in `react-dom`, which both entries share. The
+assertion has to run over the viewer's own chunks — `view-*.js` and anything only it imports —
+not the shared vendor chunk. Same applies to any needle a dependency might mention in passing:
+assert over what the viewer contributes, not over everything it can reach.
+
+### CSP: two hashes now, one block still
+
+`view.html` has its own pre-paint theme script. It reads `prefers-color-scheme` and nothing
+else, because a page rendering a stranger's document has no business reading the author's
+stored theme out of `localStorage`. Its hash is in `public/_headers`, and `csp.test.ts` now
+recomputes hashes across both HTML entries rather than just `index.html`.
+
+`_headers` deliberately still has a single `/*` block. Cloudflare Pages *merges* matching
+rules and browsers intersect multiple CSP headers, so adding an `/embed/*` block granting
+`frame-ancestors *` underneath would not loosen anything — it would be intersected against
+`frame-ancestors 'none'`, and the embed would stay blocked while looking like a code bug.
+Narrowing `/*` first is wave 2's job.
+
+### Service worker
+
+`CACHE` is `precipice-v2`. `/p/` and `/embed/` navigations are not handled at all, so they
+behave exactly as they would with no service worker installed, and the offline shell fallback
+is independently path-gated as a second line of defence. Without this, an offline published
+link served `/index.html` — showing a stranger the editor, listing the *reader's* own scapes,
+in place of the document they followed a link to.
+
+`src/app/sw.test.ts` is new. `sw.js` is a classic script, not a module, so it is evaluated
+against a stub `self` rather than imported. It is the first coverage that file has had.
+
+### `_redirects` targets `/view`, not `/view.html`
+
+Found by running `wrangler pages dev dist` rather than trusting the file. Cloudflare Pages
+serves HTML extensionless and **308-redirects** any URL that resolves to a `.html` path, so a
+`/view.html` target silently converts the `200` rewrite into a redirect: `/p/pub_test` became
+a redirect to `/view`, throwing the publication id away and landing every published link on a
+viewer with nothing to render.
+
+This is invisible locally in the obvious ways — `vite preview` does not read `_redirects` at
+all, and the file *looks* right. Wave 1's agent B would have hit it as "the viewer never gets
+an id" and debugged it as a code bug. `src/viewer/entry.test.ts` now pins the target.
+
+### Deliberately not done in wave 0
+
+- No `view.ts` files. The glob is live and matches nothing, so `allViewPlugins()` is empty and
+  `registry.test.ts` tests the mechanism rather than its contents. Workstream B fills it.
+- `src/viewer/main.tsx` is a stub that renders "Viewer". It exists so the second entry is real
+  from the first commit.
+- No `worker/publish/**`, no `wrangler.publish.toml`, no auth. That is agent A's, and it is
+  the long pole — start it first.
+- `src/publish/contract.ts` declares `LIMITS`, but nothing enforces them yet. The Worker's
+  enforcement is the one that matters; the client's is a courtesy.

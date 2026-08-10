@@ -105,6 +105,39 @@ export interface LoggedAction {
 }
 
 /**
+ * What this browser knows about a scape's public publication.
+ *
+ * The server is the authority on all of it; this row is a local cache so the editor can show
+ * "published" / "update available" without a network round trip on every load. `publishedHash`
+ * is the canonical hash the Worker returned for the version that is currently public —
+ * comparing it against a freshly computed projection hash is what "update available" means.
+ *
+ * One publication per scape, so `scapeId` is the key. `publicationId` outlives an unpublish:
+ * republishing restores the same public URL, and a link that dies on unpublish is
+ * indistinguishable from a delete to whoever is holding it.
+ */
+export interface PublicationRecord {
+  scapeId: ScapeId;
+  publicationId: string;
+  publishedHash: string;
+  version: number;
+  status: "published" | "unpublished";
+  updatedAt: number;
+}
+
+/**
+ * Deliberately dumb: reads and writes rows, holds no opinion about publishing. Reconciling
+ * with the server, deriving the UI state, and refusing to strand a public publication all
+ * live in `src/publish`.
+ */
+export interface PublicationStore {
+  get(scapeId: ScapeId): Promise<PublicationRecord | undefined>;
+  all(): Promise<PublicationRecord[]>;
+  put(record: PublicationRecord): Promise<void>;
+  remove(scapeId: ScapeId): Promise<void>;
+}
+
+/**
  * Everyone talks to this interface. Nobody outside src/persistence imports Dexie.
  * Two implementations ship: Dexie-backed and in-memory, and the same suite runs against both.
  */
@@ -122,6 +155,13 @@ export interface ScapeRepository {
   saveSnapshot(scape: Scape, seq: number): Promise<void>;
   appendActions(scapeId: ScapeId, actions: Action[]): Promise<void>;
   getActionLog(scapeId: ScapeId): Promise<LoggedAction[]>;
+  /**
+   * Hangs off the repository rather than standing alone because two of its invariants are
+   * really invariants of `remove` and `duplicate`: deleting a scape must not leave a row
+   * pointing at nothing, and duplicating one must not hand the copy the original's public
+   * URL. Both are enforced here and asserted by the conformance suite.
+   */
+  publications: PublicationStore;
 }
 
 export type ThemePreference = "system" | "light" | "dark";

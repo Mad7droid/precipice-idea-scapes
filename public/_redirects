@@ -1,0 +1,16 @@
+# Cloudflare Pages routing. Copied verbatim into dist/ by Vite.
+#
+# Published scapes are real paths, not hash routes: a public URL has to be crawlable, and it
+# has to be able to serve a different bundle than the editor. `200` rewrites rather than
+# redirects, so the address bar keeps `/p/<id>` and the viewer can read the id from it.
+#
+# `/p/` and `/embed/` are deliberately not `/s/` — the editor is already `/#/s/<localScapeId>`,
+# and two id spaces sharing a prefix, told apart only by a `#`, is a support burden.
+#
+# The target is `/view`, NOT `/view.html`. Pages serves HTML files extensionless and
+# 308-redirects any URL that resolves to a `.html` path — so a `/view.html` target turns this
+# rewrite into a *redirect* to `/view`, throwing away the publication id and landing every
+# published link on a viewer with nothing to render. Verified with `wrangler pages dev dist`;
+# it is invisible in `vite preview`, which does not read this file at all.
+/p/*      /view   200
+/embed/*  /view   200
