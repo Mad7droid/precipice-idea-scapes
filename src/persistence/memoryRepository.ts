@@ -3,6 +3,8 @@ import { emptyScape } from "@/core/fixtures";
 import { newScapeId } from "@/core/ids";
 import type {
   LoggedAction,
+  PublicationRecord,
+  PublicationStore,
   Scape,
   ScapeId,
   ScapeMeta,
@@ -23,6 +25,7 @@ export class MemoryScapeRepository implements ScapeRepository {
   private scapes = new Map<ScapeId, Scape>();
   private actions = new Map<ScapeId, LoggedAction[]>();
   private lastSeq = new Map<ScapeId, number>();
+  readonly publications = new MemoryPublicationStore();
 
   async list(): Promise<ScapeSummary[]> {
     return [...this.scapes.values()].map(summarize).sort((a, b) => b.updatedAt - a.updatedAt);
@@ -47,6 +50,7 @@ export class MemoryScapeRepository implements ScapeRepository {
     this.scapes.set(id, { ...scape, name, updatedAt: Date.now() });
   }
 
+  /** The copy is unpublished. See the Dexie implementation for why the row is not carried. */
   async duplicate(id: ScapeId): Promise<Scape> {
     const source = this.scapes.get(id);
     if (!source) throw new Error(`No scape ${id}`);
@@ -65,6 +69,8 @@ export class MemoryScapeRepository implements ScapeRepository {
     this.scapes.delete(id);
     this.actions.delete(id);
     this.lastSeq.delete(id);
+    // Never leave a publication row keyed on a scape that is gone.
+    await this.publications.remove(id);
   }
 
   async saveSnapshot(scape: Scape, seq: number): Promise<void> {
@@ -91,6 +97,27 @@ export class MemoryScapeRepository implements ScapeRepository {
   /** Test seam: put a known Scape in without going through create(). */
   async put(scape: Scape): Promise<void> {
     this.scapes.set(scape.id, structuredClone(scape));
+  }
+}
+
+export class MemoryPublicationStore implements PublicationStore {
+  private rows = new Map<ScapeId, PublicationRecord>();
+
+  async get(scapeId: ScapeId): Promise<PublicationRecord | undefined> {
+    const row = this.rows.get(scapeId);
+    return row ? { ...row } : undefined;
+  }
+
+  async all(): Promise<PublicationRecord[]> {
+    return [...this.rows.values()].map((row) => ({ ...row }));
+  }
+
+  async put(record: PublicationRecord): Promise<void> {
+    this.rows.set(record.scapeId, { ...record });
+  }
+
+  async remove(scapeId: ScapeId): Promise<void> {
+    this.rows.delete(scapeId);
   }
 }
 

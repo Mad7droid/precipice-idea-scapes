@@ -3,11 +3,17 @@
 # CSP lives here rather than in a <meta> tag so it applies to the deployed site only —
 # a meta CSP would also hit `pnpm dev` and block Vite's HMR websocket.
 #
-# The one `sha256-` below covers the pre-paint theme script inlined in index.html. Editing
-# that script invalidates the hash and the theme silently stops applying, so csp.test.ts
-# recomputes it and fails when the two drift.
+# The two `sha256-` values below cover the pre-paint theme scripts inlined in index.html and
+# view.html. Editing either script invalidates its hash and the theme silently stops applying,
+# so csp.test.ts recomputes both and fails when they drift.
+#
+# One `/*` block, on purpose. Cloudflare Pages *merges* every matching rule and the browser
+# intersects multiple Content-Security-Policy headers, so a later `/embed/*` block granting
+# `frame-ancestors *` would not loosen this one — it would be intersected against
+# `frame-ancestors 'none'` and the embed would stay blocked while looking like a code bug.
+# Adding per-path blocks means narrowing this rule first. That is wave 2's job.
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://precipice-ai-proxy.precipice.workers.dev; script-src 'self' 'sha256-Su/htfNLoOq1wMoi0QWMXhvrCg/hGbTFGjfv8xj3xtE='
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://precipice-ai-proxy.precipice.workers.dev; script-src 'self' 'sha256-Su/htfNLoOq1wMoi0QWMXhvrCg/hGbTFGjfv8xj3xtE=' 'sha256-nMDW8CM/K/J3ggYGmHQKHndwid1ilsGeb2eW3qjCyoo='
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   Cross-Origin-Opener-Policy: same-origin

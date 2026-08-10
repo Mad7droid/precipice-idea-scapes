@@ -16,9 +16,19 @@
  *   it from cache cannot go stale.
  *
  * The AI proxy is cross-origin and never touched here. Nothing about a generation is cached.
+ *
+ * Published scapes are the one same-origin thing this worker stays out of entirely. `/p/<id>`
+ * and `/embed/<id>` are somebody else's document, served from a different bundle, and their
+ * freshness is the publisher's decision — an unpublish that a stale cache keeps serving is the
+ * whole point of `Cache-Control: no-store` on the pointer read. They go straight to network.
  */
 
-const CACHE = "precipice-v1";
+const CACHE = "precipice-v2";
+
+/** Public viewer paths. Never cached, never given the editor shell as a fallback. */
+function isPublic(pathname) {
+  return pathname === "/p" || pathname === "/embed" || /^\/(p|embed)\//.test(pathname);
+}
 
 self.addEventListener("install", (event) => {
   // The shell is cached on first fetch rather than precached from a manifest: a hand-written
@@ -43,6 +53,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Published content is not this app's to cache. Falling through to the network also means
+  // the browser handles it exactly as it would with no service worker installed.
+  if (isPublic(url.pathname)) return;
+
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request));
     return;
@@ -59,8 +73,19 @@ async function networkFirst(request) {
     if (response.ok) void put(request, response.clone());
     return response;
   } catch {
-    const cached = (await caches.match(request)) ?? (await caches.match("/index.html"));
+    const cached = await caches.match(request);
     if (cached) return cached;
+
+    // The shell fallback is the *editor's* shell, so it is only ever right for an editor
+    // navigation. An offline `/p/<id>` served `/index.html` would show a stranger the app —
+    // logged into nothing, listing the reader's own scapes — in place of the document they
+    // asked for. `isPublic` already returned above; this is the belt to that braces, because
+    // the failure is silent and looks like a routing bug rather than a caching one.
+    const path = new URL(request.url).pathname;
+    if (isPublic(path)) throw new Error("offline: published scapes are not cached");
+
+    const shell = await caches.match("/index.html");
+    if (shell) return shell;
     throw new Error("offline and no cached shell");
   }
 }

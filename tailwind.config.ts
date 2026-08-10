@@ -6,7 +6,7 @@ import type { Config } from "tailwindcss";
  * you need a token — talk to the integrator, don't inline it.
  */
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  content: ["./index.html", "./view.html", "./src/**/*.{ts,tsx}"],
   darkMode: "class",
   theme: {
     extend: {

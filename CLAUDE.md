@@ -44,7 +44,8 @@ Do not relitigate these. If you think one is wrong, stop and report — do not c
 | **No shared barrel files** | Object plugins self-register via `import.meta.glob`. Nothing writes to a shared `index.ts`. |
 | **Single app, not a monorepo** | One Vite app, directory-based modules. Packages get extracted later, not today. |
 | **Naming** | `Object` in code. `Artifact` only in user-facing copy. Never mix them in a filename or type. |
-| **API keys** | Stored in IndexedDB, unencrypted. The settings UI says so plainly. No security theatre. Real encryption lands with the desktop shell and the OS keychain. |
+| **API keys** | Held in `sessionStorage` only, unencrypted, so the key does not outlive the tab (`src/app/useAppSettings.ts`). The settings UI says so plainly. No security theatre. Real encryption lands with the desktop shell and the OS keychain. |
+| **Publication session token** | `localStorage`, 30-day expiry, server-revocable. A *different* risk class from the API key: scoped to publications, revocable, expiring. Bearer header, never a cookie — see `.context/publishing-plan.md`. |
 
 ### Stack — and what we cut
 
@@ -88,6 +89,26 @@ You own exactly one directory. Do not create or edit files outside it.
 Cross-boundary imports go through **types and interfaces from `src/core`**, never through
 another workstream's implementation. Workstream B imports the `ScapeRepository` *interface*
 from core, not Dexie from A.
+
+### Publishing wave 1
+
+Same rule, second set of workstreams. Briefs are in `.context/publishing-plan.md`.
+
+| Workstream | Owns |
+|---|---|
+| A · Publication Worker | `worker/publish/**`, `wrangler.publish.toml`. Touches no `src/`. |
+| B · Viewer | `src/viewer/**`, `src/objects/*/view.ts`, `view.html` |
+| C · Markdown | `src/objects/markdown/**`, `src/objects/note/**`, `src/objects/journey/**`, `src/objects/ui.tsx` |
+| D · Publish client | `src/publish/**` *except* `contract.ts`, `src/routes/dev/publish.tsx`, `src/app/TopBar.tsx`, `src/app/Home.tsx`, `src/app/App.tsx` |
+| Integrator | `src/publish/contract.ts`, `src/core/**`, `public/_headers`, `public/_redirects`, `public/sw.js`, config |
+
+**`src/publish/contract.ts` is frozen on the same terms as `src/core`.** It is the wire
+contract all four build against and the Worker's only parser of hostile input. If you need a
+change, stop, write it into `NOTES.md`, and let it land on `main`.
+
+B and C both touch `src/objects/`, at different paths: C owns the three existing plugins'
+`index.ts` and everything they import, B owns the new `view.ts` beside them. B does not edit
+C's files; if a `Node` has to change shape to serve both, that is C's edit, requested.
 
 ### Dev harness routes
 

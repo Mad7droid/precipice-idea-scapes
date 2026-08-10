@@ -5,7 +5,7 @@ import { emptyScape, fixtureScape } from "@/core/fixtures";
 import { useScapeStore } from "@/core/store";
 import { toPlainScape } from "@/core/serialize";
 import type { Action } from "@/core/actions";
-import type { Scape, ScapeRepository } from "@/core/types";
+import type { PublicationRecord, Scape, ScapeRepository } from "@/core/types";
 import { startAutosave } from "./autosave";
 import { PrecipiceDb } from "./db";
 import { CURRENT_DOC_VERSION } from "./migrate";
@@ -110,6 +110,71 @@ function describeRepository(name: string, make: () => Promise<ScapeRepository>) 
       const created = await repo.create("Empty");
       await repo.appendActions(created.id, []);
       expect(await repo.getActionLog(created.id)).toHaveLength(0);
+    });
+
+    describe("publications", () => {
+      const record = (scapeId: string, overrides = {}): PublicationRecord => ({
+        scapeId,
+        publicationId: "pub_abcdefghijklmnopqrstuvwxyz",
+        publishedHash: "a".repeat(64),
+        version: 1,
+        status: "published",
+        updatedAt: 1_000,
+        ...overrides,
+      });
+
+      it("round-trips a row and reports none for an unpublished scape", async () => {
+        const created = await repo.create("Public");
+        expect(await repo.publications.get(created.id)).toBeUndefined();
+
+        await repo.publications.put(record(created.id));
+        expect(await repo.publications.get(created.id)).toMatchObject({
+          publicationId: "pub_abcdefghijklmnopqrstuvwxyz",
+          status: "published",
+        });
+      });
+
+      it("keeps one row per scape — a republish overwrites rather than accumulates", async () => {
+        const created = await repo.create("Republished");
+        await repo.publications.put(record(created.id));
+        await repo.publications.put(record(created.id, { version: 2, updatedAt: 2_000 }));
+
+        expect(await repo.publications.all()).toHaveLength(1);
+        expect((await repo.publications.get(created.id))!.version).toBe(2);
+      });
+
+      it("does not copy the row to a duplicate — one publication belongs to one scape", async () => {
+        const created = await repo.create("Original");
+        await repo.publications.put(record(created.id));
+
+        const copy = await repo.duplicate(created.id);
+
+        expect(await repo.publications.get(copy.id)).toBeUndefined();
+        // And the original keeps its own.
+        expect(await repo.publications.get(created.id)).toBeDefined();
+      });
+
+      it("removes the row with the scape, so nothing is orphaned", async () => {
+        const created = await repo.create("Doomed");
+        await repo.publications.put(record(created.id));
+
+        await repo.remove(created.id);
+
+        expect(await repo.publications.get(created.id)).toBeUndefined();
+        expect(await repo.publications.all()).toHaveLength(0);
+      });
+
+      it("leaves other scapes' rows alone when one is removed", async () => {
+        const kept = await repo.create("Kept");
+        const doomed = await repo.create("Doomed");
+        await repo.publications.put(record(kept.id));
+        await repo.publications.put(record(doomed.id));
+
+        await repo.remove(doomed.id);
+
+        expect(await repo.publications.all()).toHaveLength(1);
+        expect(await repo.publications.get(kept.id)).toBeDefined();
+      });
     });
   });
 }

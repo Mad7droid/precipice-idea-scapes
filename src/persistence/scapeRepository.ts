@@ -5,6 +5,8 @@ import { notify } from "@/core/notify";
 import { toPlainScape } from "@/core/serialize";
 import type {
   LoggedAction,
+  PublicationRecord,
+  PublicationStore,
   Scape,
   ScapeId,
   ScapeMeta,
@@ -44,7 +46,10 @@ export class DexieScapeRepository implements ScapeRepository {
   ) {
     this.maxLoggedActions = limits.maxLoggedActions ?? MAX_LOGGED_ACTIONS;
     this.trimCheckEvery = limits.trimCheckEvery ?? TRIM_CHECK_EVERY;
+    this.publications = new DexiePublicationStore(this.database);
   }
+
+  readonly publications: PublicationStore;
 
   async list(): Promise<ScapeSummary[]> {
     // Derived from the snapshot rather than the row's denormalised columns: the row is already
@@ -95,6 +100,11 @@ export class DexieScapeRepository implements ScapeRepository {
     await this.write({ ...row.snapshot, name, updatedAt: Date.now() });
   }
 
+  /**
+   * The copy is a new, unpublished document. Its publication row is deliberately not copied:
+   * one publication belongs to one scape, and a duplicate that inherited the original's
+   * `publicationId` would overwrite the original's public URL the first time it was updated.
+   */
   async duplicate(id: ScapeId): Promise<Scape> {
     const row = await this.database.scapes.get(id);
     if (!row) throw new Error(`No scape ${id}`);
@@ -109,11 +119,27 @@ export class DexieScapeRepository implements ScapeRepository {
     return copy;
   }
 
+  /**
+   * The publication row goes with the scape. Leaving it behind would strand a record keyed on
+   * a scape that no longer exists, and the count it feeds ("3 of 5 published") would drift
+   * upward every time someone deleted a published scape.
+   *
+   * This deletes the *local* row only. Taking the publication down on the server is the
+   * caller's job, and the UI is required to offer "Unpublish & delete" rather than leaving a
+   * public URL serving a document its author believes they deleted.
+   */
   async remove(id: ScapeId): Promise<void> {
-    await this.database.transaction("rw", this.database.scapes, this.database.actions, async () => {
-      await this.database.scapes.delete(id);
-      await this.database.actions.where("scapeId").equals(id).delete();
-    });
+    await this.database.transaction(
+      "rw",
+      this.database.scapes,
+      this.database.actions,
+      this.database.publications,
+      async () => {
+        await this.database.scapes.delete(id);
+        await this.database.actions.where("scapeId").equals(id).delete();
+        await this.database.publications.delete(id);
+      },
+    );
     this.lastSeq.delete(id);
     this.appendsSinceTrim.delete(id);
   }
@@ -206,6 +232,30 @@ export class DexieScapeRepository implements ScapeRepository {
       }
       return undefined;
     }
+  }
+}
+
+/**
+ * Rows only. Every decision about what a publication *means* — is it stale, may it be
+ * deleted, does republishing keep the URL — belongs to `src/publish`.
+ */
+class DexiePublicationStore implements PublicationStore {
+  constructor(private readonly database: PrecipiceDb) {}
+
+  async get(scapeId: ScapeId): Promise<PublicationRecord | undefined> {
+    return this.database.publications.get(scapeId);
+  }
+
+  async all(): Promise<PublicationRecord[]> {
+    return this.database.publications.toArray();
+  }
+
+  async put(record: PublicationRecord): Promise<void> {
+    await this.database.publications.put(record);
+  }
+
+  async remove(scapeId: ScapeId): Promise<void> {
+    await this.database.publications.delete(scapeId);
   }
 }
 
