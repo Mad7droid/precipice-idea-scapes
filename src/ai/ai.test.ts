@@ -9,7 +9,7 @@ import { createApplier, type GenerationEvent } from "./generate";
 import { ONBOARDING_RECORDING, replayRecording } from "./recording";
 import { systemPrompt, userPrompt } from "./prompt";
 import { proxyBaseUrl } from "./provider";
-import { CONNECT_TOOL_NAMES, toolInputSchemas } from "./tools";
+import { CONNECT_TOOL_NAMES, toolDescriptions, toolInputSchemas } from "./tools";
 
 /** A dispatch backed by a local Scape, so nothing here touches the app's store. */
 function localDispatch(initial: Scape) {
@@ -363,6 +363,13 @@ describe("constraining which types a generation may create", () => {
     expect(systemPrompt({ allowedTypes: [] })).toBe(systemPrompt());
   });
 
+  it("offers the model only the object types it is allowed to create", () => {
+    const description = toolDescriptions(["note"]).CreateObject;
+    expect(description).toContain("note");
+    expect(description).not.toContain("wireframe");
+    expect(description).not.toContain("journey");
+  });
+
   it("drops an excluded type at the apply boundary, since the prompt is a request not a rule", () => {
     const local = localDispatch(emptyScape("scp_t"));
     const { events, onEvent } = collector();
@@ -471,6 +478,48 @@ describe("generation scope", () => {
     expect(userPrompt("x", scape, { selection: ["brief"] }).text).toBe(
       userPrompt("x", scape, { scope: "scape", selection: ["brief"] }).text,
     );
+  });
+
+  it("treats imported canvas content as data, not instructions", () => {
+    const prompt = systemPrompt();
+    const request = userPrompt("Expand this", fixtureScape());
+    expect(prompt).toContain("untrusted reference material");
+    expect(request.text).toContain("<canvas-data>");
+    expect(request.text).toContain("<user-request>");
+  });
+
+  it("enforces selection scope for existing objects, relationships, and the scape name", () => {
+    const local = localDispatch(fixtureScape());
+    const { events, onEvent } = collector();
+    const applier = createApplier({
+      dispatch: local.dispatch,
+      onEvent,
+      allowedObjectIds: ["happy-path"],
+      allowedRelationshipIds: [],
+    });
+
+    applier.apply("UpdateObject", { id: "brief", patch: { title: "Changed" } });
+    applier.apply("DeleteObject", { id: "brief" });
+    applier.apply("RenameScape", { name: "Changed" });
+    applier.apply("ConnectObjects", { id: "out-of-scope", from: "happy-path", to: "brief" });
+    applier.apply("CreateObject", {
+      id: "support",
+      objectType: "note",
+      title: "Support",
+      data: { body: "" },
+    });
+    applier.apply("UpdateObject", { id: "support", patch: { title: "Updated support" } });
+    applier.apply("ConnectObjects", { id: "in-scope", from: "happy-path", to: "support" });
+    applier.apply("DisconnectObjects", { id: "in-scope" });
+
+    expect(local.get().objects.brief?.title).not.toBe("Changed");
+    expect(local.get().name).not.toBe("Changed");
+    expect(local.get().objects.support?.title).toBe("Updated support");
+    expect(local.get().relationships["out-of-scope"]).toBeUndefined();
+    expect(local.get().relationships["in-scope"]).toBeUndefined();
+    expect(applier.applied()).toBe(4);
+    expect(applier.skipped()).toBe(4);
+    expect(events.filter((event) => event.kind === "skipped")).toHaveLength(4);
   });
 });
 

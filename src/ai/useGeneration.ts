@@ -85,6 +85,19 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
     }) => {
       const scape = useScapeStore.getState().scape;
       if (!scape || !options.request.trim()) return;
+      const selection = useScapeStore.getState().selection;
+      // A selection scope with nothing selected cannot safely mean anything narrower than the
+      // whole document. Treat it as whole-scape rather than presenting a false restriction.
+      const scope = options.scope === "selection" && selection.length > 0 ? "selection" : "scape";
+      const selected = new Set(selection);
+      const allowedRelationshipIds =
+        scope === "selection"
+          ? Object.values(scape.relationships)
+              .filter(
+                (relationship) => selected.has(relationship.from) && selected.has(relationship.to),
+              )
+              .map((relationship) => relationship.id)
+          : undefined;
 
       controller.current?.abort();
       controller.current = new AbortController();
@@ -103,11 +116,12 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
         await generate({
           request: options.request,
           scape,
-          selection: useScapeStore.getState().selection,
-          scope: options.scope ?? "scape",
+          selection,
+          scope,
           apiKey: options.apiKey,
           modelId: options.modelId,
           allowedTypes: options.allowedTypes ?? [],
+          ...(scope === "selection" ? { allowedObjectIds: selection, allowedRelationshipIds } : {}),
           ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
           ...(options.mode ? { mode: options.mode } : {}),
           ...(starter.promptHint ? { starterHint: starter.promptHint } : {}),

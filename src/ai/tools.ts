@@ -50,8 +50,10 @@ export function isToolName(name: string): name is ToolName {
 }
 
 /** Descriptions are the model's only guidance on when to reach for each one. */
-export function toolDescriptions(): Record<ToolName, string> {
-  const types = pluginTypes().join(", ");
+export function toolDescriptions(allowedTypes: string[] = []): Record<ToolName, string> {
+  const types = pluginTypes()
+    .filter((type) => allowedTypes.length === 0 || allowedTypes.includes(type))
+    .join(", ");
   return {
     CreateObject:
       `Add an object to the scape. Choose objectType from: ${types}. ` +

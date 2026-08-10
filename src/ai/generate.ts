@@ -68,6 +68,14 @@ export interface ApplyOptions {
    * given and the boundary between a model and state is not the place to assume it will not.
    */
   allowedTools?: ToolName[];
+  /**
+   * Existing objects a selection-scoped generation may change or connect to. Objects it
+   * creates during the same generation are also permitted, so it can add supporting detail
+   * without reaching into the rest of the canvas.
+   */
+  allowedObjectIds?: ObjectId[];
+  /** Existing relationships a selection-scoped generation may remove. */
+  allowedRelationshipIds?: string[];
 }
 
 export interface Applier {
@@ -88,6 +96,11 @@ export interface Applier {
 export function createApplier(options: ApplyOptions): Applier {
   const txId = options.txId ?? newTxId();
   const created: ObjectId[] = [];
+  const createdRelationships = new Set<string>();
+  const scopedObjects = options.allowedObjectIds ? new Set(options.allowedObjectIds) : null;
+  const scopedRelationships = options.allowedRelationshipIds
+    ? new Set(options.allowedRelationshipIds)
+    : null;
   let applied = 0;
   let skipped = 0;
 
@@ -122,6 +135,35 @@ export function createApplier(options: ApplyOptions): Applier {
     }
 
     const action = parsed.data;
+
+    // Scope is a capability boundary, not a model instruction. The selected existing objects
+    // and anything created in this generation are the only things this run can touch.
+    const canTouchObject = (id: ObjectId) =>
+      !scopedObjects || scopedObjects.has(id) || created.includes(id);
+    if (scopedObjects) {
+      if (action.type === "RenameScape") {
+        return skip(toolName, "renaming the scape is outside this selection", input);
+      }
+      if (
+        (action.type === "UpdateObject" || action.type === "DeleteObject") &&
+        !canTouchObject(action.id)
+      ) {
+        return skip(toolName, `${action.id} is outside this selection`, input);
+      }
+      if (
+        action.type === "ConnectObjects" &&
+        (!canTouchObject(action.from) || !canTouchObject(action.to))
+      ) {
+        return skip(toolName, "a relationship endpoint is outside this selection", input);
+      }
+      if (
+        action.type === "DisconnectObjects" &&
+        !createdRelationships.has(action.id) &&
+        !scopedRelationships?.has(action.id)
+      ) {
+        return skip(toolName, `${action.id} is outside this selection`, input);
+      }
+    }
 
     // A CreateObject whose data does not satisfy the plugin's own schema would render as a
     // broken card, so it is rejected here rather than later and more confusingly.
@@ -161,6 +203,7 @@ export function createApplier(options: ApplyOptions): Applier {
 
     applied += 1;
     if (action.type === "CreateObject") created.push(action.id);
+    if (action.type === "ConnectObjects") createdRelationships.add(action.id);
     options.onEvent({
       kind: "applied",
       action,
@@ -224,7 +267,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     offered.map((name: ToolName) => [
       name,
       tool({
-        description: toolDescriptions()[name],
+        description: toolDescriptions(options.allowedTypes)[name],
         inputSchema: toolInputSchemas[name],
         execute: async (input: unknown) => applier.apply(name, input),
       }),
