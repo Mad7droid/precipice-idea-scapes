@@ -11,6 +11,8 @@ milestone is published.
 
 ### Changed
 
+- Note bodies and journey details now support Markdown formatting, while preserving the existing
+  portable `.scape` data format.
 - PDF export downloads around 113 KB less code. The export is vector-only, so jsPDF's image
   and SVG dependencies are no longer bundled.
 - Editing one field of a block now writes only that field, so a future block type can hold
@@ -38,6 +40,8 @@ milestone is published.
 
 ### Security
 
+- Replaced the rich-text HTML path with allowlisted Markdown rendering. Raw HTML is rendered as
+  text, and links are restricted to safe `http`/`https` destinations.
 - Removed the Worker's server-side Anthropic credential. Its only gate was an
   `Origin` header, which any non-browser client can forge, leaving the hosted key
   spendable by anyone who found the public endpoint.

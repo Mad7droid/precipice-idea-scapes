@@ -46,3 +46,5 @@ appropriate.
 - Browser storage persistence and the offline app shell improve availability but
   are not encryption or backup. Export important Scapes and protect the device
   and browser profile that hold them.
+- Note bodies and journey details are Markdown. The app renders an allowlisted Markdown subset
+  as React elements and does not interpret raw HTML; links are restricted to `http` and `https`.

@@ -55,7 +55,7 @@ export function WireframeInspector({
 
   const commit = (next: Primitive[]) => patch({ primitives: next });
 
-  const [title, setTitle] = useDebouncedText(object.title, (next) =>
+  const [title, setTitle, flushTitle] = useDebouncedText(object.title, (next) =>
     dispatch({ type: "UpdateObject", id: object.id, patch: { title: next } }),
   );
 
@@ -91,6 +91,7 @@ export function WireframeInspector({
         <TextInput
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onBlur={flushTitle}
           placeholder="Untitled"
         />
       </Field>
@@ -266,7 +267,7 @@ function PrimitiveRow({
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) {
-  const [label, setLabel] = useDebouncedText(primitive.label ?? "", (next) =>
+  const [label, setLabel, flushLabel] = useDebouncedText(primitive.label ?? "", (next) =>
     onChange(next ? { ...primitive, label: next } : omit(primitive, "label")),
   );
   const isSection = primitive.kind === "section";
@@ -301,6 +302,7 @@ function PrimitiveRow({
           <TextInput
             value={label}
             onChange={(e) => setLabel(e.target.value)}
+            onBlur={flushLabel}
             placeholder={isSection ? "Region name" : "Label (optional)"}
             aria-label={`Element ${index + 1} label`}
           />

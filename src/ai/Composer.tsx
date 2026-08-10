@@ -91,8 +91,8 @@ export function Composer({
   return (
     <div
       className={
-        "w-full rounded-2xl border bg-inset transition-colors duration-fast ease-out " +
-        (focused ? "border-focus" : "border-subtle")
+        "w-full rounded-2xl border bg-raised shadow-sm transition-[border-color,box-shadow] duration-fast ease-out " +
+        (focused ? "border-focus shadow-md" : "border-default")
       }
     >
       <textarea

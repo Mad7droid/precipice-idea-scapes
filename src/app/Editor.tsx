@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActionPayload } from "@/core/actions";
 import { notify } from "@/core/notify";
-import { getPlugin } from "@/core/registry";
+import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import { SETTING_KEYS, type ObjectId, type RelationshipId } from "@/core/types";
 import { Composer } from "@/ai/Composer";
@@ -46,7 +46,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [composerCollapsed, setComposerCollapsed] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(248);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
@@ -71,7 +71,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     const onMove = (moveEvent: PointerEvent) => {
       const delta = moveEvent.clientX - startX;
       const next = side === "left" ? startWidth + delta : startWidth - delta;
-      const clamped = Math.max(220, Math.min(440, next));
+      const clamped = Math.max(260, Math.min(440, next));
       if (side === "left") setLeftPanelWidth(clamped);
       else setRightPanelWidth(clamped);
     };
@@ -376,17 +376,24 @@ export function Editor({ scapeId }: { scapeId: string }) {
           className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
           style={{ width: leftPanelCollapsed ? 32 : leftPanelWidth }}
         >
-          <Outline
-            scape={scape}
-            selection={selection}
-            onSelect={selectFromOutline}
-            onAdd={(type) => commands.current?.addObject(type)}
-            onConnectLoose={(ids) => void handleConnect(ids)}
-            busy={busy}
-            readOnly={readOnly}
-            isCollapsed={leftPanelCollapsed}
-            onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
-          />
+          <div className="flex h-full">
+            <Outline
+              scape={scape}
+              selection={selection}
+              onSelect={selectFromOutline}
+              onConnectLoose={(ids) => void handleConnect(ids)}
+              busy={busy}
+              readOnly={readOnly}
+              isCollapsed={leftPanelCollapsed}
+              onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
+            />
+            {!leftPanelCollapsed && !readOnly && (
+              <BlockNav
+                availableTypes={starter.types}
+                onAdd={(type) => commands.current?.addObject(type)}
+              />
+            )}
+          </div>
           {!leftPanelCollapsed && (
             <span
               role="separator"
@@ -580,7 +587,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
               onClick={() => setRightPanelCollapsed(true)}
               aria-label="Collapse inspector"
               title="Collapse inspector (⌘/)"
-              className="absolute right-1 top-2 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+              className="absolute right-1 top-10 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
             >
               ›
             </button>
@@ -628,5 +635,81 @@ function QuickAction({ onClick, children }: { onClick: () => void; children: Rea
     >
       {children}
     </button>
+  );
+}
+
+const BLOCK_SHORTCUTS: Record<string, string> = { note: "N", journey: "J", wireframe: "W" };
+
+/** A compact creation rail: it expands naturally as the object registry grows. */
+function BlockNav({
+  availableTypes,
+  onAdd,
+}: {
+  availableTypes: string[];
+  onAdd: (type: string) => void;
+}) {
+  const plugins = allPlugins().filter(
+    (plugin) => availableTypes.length === 0 || availableTypes.includes(plugin.type),
+  );
+
+  return (
+    <nav
+      aria-label="Add building block"
+      className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-subtle bg-surface px-1 py-2"
+    >
+      {plugins.map((plugin) => {
+        const shortcut = BLOCK_SHORTCUTS[plugin.type];
+        const label = `Add ${plugin.label}${shortcut ? ` (${shortcut})` : ""}`;
+        return (
+          <button
+            key={plugin.type}
+            type="button"
+            aria-label={label}
+            onClick={() => onAdd(plugin.type)}
+            className="group relative grid h-8 w-8 place-items-center rounded-sm text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          >
+            <BlockIcon type={plugin.type} color={plugin.color} />
+            <span className="pointer-events-none absolute left-[calc(100%+6px)] top-1/2 z-popover -translate-y-1/2 whitespace-nowrap rounded-sm border border-subtle bg-raised px-2 py-1 text-xs text-fg opacity-0 shadow-md transition-opacity duration-instant ease-out group-hover:opacity-100 group-focus-visible:opacity-100">
+              {label}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function BlockIcon({ type, color }: { type: string; color: string }) {
+  const stroke = `var(${color})`;
+  return (
+    <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
+      {type === "note" && (
+        <path
+          d="M3 2.5h8l3 3v9H3v-12ZM11 2.5v3h3"
+          stroke={stroke}
+          strokeWidth="1.25"
+          strokeLinejoin="round"
+        />
+      )}
+      {type === "journey" && (
+        <path
+          d="M3 4h4m3 0h4M5 2v4m7-4v4M3 13h4m3 0h4M5 11v4m7-4v4M7 4h3M7 13h3"
+          stroke={stroke}
+          strokeWidth="1.25"
+          strokeLinecap="round"
+        />
+      )}
+      {type === "wireframe" && (
+        <path
+          d="M2.5 3h12v11h-12zM2.5 6h12M5 8.5h2.5M5 11h6.5"
+          stroke={stroke}
+          strokeWidth="1.25"
+          strokeLinejoin="round"
+        />
+      )}
+      {!["note", "journey", "wireframe"].includes(type) && (
+        <circle cx="8.5" cy="8.5" r="4.5" fill={stroke} />
+      )}
+    </svg>
   );
 }

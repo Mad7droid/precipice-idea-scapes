@@ -64,14 +64,29 @@ export default {
       },
 
       fontSize: {
-        "2xs":  ["var(--text-2xs)",  { lineHeight: "var(--leading-2xs)",  letterSpacing: "var(--tracking-2xs)" }],
-        xs:     ["var(--text-xs)",   { lineHeight: "var(--leading-xs)" }],
-        sm:     ["var(--text-sm)",   { lineHeight: "var(--leading-sm)" }],
-        base:   ["var(--text-base)", { lineHeight: "var(--leading-base)" }],
-        lg:     ["var(--text-lg)",   { lineHeight: "var(--leading-lg)",   letterSpacing: "var(--tracking-lg)" }],
-        xl:     ["var(--text-xl)",   { lineHeight: "var(--leading-xl)",   letterSpacing: "var(--tracking-xl)" }],
-        "2xl":  ["var(--text-2xl)",  { lineHeight: "var(--leading-2xl)",  letterSpacing: "var(--tracking-2xl)" }],
-        "3xl":  ["var(--text-3xl)",  { lineHeight: "var(--leading-3xl)",  letterSpacing: "var(--tracking-3xl)" }],
+        "2xs": [
+          "var(--text-2xs)",
+          { lineHeight: "var(--leading-2xs)", letterSpacing: "var(--tracking-2xs)" },
+        ],
+        xs: ["var(--text-xs)", { lineHeight: "var(--leading-xs)" }],
+        sm: ["var(--text-sm)", { lineHeight: "var(--leading-sm)" }],
+        base: ["var(--text-base)", { lineHeight: "var(--leading-base)" }],
+        lg: [
+          "var(--text-lg)",
+          { lineHeight: "var(--leading-lg)", letterSpacing: "var(--tracking-lg)" },
+        ],
+        xl: [
+          "var(--text-xl)",
+          { lineHeight: "var(--leading-xl)", letterSpacing: "var(--tracking-xl)" },
+        ],
+        "2xl": [
+          "var(--text-2xl)",
+          { lineHeight: "var(--leading-2xl)", letterSpacing: "var(--tracking-2xl)" },
+        ],
+        "3xl": [
+          "var(--text-3xl)",
+          { lineHeight: "var(--leading-3xl)", letterSpacing: "var(--tracking-3xl)" },
+        ],
       },
 
       borderRadius: {
@@ -127,11 +142,16 @@ export default {
           "0%, 70%, 100%": { opacity: "0.18", transform: "scale(0.8)" },
           "35%": { opacity: "1", transform: "scale(1)" },
         },
+        "home-enter": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "node-enter": "node-enter var(--dur-base) var(--spring-node) both",
         "ribbon-line": "ribbon-line var(--dur-fast) var(--ease-out) both",
         "dot-wave": "dot-wave 1400ms var(--ease-in-out) infinite",
+        "home-enter": "home-enter var(--dur-slow) var(--ease-out) both",
       },
     },
   },

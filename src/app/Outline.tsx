@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import type { ObjectId, Scape } from "@/core/types";
-import { starterFor } from "@/starters";
 
 /**
  * What is on this canvas, as a list.
@@ -19,7 +18,6 @@ export function Outline({
   scape,
   selection,
   onSelect,
-  onAdd,
   onConnectLoose,
   busy,
   readOnly = false,
@@ -30,7 +28,6 @@ export function Outline({
   selection: ObjectId[];
   /** Selects the object and flies the camera to it. */
   onSelect: (id: ObjectId) => void;
-  onAdd: (objectType: string) => void;
   onConnectLoose: (ids: ObjectId[]) => void;
   busy: boolean;
   /** Another tab holds the scape. Search, navigation and the counts stay; the edits go. */
@@ -39,7 +36,6 @@ export function Outline({
   onToggleCollapse?: () => void;
 }) {
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
-  const starter = starterFor(scape);
   const [query, setQuery] = useState("");
   const [sectionCollapsed, setSectionCollapsed] = useState<Set<string>>(new Set());
 
@@ -70,7 +66,6 @@ export function Outline({
     return { groups, loose, degree };
   }, [scape]);
 
-  const addable = starter.types.length > 0 ? starter.types : allPlugins().map((p) => p.type);
   const queryText = query.trim().toLowerCase();
   const matches = (id: ObjectId) => {
     const object = scape.objects[id];
@@ -85,7 +80,7 @@ export function Outline({
     });
 
   return (
-    <aside className="flex h-full w-full shrink-0 flex-col border-r border-subtle bg-surface">
+    <aside className="flex h-full min-w-0 flex-1 flex-col bg-surface">
       {isCollapsed ? (
         <div className="flex h-full flex-col items-center pt-2">
           <button
@@ -101,6 +96,10 @@ export function Outline({
       ) : (
         <>
           <div className="flex-1 overflow-auto px-2 py-2">
+            <div className="mb-2 flex items-center justify-between px-1 pt-3">
+              <p className="mono">On this scape</p>
+              <span className="mono text-fg-tertiary">{scape.objectOrder.length}</span>
+            </div>
             <label className="sr-only" htmlFor="outline-search">
               Search canvas
             </label>
@@ -170,32 +169,6 @@ export function Outline({
             )}
           </div>
 
-          {!readOnly && (
-            <div className="border-t border-subtle p-2">
-              <p className="mono px-1 pb-1.5">Add</p>
-              <div className="flex flex-wrap gap-1">
-                {addable.map((type) => {
-                  const plugin = getPlugin(type);
-                  if (!plugin) return null;
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => onAdd(type)}
-                      className="flex items-center gap-1.5 rounded-full border border-subtle px-2.5 py-1 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-                    >
-                      <span
-                        aria-hidden
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: `var(${plugin.color})` }}
-                      />
-                      {plugin.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -230,18 +203,37 @@ function Section({
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className="mono flex w-full items-center justify-between rounded-sm px-2 pb-1 text-left transition-colors duration-instant ease-out hover:bg-hover"
+        className="mono flex w-full items-center justify-between rounded-sm px-2 py-1 text-left transition-colors duration-instant ease-out hover:bg-hover"
       >
         <span className="flex items-center gap-1.5">
-          <span aria-hidden className="text-fg-tertiary">
-            {collapsed ? "›" : "⌄"}
-          </span>
+          <DisclosureChevron collapsed={collapsed} />
           {label}
         </span>
         <span>{count}</span>
       </button>
       {!collapsed && children}
     </section>
+  );
+}
+
+function DisclosureChevron({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      aria-hidden
+      className={`shrink-0 text-fg-tertiary transition-transform duration-fast ease-out ${collapsed ? "-rotate-90" : ""}`}
+    >
+      <path
+        d="m3.25 4.5 2.75 3 2.75-3"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -266,14 +258,18 @@ function Row({
   const plugin = getPlugin(object.type);
 
   return (
-    <div className="group flex items-center gap-1">
+    <div
+      className={
+        "group flex items-center rounded-sm transition-colors duration-instant ease-out " +
+        (selected ? "bg-selected" : "hover:bg-hover")
+      }
+    >
       <button
         type="button"
         onClick={() => onSelect(id)}
         className={
           "flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1 text-left " +
-          "transition-colors duration-instant ease-out hover:bg-hover " +
-          (selected ? "bg-selected" : "")
+          "transition-colors duration-instant ease-out"
         }
       >
         <span
@@ -289,9 +285,16 @@ function Row({
           type="button"
           aria-label={`Delete ${object.title || id}`}
           onClick={onDelete}
-          className="shrink-0 rounded-sm px-1 py-1 text-fg-tertiary opacity-0 transition-colors duration-instant ease-out hover:text-danger group-hover:opacity-100"
+          className="mr-1 grid h-5 w-5 shrink-0 place-items-center rounded-sm p-0 text-fg-tertiary opacity-0 transition-colors duration-instant ease-out hover:bg-active hover:text-danger group-hover:opacity-100 focus:opacity-100"
         >
-          ✕
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path
+              d="m3 3 6 6m0-6-6 6"
+              stroke="currentColor"
+              strokeWidth="1.35"
+              strokeLinecap="round"
+            />
+          </svg>
         </button>
       )}
     </div>

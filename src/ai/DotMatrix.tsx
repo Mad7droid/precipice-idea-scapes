@@ -11,8 +11,12 @@ const ROWS = 3;
 
 export function DotMatrix({ label }: { label?: string }) {
   return (
-    <span className="inline-flex items-center gap-2" role="status" aria-live="polite">
-      <span aria-hidden className="grid grid-flow-col gap-[3px]">
+    <span
+      className="inline-flex h-4 items-center gap-2 leading-none"
+      role="status"
+      aria-live="polite"
+    >
+      <span aria-hidden className="grid grid-flow-col gap-[3px] leading-none">
         {Array.from({ length: COLS }, (_, col) => (
           <span key={col} className="grid gap-[3px]">
             {Array.from({ length: ROWS }, (_, row) => (
@@ -27,7 +31,7 @@ export function DotMatrix({ label }: { label?: string }) {
           </span>
         ))}
       </span>
-      {label && <span className="mono normal-case tracking-normal">{label}</span>}
+      {label && <span className="mono normal-case leading-none tracking-normal">{label}</span>}
     </span>
   );
 }

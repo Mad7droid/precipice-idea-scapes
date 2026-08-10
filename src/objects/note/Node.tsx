@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
-import { EmptyHint } from "../ui";
+import { EmptyHint, RichText, richTextToPlainText } from "../ui";
 import type { NoteData } from "./schema";
 
 export function NoteNode({ object }: { object: ScapeObject; selected: boolean }) {
   const data = object.data as Partial<NoteData>;
-  const body = data.body?.trim() ?? "";
+  const body = richTextToPlainText(data.body ?? "");
   const [editing, setEditing] = useState<"title" | "body" | null>(null);
   const readOnly = useCanvasReadOnly();
 
@@ -45,19 +45,27 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
 
   if (editing === "body") {
     return (
-      <textarea
-        autoFocus
-        defaultValue={data.body ?? ""}
-        onBlur={(e) => {
-          setEditing(null);
-          commitBody(e.currentTarget.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setEditing(null);
-        }}
-        className="nodrag nopan mt-1.5 w-full resize-none rounded-sm border border-focus bg-raised px-1 text-xs text-fg-secondary focus-self"
-        rows={3}
-      />
+      <>
+        <h4
+          onClick={() => !readOnly && setEditing("title")}
+          className="nodrag cursor-text text-sm font-medium leading-snug text-fg"
+        >
+          {object.title || "Untitled"}
+        </h4>
+        <textarea
+          autoFocus
+          defaultValue={data.body ?? ""}
+          onBlur={(e) => {
+            setEditing(null);
+            commitBody(e.currentTarget.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setEditing(null);
+          }}
+          className="nodrag nopan mt-1.5 w-full resize-none rounded-sm border border-focus bg-raised px-1 text-xs text-fg-secondary focus-self"
+          rows={Math.max(4, Math.min(12, Math.ceil((data.body ?? "").length / 42)))}
+        />
+      </>
     );
   }
 
@@ -71,12 +79,11 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
       </h4>
       <div className="mt-1.5">
         {body ? (
-          <p
+          <RichText
             onClick={() => !readOnly && setEditing("body")}
+            value={data.body ?? ""}
             className="nodrag cursor-text text-xs text-fg-secondary"
-          >
-            {body}
-          </p>
+          />
         ) : (
           <span onClick={() => !readOnly && setEditing("body")} className="nodrag cursor-text">
             <EmptyHint>No body yet</EmptyHint>

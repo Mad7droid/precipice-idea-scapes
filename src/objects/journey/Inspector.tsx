@@ -1,7 +1,14 @@
 import { useState } from "react";
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
-import { Field, IconButton, SectionHeader, TextInput, useDebouncedText } from "../ui";
+import {
+  Field,
+  IconButton,
+  RichTextEditor,
+  SectionHeader,
+  TextInput,
+  useDebouncedText,
+} from "../ui";
 import type { JourneyData, JourneyStep } from "./schema";
 
 let stepCounter = 0;
@@ -20,7 +27,7 @@ export function JourneyInspector({
   const commitSteps = (next: JourneyStep[]) =>
     dispatch({ type: "MergeObjectData", id: object.id, data: { steps: next } });
 
-  const [title, setTitle] = useDebouncedText(object.title, (next) =>
+  const [title, setTitle, flushTitle] = useDebouncedText(object.title, (next) =>
     dispatch({ type: "UpdateObject", id: object.id, patch: { title: next } }),
   );
 
@@ -39,6 +46,7 @@ export function JourneyInspector({
         <TextInput
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onBlur={flushTitle}
           placeholder="Untitled"
         />
       </Field>
@@ -111,10 +119,10 @@ function StepRow({
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) {
-  const [label, setLabel] = useDebouncedText(step.label, (next) =>
+  const [label, setLabel, flushLabel] = useDebouncedText(step.label, (next) =>
     onChange({ ...step, label: next }),
   );
-  const [detail, setDetail] = useDebouncedText(step.detail ?? "", (next) =>
+  const [detail, setDetail, flushDetail] = useDebouncedText(step.detail ?? "", (next) =>
     onChange(next ? { ...step, detail: next } : { id: step.id, label: step.label }),
   );
 
@@ -130,15 +138,16 @@ function StepRow({
         <TextInput
           value={label}
           onChange={(e) => setLabel(e.target.value)}
+          onBlur={flushLabel}
           placeholder="What happens here?"
           aria-label={`Step ${index + 1} label`}
         />
-        <TextInput
+        <RichTextEditor
           value={detail}
-          onChange={(e) => setDetail(e.target.value)}
           placeholder="Detail (optional)"
-          aria-label={`Step ${index + 1} detail`}
-          className="text-xs"
+          onChange={setDetail}
+          onBlur={flushDetail}
+          compact
         />
       </div>
       <div className="flex shrink-0 flex-col">

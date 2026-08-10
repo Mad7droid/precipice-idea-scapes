@@ -22,3 +22,21 @@
     height: 100dvh;
   }
 }
+
+.rich-text p + p {
+  margin-top: 0.4em;
+}
+
+.rich-text ul,
+.rich-text ol {
+  margin: 0.35em 0;
+  padding-left: 1.25em;
+}
+
+.rich-text ul {
+  list-style: disc;
+}
+
+.rich-text ol {
+  list-style: decimal;
+}

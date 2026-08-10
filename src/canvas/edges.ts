@@ -67,7 +67,12 @@ export function mergeFlowNodes(
       return {
         ...existing,
         position: samePosition ? existing.position : { x: object.x, y: object.y },
-        data: sameObject ? existing.data : { object, justGenerated: existing.data.justGenerated },
+        data: sameObject
+          ? existing.data
+          : {
+              object,
+              justGenerated: existing.data.justGenerated,
+            },
       };
     })
     .filter((n): n is Node<ObjectNodeData> => n !== undefined);
