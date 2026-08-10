@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
-import { EmptyHint } from "../ui";
+import { EmptyHint, RichText } from "../ui";
 import type { JourneyData, JourneyStep } from "./schema";
 
 export function JourneyNode({ object }: { object: ScapeObject; selected: boolean }) {
@@ -36,7 +36,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") setEditing(null);
           }}
-          className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
+          className="nodrag nopan min-h-7 w-full rounded-sm border border-focus bg-raised px-1.5 py-1 text-sm font-medium leading-snug text-fg focus-self"
         />
       ) : (
         <h4
@@ -74,7 +74,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                           if (e.key === "Enter") e.currentTarget.blur();
                           if (e.key === "Escape") setEditing(null);
                         }}
-                        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-fg-secondary focus-self"
+                        className="nodrag nopan min-h-6 w-full rounded-sm border border-focus bg-raised px-1.5 py-0.5 leading-snug text-fg-secondary focus-self"
                       />
                     ) : (
                       <span
@@ -90,9 +90,10 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
                       reach. If it was worth writing, it is worth showing.
                     */}
                     {step.detail && (
-                      <span className="mt-0.5 block text-2xs leading-snug text-fg-tertiary">
-                        {step.detail}
-                      </span>
+                      <RichText
+                        value={step.detail}
+                        className="mt-0.5 text-2xs leading-snug text-fg-tertiary"
+                      />
                     )}
                   </div>
                 </li>

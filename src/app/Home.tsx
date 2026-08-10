@@ -138,32 +138,49 @@ export function Home() {
             onClick={() => setHelpOpen(true)}
             className="grid h-9 w-9 place-items-center rounded-md text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
           >
-            <span className="mono text-base">?</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.35" />
+              <path
+                d="M6.25 6.2a1.83 1.83 0 1 1 3.06 1.35c-.83.73-1.31 1.08-1.31 2.05"
+                stroke="currentColor"
+                strokeWidth="1.35"
+                strokeLinecap="round"
+              />
+              <circle cx="8" cy="11.45" r=".7" fill="currentColor" />
+            </svg>
           </button>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[860px] px-6 pb-24">
-        <h1 className="font-pixel pb-6 pt-12 text-center text-3xl text-fg">What are we mapping?</h1>
+      <main className="mx-auto w-full max-w-[920px] px-6 pb-24">
+        <section className="animate-home-enter pb-2 pt-12 text-center motion-reduce:animate-none">
+          <h1 className="font-pixel pb-3 text-3xl text-fg">What are we mapping?</h1>
+          <p className="mx-auto max-w-[560px] text-fg-secondary">
+            Describe the product idea, flow, or screen you want to map. We’ll give you an editable
+            starting point.
+          </p>
+        </section>
 
-        <Composer
-          onSend={(text) => void create(text)}
-          onCancel={() => {}}
-          busy={false}
-          modelId={modelId}
-          onModelChange={setModelId}
-          scope="scape"
-          onScopeChange={() => {}}
-          types={types}
-          onTypesChange={setTypes}
-          availableTypes={starter.types}
-          selectionCount={0}
-          placeholder="Tell AI what would you like to map…"
-          // No selection to scope to, and the starter cards below already decide the types.
-          controls={{ scope: false, types: false }}
-        />
+        <section className="transition-[filter] duration-base ease-out focus-within:drop-shadow-sm">
+          <Composer
+            onSend={(text) => void create(text)}
+            onCancel={() => {}}
+            busy={false}
+            modelId={modelId}
+            onModelChange={setModelId}
+            scope="scape"
+            onScopeChange={() => {}}
+            types={types}
+            onTypesChange={setTypes}
+            availableTypes={starter.types}
+            selectionCount={0}
+            placeholder="Map the onboarding flow for a personal finance app…"
+            // No selection to scope to, and the starter cards below already decide the types.
+            controls={{ scope: false, types: false }}
+          />
+        </section>
 
-        <div className="pt-4">
+        <div className="pt-6">
           <StarterPicker value={starterId} onChange={setStarterId} />
         </div>
 
@@ -181,7 +198,7 @@ export function Home() {
           and build it by hand.
         </p>
 
-        <div className="pt-14">
+        <div className="pt-16">
           <ScapeList
             scapes={scapes}
             query={query}

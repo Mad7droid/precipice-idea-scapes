@@ -18,7 +18,7 @@ export function StarterPicker({
   return (
     <div>
       <p className="mono px-1 pb-2">Start with</p>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {STARTERS.map((starter) => (
           <button
             key={starter.id}
@@ -27,11 +27,11 @@ export function StarterPicker({
             onClick={() => onChange(starter.id)}
             title={starter.blurb}
             className={
-              "flex flex-col items-start gap-2 rounded-lg border p-3 text-left " +
-              "transition-colors duration-fast ease-out " +
+              "flex min-h-[142px] flex-col items-start gap-2 rounded-xl border p-4 text-left shadow-sm " +
+              "transition-all duration-fast ease-out motion-reduce:transform-none " +
               (value === starter.id
-                ? "border-focus bg-selected"
-                : "border-subtle bg-surface hover:bg-raised")
+                ? "border-focus bg-selected shadow-md"
+                : "border-subtle bg-surface hover:-translate-y-0.5 hover:border-strong hover:bg-raised hover:shadow-md")
             }
           >
             <StarterMark starter={starter} active={value === starter.id} />

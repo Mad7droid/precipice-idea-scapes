@@ -1,6 +1,6 @@
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
-import { Field, SectionHeader, TextArea, TextInput, useDebouncedText } from "../ui";
+import { Field, RichTextEditor, SectionHeader, TextInput, useDebouncedText } from "../ui";
 import type { NoteData } from "./schema";
 
 export function NoteInspector({
@@ -12,11 +12,11 @@ export function NoteInspector({
 }) {
   const data = object.data as Partial<NoteData>;
 
-  const [title, setTitle] = useDebouncedText(object.title, (next) =>
+  const [title, setTitle, flushTitle] = useDebouncedText(object.title, (next) =>
     dispatch({ type: "UpdateObject", id: object.id, patch: { title: next } }),
   );
 
-  const [body, setBody] = useDebouncedText(data.body ?? "", (next) =>
+  const [body, setBody, flushBody] = useDebouncedText(data.body ?? "", (next) =>
     dispatch({ type: "MergeObjectData", id: object.id, data: { body: next } }),
   );
 
@@ -28,14 +28,15 @@ export function NoteInspector({
           <TextInput
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onBlur={flushTitle}
             placeholder="Untitled"
           />
         </Field>
         <Field label="Body">
-          <TextArea
+          <RichTextEditor
             value={body}
-            rows={10}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
+            onBlur={flushBody}
             placeholder="What is worth writing down?"
           />
         </Field>

@@ -6,6 +6,7 @@ import { allPlugins, getPlugin } from "@/core/registry";
 import type { ScapeObject } from "@/core/types";
 import { fixtureScape } from "@/core/fixtures";
 import { render, type as typeInto } from "@/test/react";
+import { RichText, richTextToPlainText } from "./ui";
 import { wireframeSchema } from "./wireframe/schema";
 
 const EXPECTED_TYPES = ["journey", "note", "wireframe"];
@@ -42,6 +43,27 @@ describe("plugin schemas", () => {
       const result = plugin.schema.safeParse(object.data);
       expect(result.success, `${object.id}: ${JSON.stringify(result)}`).toBe(true);
     }
+  });
+});
+
+describe("markdown", () => {
+  it("strips formatting syntax before sending note content to the model", () => {
+    expect(richTextToPlainText("**Important** [detail](https://example.com)")).toBe(
+      "Important detail",
+    );
+  });
+
+  it("renders raw HTML as text and only keeps safe outbound links", () => {
+    const view = render(
+      <RichText value={'<img src=x onerror=alert(1)> [bad](javascript:alert(1)) [good](https://example.com)'} />,
+    );
+
+    expect(view.container.querySelector("img")).toBeNull();
+    expect(view.container.querySelector("[onerror]")).toBeNull();
+    const links = view.container.querySelectorAll("a");
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute("href")).toBe("https://example.com/");
+    expect(links[0]?.getAttribute("rel")).toBe("noopener noreferrer nofollow");
   });
 });
 

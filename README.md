@@ -34,7 +34,8 @@ shared key behind a public endpoint is a shared key anyone can spend.
 ## What is included
 
 - A React Flow canvas with selection, relationships, pan/zoom, layout, and undo.
-- Note, Journey, and Wireframe object types with editable inspectors.
+- Note, Journey, and Wireframe object types with editable inspectors. Note bodies and journey
+  details support Markdown for readable, portable formatting.
 - Wireframe grids with sections, labelled elements, spans, alignment, sizing, and presets.
 - Local persistence with autosave, single-writer multi-tab protection, offline app-shell support,
   and versioned `.scape` export/import.
@@ -142,6 +143,8 @@ For the full data-flow and Claude/Anthropic API-key model, see
   needs a network connection to Anthropic.
 - AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.
 - The Worker holds no Anthropic credential of its own and stores nothing. It exists to add CORS headers, and it rejects any request that does not carry a key.
+- Markdown is rendered as React elements with a small element allowlist; raw HTML is not
+  interpreted. Links are limited to `http` and `https` and open with `noopener noreferrer`.
 - The Worker forwards an allowlist of headers upstream, limits request bodies to 256 KiB, and returns `Cache-Control: no-store`. Its per-IP counter is best-effort abuse damping only: Worker isolates do not share memory, so it is not a dependable rate limit. Configure the Cloudflare dashboard rate-limiting rule below for authoritative edge protection.
 - Its origin check gates CORS, not authorization. `Origin` is forgeable by any non-browser client, so nothing sensitive is placed behind it.
 - The development AI harness and the main workspace may accept a locally supplied API key. Treat it as sensitive browser-local data and never paste production secrets into screenshots, issues, commits, or chat logs.

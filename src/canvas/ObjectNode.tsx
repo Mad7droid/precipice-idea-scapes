@@ -42,8 +42,9 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
       className={
         "group relative overflow-hidden rounded-lg bg-surface shadow-sm " +
         // The one spring the design language allows: a node arriving from the AI stream.
-        // Manual creation (duplicate, import, relayout) mounts with no entrance animation.
+        // Manual creation, duplication and import mount quietly; the AI stream owns the entry motion.
         (justGenerated ? "animate-node-enter " : "") +
+        "motion-reduce:animate-none " +
         // Selection is a ring, not a shadow change: the card must not appear to lift.
         (selected ? "ring-2 ring-accent" : "")
       }
@@ -75,7 +76,6 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         <span className="text-2xs font-medium text-fg-secondary">
           {plugin?.label ?? object.type}
         </span>
-        <span className="mono ml-auto truncate">{object.id}</span>
       </div>
 
       <div className="px-3 pb-2.5 pt-2">

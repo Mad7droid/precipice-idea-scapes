@@ -25,7 +25,7 @@ export interface ToolbarProps {
   onZoomOut: () => void;
   onZoomReset: () => void;
   onFit: () => void;
-  onAdd: () => void;
+  onAdd: (position: { x: number; y: number }) => void;
   onHelp: () => void;
   /**
    * Another tab holds this scape. The controls that change the document are removed rather
@@ -56,7 +56,6 @@ export function Toolbar({
   readOnly = false,
 }: ToolbarProps) {
   const [viewOpen, setViewOpen] = useState(false);
-  const [tidyOpen, setTidyOpen] = useState(false);
 
   return (
     <div className="absolute bottom-4 right-4 z-panel flex flex-col items-end gap-1.5">
@@ -90,27 +89,15 @@ export function Toolbar({
         </Menu>
       )}
 
-      {tidyOpen && !readOnly && (
-        <Menu onClose={() => setTidyOpen(false)}>
-          <p className="mono px-2 py-1">Arrange</p>
-          {(Object.keys(LAYOUT_LABELS) as LayoutMode[]).map((mode) => (
-            <MenuItem
-              key={mode}
-              onClick={() => {
-                onTidy(mode);
-                setTidyOpen(false);
-              }}
-            >
-              <Tick on={layoutMode === mode} />
-              {LAYOUT_LABELS[mode]}
-            </MenuItem>
-          ))}
-        </Menu>
-      )}
-
       <div className="flex flex-col overflow-hidden rounded-md border border-subtle bg-surface shadow-sm">
         {!readOnly && (
-          <ToolButton label="Add object (N, J, W)" onClick={onAdd}>
+          <ToolButton
+            label="Add object (N, J, W)"
+            onClick={(event) => {
+              const bounds = event.currentTarget.getBoundingClientRect();
+              onAdd({ x: bounds.right, y: bounds.bottom });
+            }}
+          >
             <path d="M7 2.5v9M2.5 7h9" strokeLinecap="round" />
           </ToolButton>
         )}
@@ -122,7 +109,6 @@ export function Toolbar({
         <ToolButton
           label={`View — lines ${edgeMode === "none" ? "off" : edgeMode}`}
           onClick={() => {
-            setTidyOpen(false);
             setViewOpen((open) => !open);
           }}
         >
@@ -169,11 +155,8 @@ export function Toolbar({
         </ToolButton>
         {!readOnly && (
           <ToolButton
-            label={`Tidy — ${LAYOUT_LABELS[layoutMode].toLowerCase()}`}
-            onClick={() => {
-              setViewOpen(false);
-              setTidyOpen((open) => !open);
-            }}
+            label={`Tidy ${LAYOUT_LABELS[layoutMode].toLowerCase()}`}
+            onClick={() => onTidy(layoutMode)}
           >
             <path d="M2 2.5h4v3.5H2zM8 2.5h4v9H8zM2 8h4v3.5H2z" strokeLinejoin="round" />
           </ToolButton>
@@ -213,7 +196,7 @@ function ToolButton({
   children,
 }: {
   label: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   children: React.ReactNode;
 }) {

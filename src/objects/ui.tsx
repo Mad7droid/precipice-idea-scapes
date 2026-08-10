@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 /**
  * Shared pieces for object plugins. This is a file, not a folder, so the registry glob
@@ -18,6 +19,7 @@ export function useDebouncedText(
   delay = 200,
 ): [string, (next: string) => void, () => void] {
   const [draft, setDraft] = useState(value);
+  const draftRef = useRef(value);
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const commitRef = useRef(commit);
@@ -25,7 +27,10 @@ export function useDebouncedText(
 
   // Accept external changes (undo, AI edits) only when the user is not mid-edit.
   useEffect(() => {
-    if (!dirty.current) setDraft(value);
+    if (!dirty.current) {
+      draftRef.current = value;
+      setDraft(value);
+    }
   }, [value]);
 
   const flush = useCallback(() => {
@@ -33,10 +38,12 @@ export function useDebouncedText(
     timer.current = undefined;
     if (!dirty.current) return;
     dirty.current = false;
+    commitRef.current(draftRef.current);
   }, []);
 
   const onChange = useCallback(
     (next: string) => {
+      draftRef.current = next;
       setDraft(next);
       dirty.current = true;
       if (timer.current) clearTimeout(timer.current);
@@ -49,7 +56,16 @@ export function useDebouncedText(
     [delay],
   );
 
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      if (dirty.current) {
+        dirty.current = false;
+        commitRef.current(draftRef.current);
+      }
+    },
+    [],
+  );
 
   return [draft, onChange, flush];
 }
@@ -88,6 +104,73 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={`${FIELD_CLASS} resize-y ${props.className ?? ""}`} />;
+}
+
+export function richTextToPlainText(value: string): string {
+  return value
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_~>#-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function safeHref(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function RichText({
+  value,
+  className = "",
+  ...props
+}: { value: string } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} className={`rich-text ${className}`}>
+      <ReactMarkdown
+        allowedElements={["p", "strong", "em", "code", "a", "ul", "ol", "li", "blockquote", "del"]}
+        unwrapDisallowed
+        components={{
+          a: ({ href, children }) => {
+            const safe = safeHref(href);
+            return safe ? <a href={safe} target="_blank" rel="noopener noreferrer nofollow">{children}</a> : <>{children}</>;
+          },
+        }}
+      >
+        {value}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  compact = false,
+  onBlur,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  compact?: boolean;
+  onBlur?: () => void;
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      aria-label={placeholder ?? "Markdown"}
+      className={`${FIELD_CLASS} resize-y font-mono ${compact ? "min-h-12 text-xs" : "min-h-20 text-sm"}`}
+    />
+  );
 }
 
 export function IconButton({

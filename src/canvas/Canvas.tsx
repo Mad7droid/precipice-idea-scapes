@@ -451,6 +451,7 @@ function CanvasSurface({
       selectEdge(null);
       // A created object has a placeholder title. Let the next keystroke finish the thought.
       window.setTimeout(() => onOpenInspector?.(id), 0);
+      return id;
     },
     [dispatchTx, onOpenInspector, readOnly, setSelection, selectEdge],
   );
@@ -466,12 +467,13 @@ function CanvasSurface({
     [createAt, screenToFlowPosition],
   );
 
-  const openAddMenuAtCentre = useCallback(() => {
-    const rect = surface.current?.getBoundingClientRect();
-    if (!rect) return;
-    setConnectMenu(null);
-    setAddMenu(anchorFrom(rect.left + rect.width / 2, rect.top + rect.height / 2));
-  }, [anchorFrom]);
+  const openAddMenuAt = useCallback(
+    (position: { x: number; y: number }) => {
+      setConnectMenu(null);
+      setAddMenu(anchorFrom(position.x, position.y));
+    },
+    [anchorFrom],
+  );
 
   const resetZoom = useCallback(() => {
     zoomTo(1, { duration: prefersReducedMotion() ? 0 : 130 });
@@ -771,7 +773,12 @@ function CanvasSurface({
           : { defaultViewport: scape.viewState })}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--canvas-dot)" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1.5}
+          color="var(--canvas-dot)"
+        />
       </ReactFlow>
 
       {pendingConnection && addMenu?.from && (
@@ -804,7 +811,7 @@ function CanvasSurface({
         onZoomOut={() => zoomOut({ duration: prefersReducedMotion() ? 0 : 130 })}
         onZoomReset={resetZoom}
         onFit={fit}
-        onAdd={openAddMenuAtCentre}
+        onAdd={openAddMenuAt}
         onHelp={() => onOpenHelp?.()}
         readOnly={readOnly}
       />
