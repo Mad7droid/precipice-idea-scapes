@@ -393,9 +393,14 @@ function CanvasSurface({
       const current = useScapeStore.getState().scape;
       if (!current) return;
       dispatchTx([layoutAction(current, mode, measuredSizes())]);
-      // Reflowing without refitting leaves the scape somewhere off-screen. Both move over
-      // --dur-canvas so the reflow and the camera read as one motion.
-      fitView({ padding: 0.15, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 420 });
+      // React Flow measures nodes after the store update has rendered. Fitting immediately
+      // frames the *old* positions, which made Tidy look indistinguishable from Fit. Two
+      // frames ensure the new left-to-right layout is measured before the camera moves.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          fitView({ padding: 0.15, maxZoom: 1, duration: prefersReducedMotion() ? 0 : 420 });
+        });
+      });
     },
     [dispatchTx, fitView, layoutMode, measuredSizes, readOnly],
   );
@@ -797,10 +802,11 @@ function CanvasSurface({
             return next;
           })
         }
-        layoutMode={layoutMode}
-        onTidy={(mode) => {
-          setLayoutMode(mode);
-          relayout(mode);
+        onTidy={() => {
+          // Tidy is a cleanup command, not a viewport command: always make the graph a
+          // conventional left-to-right flow, then frame that new arrangement.
+          setLayoutMode("LR");
+          relayout("LR");
         }}
         zoom={zoom}
         canUndo={undoDepth > 0}

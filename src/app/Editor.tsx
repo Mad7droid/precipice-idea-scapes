@@ -326,7 +326,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
             shortcut: type === "note" ? "N" : type === "journey" ? "J" : "W",
             run: () => commands.current?.addObject(type),
           })),
-        { id: "tidy", label: "Tidy layout", run: () => commands.current?.relayout() },
+        {
+          id: "tidy",
+          label: "Tidy layout",
+          hint: "Arrange left to right and fit",
+          run: () => commands.current?.relayout("LR"),
+        },
         {
           id: "ask-ai",
           label: "Tell AI what to do",

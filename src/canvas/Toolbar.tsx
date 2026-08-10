@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { allPlugins } from "@/core/registry";
-import { LAYOUT_LABELS, type EdgeMode, type LayoutMode } from "@/starters";
+import type { EdgeMode } from "@/starters";
 
 /**
  * The canvas utility rail.
@@ -14,8 +14,8 @@ export interface ToolbarProps {
   onEdgeModeChange: (mode: EdgeMode) => void;
   hiddenTypes: Set<string>;
   onToggleType: (type: string) => void;
-  layoutMode: LayoutMode;
-  onTidy: (mode: LayoutMode) => void;
+  /** Tidy is intentionally opinionated: it restores the readable left-to-right flow. */
+  onTidy: () => void;
   zoom: number;
   canUndo: boolean;
   canRedo: boolean;
@@ -40,7 +40,6 @@ export function Toolbar({
   onEdgeModeChange,
   hiddenTypes,
   onToggleType,
-  layoutMode,
   onTidy,
   zoom,
   canUndo,
@@ -155,8 +154,8 @@ export function Toolbar({
         </ToolButton>
         {!readOnly && (
           <ToolButton
-            label={`Tidy ${LAYOUT_LABELS[layoutMode].toLowerCase()}`}
-            onClick={() => onTidy(layoutMode)}
+            label="Tidy scape — left to right, then fit"
+            onClick={onTidy}
           >
             <path d="M2 2.5h4v3.5H2zM8 2.5h4v9H8zM2 8h4v3.5H2z" strokeLinejoin="round" />
           </ToolButton>
