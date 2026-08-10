@@ -283,7 +283,9 @@ describe("card width", () => {
     expect(objectWidth({ type: "note", width: 5 })).toBe(200);
     expect(objectWidth({ type: "note", width: 5000 })).toBe(900);
     // A width that is not a number is not a width.
-    expect(objectWidth({ type: "note", width: "wide" as unknown as number })).toBe(widthFor("note"));
+    expect(objectWidth({ type: "note", width: "wide" as unknown as number })).toBe(
+      widthFor("note"),
+    );
   });
 
   it("lays out a resized card at the width it was dragged to", () => {

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { allPlugins } from "@/core/registry";
 import { Select } from "@/design/Select";
+import { DotMatrix } from "./DotMatrix";
 import type { Scope } from "./prompt";
 import { MODELS } from "./models";
 
@@ -153,12 +154,15 @@ export function Composer({
 
         <div className="ml-auto flex items-center gap-1.5">
           {slot}
-          <span
-            className="mono hidden sm:inline"
-            title={busy ? undefined : "Send with Command or Control + Enter"}
-          >
-            {busy ? "streaming" : "⌘↵ to send"}
-          </span>
+          {busy ? (
+            <span className="mono hidden sm:inline">
+              <DotMatrix label="working" />
+            </span>
+          ) : (
+            <span className="mono hidden sm:inline" title="Send with Command or Control + Enter">
+              ⌘↵ to send
+            </span>
+          )}
         </div>
 
         {busy ? (

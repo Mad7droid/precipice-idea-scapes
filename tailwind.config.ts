@@ -123,10 +123,15 @@ export default {
           from: { opacity: "0", transform: "translateY(4px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "dot-wave": {
+          "0%, 70%, 100%": { opacity: "0.18", transform: "scale(0.8)" },
+          "35%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "node-enter": "node-enter var(--dur-base) var(--spring-node) both",
         "ribbon-line": "ribbon-line var(--dur-fast) var(--ease-out) both",
+        "dot-wave": "dot-wave 1400ms var(--ease-in-out) infinite",
       },
     },
   },

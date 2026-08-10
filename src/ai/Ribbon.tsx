@@ -1,5 +1,29 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { DotMatrix } from "./DotMatrix";
 import type { GenerationState } from "./useGeneration";
+
+/**
+ * What the wait is spent on, in the order it happens. The model gives no progress signal
+ * before its first tool call, so these are honest about the phase, not a fake percentage.
+ */
+const THINKING_PHRASES = ["Reading the scape…", "Planning the shape…", "Writing objects…"];
+const PHRASE_MS = 2600;
+
+function useThinkingPhrase(active: boolean) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setIndex(0);
+      return;
+    }
+    const id = setInterval(
+      () => setIndex((i) => Math.min(i + 1, THINKING_PHRASES.length - 1)),
+      PHRASE_MS,
+    );
+    return () => clearInterval(id);
+  }, [active]);
+  return THINKING_PHRASES[index] ?? THINKING_PHRASES[0]!;
+}
 
 /**
  * The signature element.
@@ -24,7 +48,9 @@ export function Ribbon({
   onDismiss: () => void;
 }) {
   const [showSkipped, setShowSkipped] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
   const listRef = useRef<HTMLOListElement>(null);
+  const phrase = useThinkingPhrase(state.status === "streaming" && state.lines.length === 0);
 
   // Keep the newest line in view as the ribbon fills.
   useLayoutEffect(() => {
@@ -33,7 +59,10 @@ export function Ribbon({
   }, [state.lines.length]);
 
   useEffect(() => {
-    if (state.status !== "done") setShowSkipped(false);
+    if (state.status !== "done") {
+      setShowSkipped(false);
+      setShowSteps(false);
+    }
   }, [state.status]);
 
   if (state.status === "idle") return null;
@@ -60,10 +89,15 @@ export function Ribbon({
               {line.text}
             </li>
           ))}
-          {state.lines.length === 0 && <li className="mono">thinking…</li>}
+          {state.lines.length === 0 && (
+            <li className="py-0.5 text-fg-secondary">
+              <DotMatrix label={phrase} />
+            </li>
+          )}
         </ol>
         <div className="flex items-center justify-between border-t border-subtle px-3 py-1.5">
-          <span className="mono">
+          <span className="mono flex items-center gap-2">
+            {state.lines.length > 0 && <DotMatrix />}
             {state.applied} {state.applied === 1 ? "action" : "actions"}
             {state.skipped.length > 0 && ` · ${state.skipped.length} skipped`}
           </span>
@@ -76,10 +110,36 @@ export function Ribbon({
   // Collapsed: `18 actions · claude-sonnet-5 · undo`
   return (
     <Strip>
+      {/* The steps stay available after the stream ends — "18 actions" is a claim, and this
+          is the receipt for it. Collapsed by default; the canvas is the point. */}
+      {showSteps && state.lines.length > 0 && (
+        <ol className="max-h-[180px] overflow-y-auto border-b border-subtle px-3 py-2">
+          {state.lines.map((line) => (
+            <li key={line.key} className="mono normal-case tracking-normal">
+              {line.text}
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="relative flex items-center gap-2 px-3 py-2">
-        <span className="mono normal-case tracking-normal">
-          {state.applied} {state.applied === 1 ? "action" : "actions"}
-        </span>
+        {state.lines.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowSteps((open) => !open)}
+            aria-expanded={showSteps}
+            className="mono normal-case tracking-normal text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
+            title={showSteps ? "Hide the steps" : "Show the steps taken"}
+          >
+            <span aria-hidden className="mr-1.5 inline-block">
+              {showSteps ? "▾" : "▸"}
+            </span>
+            {state.applied} {state.applied === 1 ? "action" : "actions"}
+          </button>
+        ) : (
+          <span className="mono normal-case tracking-normal">
+            {state.applied} {state.applied === 1 ? "action" : "actions"}
+          </span>
+        )}
         {state.skipped.length > 0 && (
           <>
             <Dot />

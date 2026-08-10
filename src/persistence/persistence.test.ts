@@ -217,9 +217,7 @@ describe("export and import", () => {
       data: { ...wireframe.data, width: 520 },
     };
 
-    const parsed = parseScapeFile(
-      JSON.stringify({ version: 1, scape: legacy, actionLog: [] }),
-    );
+    const parsed = parseScapeFile(JSON.stringify({ version: 1, scape: legacy, actionLog: [] }));
 
     expect(parsed.version).toBe(CURRENT_DOC_VERSION);
     expect(parsed.scape.objects[wireframe.id]).toMatchObject({ width: 520 });
