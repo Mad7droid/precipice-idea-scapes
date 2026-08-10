@@ -11,6 +11,10 @@ milestone is published.
 
 ### Changed
 
+- PDF export downloads around 113 KB less code. The export is vector-only, so jsPDF's image
+  and SVG dependencies are no longer bundled.
+- Editing one field of a block now writes only that field, so a future block type can hold
+  several fields without an edit to one quietly discarding the others.
 - Added an Export menu with portable `.scape` downloads and vector PDF exports. PDFs include a
   first-page scape diagram followed by a readable outline of every block and its relationships.
 - Documented current multi-tab, offline, storage-persistence, deployment, and
