@@ -6,7 +6,7 @@ import { allPlugins, getPlugin } from "@/core/registry";
 import type { ScapeObject } from "@/core/types";
 import { fixtureScape } from "@/core/fixtures";
 import { render, type as typeInto } from "@/test/react";
-import { RichText, richTextToPlainText } from "./ui";
+import { RichText, RichTextEditor, richTextToPlainText } from "./ui";
 import { wireframeSchema } from "./wireframe/schema";
 
 const EXPECTED_TYPES = ["journey", "note", "wireframe"];
@@ -55,7 +55,11 @@ describe("markdown", () => {
 
   it("renders raw HTML as text and only keeps safe outbound links", () => {
     const view = render(
-      <RichText value={'<img src=x onerror=alert(1)> [bad](javascript:alert(1)) [good](https://example.com)'} />,
+      <RichText
+        value={
+          "<img src=x onerror=alert(1)> [bad](javascript:alert(1)) [good](https://example.com)"
+        }
+      />,
     );
 
     expect(view.container.querySelector("img")).toBeNull();
@@ -64,6 +68,78 @@ describe("markdown", () => {
     expect(links).toHaveLength(1);
     expect(links[0]?.getAttribute("href")).toBe("https://example.com/");
     expect(links[0]?.getAttribute("rel")).toBe("noopener noreferrer nofollow");
+  });
+});
+
+describe("RichTextEditor shortcuts", () => {
+  /**
+   * The pure rules are covered in markdownText.test.ts. This is the wiring: that the
+   * component reaches for them at all, and that the caret survives the round trip through a
+   * controlled value — which is the part that silently breaks and makes the shortcut feel
+   * broken even when the string is right.
+   */
+  function editor(initial: string) {
+    let value = initial;
+    const view = render(<RichTextEditor value={value} onChange={(next) => (value = next)} />);
+    const field = view.container.querySelector("textarea")!;
+    return {
+      field,
+      get value() {
+        return value;
+      },
+      press(key: string, select: [number, number]) {
+        field.setSelectionRange(select[0], select[1]);
+        act(() => {
+          field.dispatchEvent(
+            new KeyboardEvent("keydown", { key, metaKey: true, bubbles: true, cancelable: true }),
+          );
+        });
+      },
+      enter(at: number) {
+        field.setSelectionRange(at, at);
+        act(() => {
+          field.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+          );
+        });
+      },
+      unmount: view.unmount,
+    };
+  }
+
+  it("Cmd+B wraps the selection", () => {
+    const it_ = editor("say hello");
+    it_.press("b", [4, 9]);
+    expect(it_.value).toBe("say **hello**");
+    it_.unmount();
+  });
+
+  it("Cmd+I italicises the selection", () => {
+    const it_ = editor("say hello");
+    it_.press("i", [4, 9]);
+    expect(it_.value).toBe("say _hello_");
+    it_.unmount();
+  });
+
+  it("Cmd+K turns the selection into a link", () => {
+    const it_ = editor("read docs");
+    it_.press("k", [5, 9]);
+    expect(it_.value).toBe("read [docs](url)");
+    it_.unmount();
+  });
+
+  it("Enter continues a list", () => {
+    const it_ = editor("- one");
+    it_.enter(5);
+    expect(it_.value).toBe("- one\n- ");
+    it_.unmount();
+  });
+
+  it("leaves Enter alone outside a list, so native undo still applies", () => {
+    const it_ = editor("prose");
+    it_.enter(5);
+    expect(it_.value).toBe("prose");
+    it_.unmount();
   });
 });
 
