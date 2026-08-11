@@ -54,7 +54,7 @@ type PublicationRow = {
 
 const encoder = new TextEncoder();
 const googleKeys = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
-const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 const STATE_MS = 10 * 60 * 1000;
 const EXCHANGE_MS = 60 * 1000;
 const RETAINED_VERSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -171,7 +171,16 @@ async function authStart(request: Request, env: Env): Promise<Response> {
   return response(request, env, authStartSchema.parse({ authorizationUrl: google.toString() }));
 }
 
-async function authCallback(request: Request, env: Env): Promise<Response> {
+async function claimInvitation(env: Env, user: { id: string; googleSub: string; email: string; displayName: string | null }, now: number): Promise<void> {
+  // D1 enforces accepted_user_id immediately, so the referenced user must be inserted first.
+  // The batch remains one transaction: a pending invitation can still be claimed only once.
+  await env.PUBLISH_DB.batch([
+    env.PUBLISH_DB.prepare("INSERT INTO users (id, google_sub, email, display_name, role, status, created_at, updated_at) SELECT ?, ?, ?, ?, 'member', 'active', ?, ? WHERE EXISTS (SELECT 1 FROM invites WHERE email = ? AND status = 'pending')").bind(user.id, user.googleSub, user.email, user.displayName, now, now, user.email),
+    env.PUBLISH_DB.prepare("UPDATE invites SET status = 'accepted', accepted_at = ?, accepted_user_id = ? WHERE email = ? AND status = 'pending'").bind(now, user.id, user.email),
+  ]);
+}
+
+async function completeAuthCallback(request: Request, env: Env): Promise<Response> {
   if (!googleConfigured(env)) return error(request, env, "server_error", "Google sign-in is not configured yet.");
   const url = new URL(request.url), state = url.searchParams.get("state"), code = url.searchParams.get("code");
   if (!state || !code) return error(request, env, "unauthorized", "Google sign-in was cancelled.");
@@ -193,10 +202,7 @@ async function authCallback(request: Request, env: Env): Promise<Response> {
     if (role === "admin") {
       await env.PUBLISH_DB.prepare("INSERT INTO users (id, google_sub, email, display_name, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)").bind(userId, claims.sub, normalEmail, claims.name?.slice(0, 200) ?? null, role, now, now).run();
     } else {
-      await env.PUBLISH_DB.batch([
-        env.PUBLISH_DB.prepare("UPDATE invites SET status = 'accepted', accepted_at = ?, accepted_user_id = ? WHERE email = ? AND status = 'pending'").bind(now, userId, normalEmail),
-        env.PUBLISH_DB.prepare("INSERT INTO users (id, google_sub, email, display_name, role, status, created_at, updated_at) SELECT ?, ?, ?, ?, 'member', 'active', ?, ? WHERE EXISTS (SELECT 1 FROM invites WHERE email = ? AND status = 'accepted' AND accepted_user_id = ?)").bind(userId, claims.sub, normalEmail, claims.name?.slice(0, 200) ?? null, now, now, normalEmail, userId),
-      ]);
+      await claimInvitation(env, { id: userId, googleSub: claims.sub, email: normalEmail, displayName: claims.name?.slice(0, 200) ?? null }, now);
     }
     user = await env.PUBLISH_DB.prepare("SELECT id, email, display_name, role, status FROM users WHERE google_sub = ?").bind(claims.sub).first<User>();
     if (!user) return authErrorRedirect(env, "invite_required", pending.return_path);
@@ -211,6 +217,15 @@ async function authCallback(request: Request, env: Env): Promise<Response> {
   ]);
   const redirect = new URL("/", env.APP_ORIGIN); redirect.hash = new URLSearchParams({ token: exchange, return: pending.return_path }).toString();
   return Response.redirect(redirect.toString(), 302);
+}
+
+async function authCallback(request: Request, env: Env): Promise<Response> {
+  try { return await completeAuthCallback(request, env); }
+  catch (cause) {
+    // OAuth query values can contain one-time credentials. Log only the error class.
+    console.error("auth_callback_failed", cause instanceof Error ? cause.name : "unknown");
+    return authErrorRedirect(env, "server_error", "/");
+  }
 }
 
 async function authExchange(request: Request, env: Env): Promise<Response> {
@@ -307,7 +322,7 @@ async function handle(request: Request, env: Env, _ctx: ExecutionContext): Promi
   if (mutation && (!(await allowed(env.MUTATION_IP_LIMIT, ip(request))) || !(await allowed(env.MUTATION_USER_LIMIT, user.id)))) return error(request, env, "rate_limited");
   if (url.pathname.startsWith("/admin")) return handleAdmin(request, env, user, url);
   if (request.method === "POST" && url.pathname === "/auth/logout") { await env.PUBLISH_DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run(); return new Response(null, { status: 204, headers: cors(request, env) }); }
-  if (request.method === "DELETE" && url.pathname === "/account") { const ids = (await env.PUBLISH_DB.prepare("SELECT publication_id FROM publications WHERE owner_id = ?").bind(user.id).all<{ publication_id: string }>()).results; await Promise.all(ids.map((row) => deletePrefix(env.PUBLICATIONS, `publications/${row.publication_id}/`))); await env.PUBLISH_DB.batch([env.PUBLISH_DB.prepare("DELETE FROM exchange_codes WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM superseded_versions WHERE publication_id IN (SELECT publication_id FROM publications WHERE owner_id = ?)").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM publications WHERE owner_id = ?").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM publish_usage WHERE owner_id = ?").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id)]); return new Response(null, { status: 204, headers: cors(request, env) }); }
+  if (request.method === "DELETE" && url.pathname === "/account") { if (user.role === "admin") { const replacement = await env.PUBLISH_DB.prepare("SELECT id FROM users WHERE role = 'admin' AND status = 'active' AND id != ? LIMIT 1").bind(user.id).first<{ id: string }>(); if (!replacement) return error(request, env, "invalid_projection", "Add another active administrator before deleting this account."); } const ids = (await env.PUBLISH_DB.prepare("SELECT publication_id FROM publications WHERE owner_id = ?").bind(user.id).all<{ publication_id: string }>()).results; await Promise.all(ids.map((row) => deletePrefix(env.PUBLICATIONS, `publications/${row.publication_id}/`))); await env.PUBLISH_DB.batch([env.PUBLISH_DB.prepare("DELETE FROM exchange_codes WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM superseded_versions WHERE publication_id IN (SELECT publication_id FROM publications WHERE owner_id = ?)").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM publications WHERE owner_id = ?").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM publish_usage WHERE owner_id = ?").bind(user.id), env.PUBLISH_DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id)]); return new Response(null, { status: 204, headers: cors(request, env) }); }
   if (request.method === "GET" && url.pathname === "/publications") { const rows = (await env.PUBLISH_DB.prepare("SELECT publication_id, status, version, hash, updated_at, current_bytes FROM publications WHERE owner_id = ? AND status != 'deleted' ORDER BY updated_at DESC").bind(user.id).all<PublicationRow>()).results; const activeUsed = rows.filter((row) => row.status === "published").length; const storedBytes = rows.reduce((sum, row) => sum + row.current_bytes, 0); return response(request, env, publicationListSchema.parse({ publications: rows.map((row) => asPublication(env, row)), limit: PUBLICATION_LIMIT, used: rows.length, activeUsed, storedBytes })); }
   if (request.method === "POST" && url.pathname === "/publications") return publish(request, env, user);
   const match = url.pathname.match(/^\/publications\/(pub_[0-9a-z]{26})(?:\/(unpublish|republish))?$/); if (!match) return error(request, env, "not_found"); const [, id, action] = match;
@@ -330,4 +345,4 @@ async function sweep(env: Env): Promise<void> {
 }
 
 export default { fetch: (request: Request, env: Env, ctx: ExecutionContext) => handle(request, env, ctx), scheduled: (_event: ScheduledEvent, env: Env) => sweep(env) };
-export { safeReturn };
+export { claimInvitation, safeReturn };

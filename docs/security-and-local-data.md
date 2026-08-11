@@ -69,8 +69,10 @@ API plan you use.
 - API keys, Cloudflare tokens, `.env` files, and private user data must never be
   committed to GitHub.
 - The deployment workflow requires `CLOUDFLARE_ACCOUNT_ID` and
-  `CLOUDFLARE_API_TOKEN` as GitHub Actions secrets. Do not make a workflow
-  fallback to source-controlled credentials when either secret is absent.
+  `CLOUDFLARE_API_TOKEN` as GitHub Actions secrets, plus the ignored publication Worker
+  configuration as `WRANGLER_PUBLISH_CONFIG`. Public build values belong in repository variables.
+  The workflow fails before building or deploying when any required value is absent; do not add
+  a fallback to source-controlled credentials.
 - Production deployment credentials belong in GitHub Actions secrets or the
   local Wrangler credential store, not in source files. Use a scoped token with
   only the Workers and Pages permissions required for this project.
@@ -79,6 +81,8 @@ API plan you use.
   repository when available.
 - Never paste a real API key into a screenshot, issue, pull request, chat log,
   test fixture, or exported documentation image.
+- Publication sessions expire after seven days and are revoked immediately on logout, account
+  suspension, or replacement by a newer sign-in.
 
 ## Operational protections
 

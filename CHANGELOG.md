@@ -50,6 +50,11 @@ milestone is published.
 - Isolated the public viewer from local scapes, editor state, AI settings, and publication
   credentials; narrowed its CSP and limited Worker requests with separate authentication, public
   read, IP-mutation, and user-mutation counters.
+- Hardened publishing sign-in and operations: invitation claims now preserve D1 foreign-key
+  integrity, unexpected OAuth failures return safely to the editor, sessions expire after seven
+  days, and the final active administrator cannot accidentally delete their account.
+- Production deployment now validates every required secret and public build value, runs tests,
+  applies D1 migrations, and deploys both Workers before publishing the Pages frontend.
 
 - Replaced the rich-text HTML path with allowlisted Markdown rendering. Raw HTML is rendered as
   text, and links are restricted to safe `http`/`https` destinations.

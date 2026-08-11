@@ -114,12 +114,16 @@ pnpm build
 
 ### Production deployment
 
-Pushing to `main` runs the GitHub Actions deployment workflow, which builds the app, deploys
-the AI Worker, then deploys the Pages frontend. Configure these repository secrets before
-relying on that automation:
+Pushing to `main` runs the GitHub Actions deployment workflow, which tests and builds the app,
+applies publication database migrations, deploys both Workers, then deploys the Pages frontend.
+Configure these repository secrets before relying on that automation:
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
+- `WRANGLER_PUBLISH_CONFIG` — the complete ignored `wrangler.publish.toml`
+
+Also configure the public repository variables `VITE_PUBLICATION_API_URL` and
+`VITE_TURNSTILE_SITE_KEY`. The workflow stops before deployment when any value is missing.
 
 Use a scoped Cloudflare token with only the Workers and Pages permissions needed for this
 project. Never place either value in `wrangler.toml`, an `.env` file that is committed, an

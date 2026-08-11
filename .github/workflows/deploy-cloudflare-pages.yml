@@ -16,6 +16,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       VITE_AI_PROXY_URL: https://precipice-ai-proxy.precipice.workers.dev
+      VITE_PUBLICATION_API_URL: ${{ vars.VITE_PUBLICATION_API_URL }}
+      VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
 
     steps:
       - name: Check out repository
@@ -35,11 +37,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate deployment configuration
+        env:
+          WRANGLER_PUBLISH_CONFIG: ${{ secrets.WRANGLER_PUBLISH_CONFIG }}
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$VITE_PUBLICATION_API_URL"
+          test -n "$VITE_TURNSTILE_SITE_KEY"
+          test -n "$WRANGLER_PUBLISH_CONFIG"
+
+      - name: Prepare publication Worker configuration
+        env:
+          WRANGLER_PUBLISH_CONFIG: ${{ secrets.WRANGLER_PUBLISH_CONFIG }}
+        run: |
+          umask 077
+          config_path="$RUNNER_TEMP/wrangler.publish.toml"
+          printf '%s\n' "$WRANGLER_PUBLISH_CONFIG" > "$config_path"
+          echo "WRANGLER_PUBLISH_CONFIG_PATH=$config_path" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: pnpm test
+
       - name: Build
         run: pnpm build
 
       - name: Deploy AI proxy
         run: pnpm exec wrangler deploy
 
-      - name: Deploy
+      - name: Apply publication database migrations
+        run: pnpm exec wrangler d1 migrations apply precipice-publications --remote --config "$WRANGLER_PUBLISH_CONFIG_PATH"
+
+      - name: Deploy publication Worker
+        run: pnpm exec wrangler deploy --config "$WRANGLER_PUBLISH_CONFIG_PATH"
+
+      - name: Deploy Pages
         run: pnpm exec wrangler pages deploy dist --project-name precipice --branch main

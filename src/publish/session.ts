@@ -8,7 +8,7 @@ import { exchange, startAuth } from "./client";
  * different risk classes. The Anthropic key is a bearer credential to a third party's paid API,
  * with no scope and no revocation — it lives in `sessionStorage` so it cannot outlive the tab
  * (`src/app/useAppSettings.ts`). This token is scoped to publications, revocable from the
- * server, and expires in 30 days. Making someone sign in with Google on every tab would be a
+ * server, and expires in seven days. Making someone sign in with Google on every tab would be a
  * real cost for no security gain.
  */
 const SESSION_KEY = "precipice.publishSession";
@@ -132,7 +132,7 @@ export function readAuthFragment(hash: string): { code: string; returnRoute: str
   return { code, returnRoute: safeRoute(params.get("return")) };
 }
 
-export type AuthErrorCode = "invite_required";
+export type AuthErrorCode = "invite_required" | "server_error";
 
 export interface AuthErrorReturn {
   code: AuthErrorCode;
@@ -150,7 +150,7 @@ export function readAuthErrorFragment(hash: string): AuthErrorReturn | null {
 
   const params = new URLSearchParams(raw);
   const code = params.get("auth_error");
-  if (code !== "invite_required") return null;
+  if (code !== "invite_required" && code !== "server_error") return null;
 
   return { code, returnRoute: safeRoute(params.get("return")) };
 }
