@@ -1,11 +1,18 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { notify } from "@/core/notify";
+import { scapeRepository } from "@/persistence/scapeRepository";
+import { consumePublicCopy, localCopyFromPublication } from "@/shared/publicCopy";
+import { completeSignIn, readAuthFragment } from "@/publish/session";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
-import { Link, match, useRoute } from "./router";
+import { Link, match, navigate, scapeRoute, useRoute } from "./router";
 import { ToastHost } from "./ToastHost";
 import { AppSettingsProvider } from "./useAppSettings";
 
 const DevAi = lazy(() => import("@/routes/dev/ai").then(({ DevAi }) => ({ default: DevAi })));
+const DevPublish = lazy(() =>
+  import("@/routes/dev/publish").then(({ DevPublish }) => ({ default: DevPublish })),
+);
 const DevCanvas = lazy(() =>
   import("@/routes/dev/canvas").then(({ DevCanvas }) => ({ default: DevCanvas })),
 );
@@ -21,15 +28,97 @@ const DEV_ROUTES: Array<[string, string]> = [
   ["/dev/canvas", "Canvas — drag, connect, delete, layout, undo, live action log"],
   ["/dev/persistence", "Persistence — autosave, action log, export and import"],
   ["/dev/ai", "AI — key, prompt, ribbon, applied and skipped actions, evals"],
+  ["/dev/publish", "Publishing — sign-in, publish, update, unpublish, quota, against a stub"],
 ];
 
 export function App() {
+  const signingIn = useSignInReturn();
+  const copying = usePublicCopyImport();
+
+  // Routing is held back only while a sign-in code is being exchanged, which is one request
+  // against a 60-second code. Rendering the route first would flash the wrong screen and then
+  // navigate away from it.
+  if (signingIn || copying) {
+    return (
+      <main className="grid h-full place-items-center bg-base" role="status">
+        {signingIn ? "Signing you in…" : "Creating your local copy…"}
+      </main>
+    );
+  }
+
   return (
     <AppSettingsProvider>
       <Routes />
       <ToastHost />
     </AppSettingsProvider>
   );
+}
+
+/** The editor is the only side that writes the staged public copy into this browser's library. */
+function usePublicCopyImport(): boolean {
+  const [source] = useState(() => consumePublicCopy());
+  const [pending, setPending] = useState(source !== null);
+
+  useEffect(() => {
+    if (!source) return;
+    let live = true;
+    const copy = localCopyFromPublication(source);
+
+    void (async () => {
+      await scapeRepository.saveSnapshot(copy, Date.now());
+      if (!live) return;
+      // Repositories surface quota failures as a notification and leave no row behind. Do not
+      // navigate to an editor for a document that did not make it to durable local storage.
+      if (!(await scapeRepository.get(copy.id))) {
+        notify.error("Could not create a local copy.", "Your browser could not save the scape.");
+        return;
+      }
+      navigate(scapeRoute(copy.id));
+      notify.success("Local copy created.", "This copy is private to this browser.");
+    })().finally(() => live && setPending(false));
+
+    return () => {
+      live = false;
+    };
+  }, [source]);
+
+  return pending;
+}
+
+/**
+ * The return leg of Google sign-in.
+ *
+ * The Worker sends the browser back to `<origin>/#token=<code>&return=<route>`: one fragment
+ * carrying both values, because this app's routes live in the fragment. The code is exchanged
+ * once, the fragment is stripped, and the user is put back where they were — which is the whole
+ * reason `return` travels at all.
+ */
+function useSignInReturn(): boolean {
+  const [pending, setPending] = useState(() => readAuthFragment(window.location.hash) !== null);
+
+  useEffect(() => {
+    if (!pending) return;
+    let live = true;
+
+    void completeSignIn()
+      .then((result) => {
+        if (!live) return;
+        navigate(result?.returnRoute ?? "/");
+        if (result) notify.success("Signed in.", result.session.email);
+      })
+      .catch(() => {
+        if (!live) return;
+        navigate("/");
+        notify.error("Sign-in did not complete.", "Try publishing again.");
+      })
+      .finally(() => live && setPending(false));
+
+    return () => {
+      live = false;
+    };
+  }, [pending]);
+
+  return pending;
 }
 
 function Routes() {
@@ -57,6 +146,12 @@ function Routes() {
     return (
       <DevRoute>
         <DevAi />
+      </DevRoute>
+    );
+  if (route === "/dev/publish")
+    return (
+      <DevRoute>
+        <DevPublish />
       </DevRoute>
     );
   if (route.startsWith("/dev")) return <DevIndex route={route} />;

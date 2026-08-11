@@ -2,13 +2,16 @@ import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
-import { EmptyHint, RichText, richTextToPlainText } from "../ui";
+import { NoteBody, type NoteEditField } from "./Body";
 import type { NoteData } from "./schema";
 
+/**
+ * The editable card. Display lives in `Body.tsx`, which the public viewer also renders — this
+ * file is the editing state and the dispatch around it, and nothing else.
+ */
 export function NoteNode({ object }: { object: ScapeObject; selected: boolean }) {
   const data = object.data as Partial<NoteData>;
-  const body = richTextToPlainText(data.body ?? "");
-  const [editing, setEditing] = useState<"title" | "body" | null>(null);
+  const [editing, setEditing] = useState<NoteEditField | null>(null);
   const readOnly = useCanvasReadOnly();
 
   const commitTitle = (title: string) => {
@@ -69,27 +72,5 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
     );
   }
 
-  return (
-    <>
-      <h4
-        onClick={() => !readOnly && setEditing("title")}
-        className="nodrag cursor-text text-sm font-medium leading-snug text-fg"
-      >
-        {object.title || "Untitled"}
-      </h4>
-      <div className="mt-1.5">
-        {body ? (
-          <RichText
-            onClick={() => !readOnly && setEditing("body")}
-            value={data.body ?? ""}
-            className="nodrag cursor-text text-xs text-fg-secondary"
-          />
-        ) : (
-          <span onClick={() => !readOnly && setEditing("body")} className="nodrag cursor-text">
-            <EmptyHint>No body yet</EmptyHint>
-          </span>
-        )}
-      </div>
-    </>
-  );
+  return <NoteBody object={object} {...(readOnly ? {} : { onEdit: setEditing })} />;
 }

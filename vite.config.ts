@@ -1,11 +1,32 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const entry = (file: string) => fileURLToPath(new URL(file, import.meta.url));
 
-export default defineConfig({
-  plugins: [react()],
+function publicationCsp(apiOrigin: string | undefined): Plugin {
+  let origin = "https://publication.invalid";
+  if (apiOrigin) {
+    const parsed = new URL(apiOrigin);
+    if (parsed.protocol !== "https:" || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+      throw new Error("VITE_PUBLICATION_API_URL must be an HTTPS origin with no path, query, or fragment.");
+    }
+    origin = parsed.origin;
+  }
+  return {
+    name: "publication-csp-origin",
+    closeBundle() {
+      const headers = entry("dist/_headers");
+      const source = readFileSync(headers, "utf8");
+      if (!source.includes("__PUBLICATION_API_ORIGIN__")) throw new Error("Publication CSP placeholder is missing.");
+      writeFileSync(headers, source.replaceAll("__PUBLICATION_API_ORIGIN__", origin));
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), publicationCsp(loadEnv(mode, process.cwd(), "VITE_").VITE_PUBLICATION_API_URL)],
   build: {
     rollupOptions: {
       /**
@@ -41,4 +62,4 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
   },
-});
+}));

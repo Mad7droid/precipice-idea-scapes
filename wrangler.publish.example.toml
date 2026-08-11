@@ -1,0 +1,46 @@
+# Copy this file to the ignored `wrangler.publish.toml` and fill in your private deployment
+# identifiers. Keep the real file off GitHub: a Worker URL is public at runtime, but need not
+# be advertised in source control.
+name = "REPLACE_WITH_WORKER_NAME"
+main = "worker/publish/index.ts"
+compatibility_date = "2026-08-02"
+compatibility_flags = ["nodejs_compat"]
+
+[placement]
+mode = "smart"
+
+[[d1_databases]]
+binding = "PUBLISH_DB"
+database_name = "REPLACE_WITH_D1_DATABASE_NAME"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "worker/publish/migrations"
+
+[[r2_buckets]]
+binding = "PUBLICATIONS"
+bucket_name = "REPLACE_WITH_R2_BUCKET_NAME"
+
+[[ratelimits]]
+name = "AUTH_LIMIT"
+namespace_id = "REPLACE_WITH_AUTH_NAMESPACE"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "PUBLIC_READ_LIMIT"
+namespace_id = "REPLACE_WITH_READ_NAMESPACE"
+simple = { limit = 120, period = 60 }
+
+[[ratelimits]]
+name = "MUTATION_IP_LIMIT"
+namespace_id = "REPLACE_WITH_MUTATION_IP_NAMESPACE"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "MUTATION_USER_LIMIT"
+namespace_id = "REPLACE_WITH_MUTATION_USER_NAMESPACE"
+simple = { limit = 10, period = 60 }
+
+[vars]
+APP_ORIGIN = "https://REPLACE_WITH_PAGES_HOST"
+
+[triggers]
+crons = ["0 * * * *"]

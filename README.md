@@ -42,6 +42,8 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - Export scapes as a portable `.scape` file or a readable PDF with a diagram and full object outline.
 - Theme controls, object-type filters, and relationship-line visibility controls.
 - AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
+- Invite-only publishing: read-only public and embeddable scape snapshots, Google sign-in,
+  account-level storage and write limits, and administrator-managed invitations.
 
 ## Screenshots
 
@@ -121,9 +123,9 @@ relying on that automation:
 
 Use a scoped Cloudflare token with only the Workers and Pages permissions needed for this
 project. Never place either value in `wrangler.toml`, an `.env` file that is committed, an
-issue, or a screenshot. A maintainer who is already authenticated with Wrangler can deploy
-manually with `pnpm exec wrangler deploy` followed by
-`pnpm exec wrangler pages deploy dist --project-name precipice --branch main`.
+issue, or a screenshot. Publishing has its own Worker, D1 migration, R2 bucket, rate-limit
+bindings, and Turnstile credentials; follow the [publishing runbook](docs/publishing-runbook.md)
+before deploying either the Worker or Pages build.
 
 The project uses TypeScript, React, Vite, Vitest, React Flow, Dagre, Dexie,
 Zustand, and the Vercel AI SDK with Anthropic support.
@@ -133,7 +135,10 @@ Zustand, and the Vercel AI SDK with Anthropic support.
 For the full data-flow and Claude/Anthropic API-key model, see
 [Security and local data](docs/security-and-local-data.md).
 
-- Scapes and settings are stored locally in the browser through IndexedDB; the hosted app does not provide a shared server-side scape database.
+- Scapes and settings are stored locally in the browser through IndexedDB. Publishing uploads an
+  explicit, read-only snapshot to a separate service; it never syncs or exposes the browser's
+  local scape library. Public links are unlisted rather than access-controlled, so do not publish
+  confidential material.
 - After the first Scape is created, the app asks the browser to protect its local storage from
   automatic eviction where the browser supports that capability. This is best effort, not a
   substitute for exporting important work.

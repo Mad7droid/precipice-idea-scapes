@@ -4,6 +4,57 @@ Deviations and gaps worth flagging, not blockers.
 
 ---
 
+## Publishing wave 1 — viewer, publish client
+
+### `src/core` was opened again: the view registry had to leave `registry.ts`
+
+Wave 0 put both plugin globs in `src/core/registry.ts` — the editor's
+`/src/objects/*/index.ts` at line 71 and the viewer's `/src/objects/*/view.ts` at line 107.
+Both are `eager`, and an eager `import.meta.glob` compiles to static imports at the top of the
+module that holds it. So *any* importer of `getViewPlugin` also statically imported every
+`index.ts`, and those reach `@/core/store`.
+
+That put zustand and the whole editor inside the public viewer's bundle, which is the one thing
+`view.html` exists to prevent. It is not a lint failure or a size regression: the viewer renders
+a stranger's document on the same origin as the author's scapes and their API key, and the
+import graph is what keeps those apart.
+
+Fixed by moving `ViewObject`, `ViewPlugin`, the view glob, `getViewPlugin` and `allViewPlugins`
+into a new **`src/core/viewRegistry.ts`**. `registry.ts` keeps the editor half and no longer
+mentions views. Nothing imported the view registry yet, so the split had no call sites to
+migrate.
+
+`src/core/viewRegistry.test.ts` now walks the source import graph from `viewRegistry.ts` and
+every `view.ts`, and fails if it reaches the store, Dexie, the AI SDK, the canvas, the app
+shell, or a plugin's `index.ts` / `Node.tsx` / `Inspector.tsx`. `src/viewer/bundle.test.ts`
+checks the same property from the built output; this one fails in the normal test run, next to
+the line that caused it, which is the difference between catching it in a second and catching it
+after a build.
+
+### One renderer per object type, split into `Body.tsx` and `Node.tsx`
+
+`ViewPlugin` promises "one renderer, reached through a second entry point", but all three
+`Node.tsx` files imported `useScapeStore` directly, so none of them could be that renderer.
+
+Each plugin now has a `Body.tsx` holding the presentational half, taking an optional `onEdit`
+(plus `renderTitle` / `renderStepLabel` where the editor substitutes an input for a field being
+edited). `Node.tsx` owns the editing state and the dispatch; `view.ts` passes neither. **Absence
+of `onEdit` is read-only** — there is no flag a future edit can forget to check, and the viewer
+physically cannot reach the store.
+
+Two consequences worth knowing:
+
+- The file is `Body.tsx`, not `View.tsx`, because `view.ts` and `View.tsx` differ only in casing
+  and macOS's filesystem does not. TypeScript reports this as TS1149/TS1261 and the build fails.
+- A follower tab (`readOnly`) no longer shows `cursor-text` on editable fields. Previously the
+  handler was attached and did nothing. Showing no affordance for something that cannot happen
+  is the more honest behaviour, but it is a visible change, not a pure refactor.
+
+`index.ts` now takes `type`, `label`, `color` and `toText` from its `view.ts`, so the two halves
+of a plugin cannot describe the same object type differently.
+
+---
+
 ## Product shape pass — home page, outline, connections
 
 ### `src/core` was opened, deliberately and narrowly

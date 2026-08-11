@@ -14,34 +14,20 @@ import { gridPositions, radialPositions, type NodeSize, type Positions } from ".
  * and belongs to Dagre, a mind map is a tree around a centre and does not.
  */
 
-export const NODE_WIDTH = 220;
-
 /**
- * Per-type card widths.
- *
- * 220px suits a note or a journey — a title and a short list. It is far too narrow for a
- * wireframe, which is a twelve-column screen layout: at 220px a column is 15px wide, so
- * every label truncates to nothing and the mockup stops being readable as a screen.
+ * Card geometry lives in `@/core/geometry` and is re-exported here so existing callers keep
+ * importing it from the canvas. It had to move: the public viewer draws cards at the same
+ * widths, and it cannot import this file because Dagre comes with it.
  */
-const NODE_WIDTHS: Record<string, number> = {
-  wireframe: 380,
-};
+export {
+  MAX_OBJECT_WIDTH,
+  MIN_OBJECT_WIDTH,
+  NODE_WIDTH,
+  objectWidth,
+  widthFor,
+} from "@/core/geometry";
 
-export function widthFor(type: string): number {
-  return NODE_WIDTHS[type] ?? NODE_WIDTH;
-}
-
-/** How wide a card is drawn: the width the user dragged it to, or the default for its type. */
-export const MIN_OBJECT_WIDTH = 200;
-export const MAX_OBJECT_WIDTH = 900;
-
-export function objectWidth(object: { type: string; width?: number }): number {
-  const stored = object.width;
-  if (typeof stored === "number" && Number.isFinite(stored)) {
-    return Math.min(MAX_OBJECT_WIDTH, Math.max(MIN_OBJECT_WIDTH, stored));
-  }
-  return widthFor(object.type);
-}
+import { NODE_WIDTH, objectWidth } from "@/core/geometry";
 
 /**
  * Fallback heights, used before React Flow has measured a node — which is always the case

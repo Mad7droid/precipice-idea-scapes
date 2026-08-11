@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Scape, ThemePreference } from "@/core/types";
 import { Menu, MenuItem } from "@/design/Menu";
 import { starterFor } from "@/starters";
+import { describeState, type PublicationState } from "@/publish/usePublication";
 import { ThemeControl } from "./ThemeControl";
 import { Brand } from "./Brand";
 
@@ -20,6 +21,8 @@ export function TopBar({
   onExport,
   exporting,
   onOpenSettings,
+  onPublish,
+  publicationState,
   theme,
   onThemeChange,
 }: {
@@ -30,6 +33,9 @@ export function TopBar({
   /** A PDF of a large scape takes a beat, and a button that looks idle while it renders lies. */
   exporting?: boolean;
   onOpenSettings: () => void;
+  onPublish?: () => void;
+  /** Omitted on surfaces that have no publication context, such as the dev harnesses. */
+  publicationState?: PublicationState;
   theme: ThemePreference;
   onThemeChange: (next: ThemePreference) => void;
 }) {
@@ -107,6 +113,7 @@ export function TopBar({
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
         <ExportMenu onExport={onExport} busy={exporting ?? false} />
         <ThemeControl value={theme} onChange={onThemeChange} />
         <button
@@ -128,6 +135,37 @@ export function TopBar({
         </button>
       </div>
     </header>
+  );
+}
+
+/**
+ * Whether this scape is public, readable without hovering anything.
+ *
+ * Four states, each with its own dot colour and its own word. The user must never have to
+ * guess whether something of theirs is visible to strangers, and "Update available" has to be
+ * distinguishable from "Published" at a glance or the public copy silently rots.
+ */
+const PUBLICATION_DOT: Record<PublicationState["kind"], string> = {
+  unpublished: "bg-[var(--border-strong)]",
+  published: "bg-[var(--success)]",
+  stale: "bg-[var(--accent)]",
+  withdrawn: "bg-[var(--border-strong)]",
+};
+
+function PublishControl({ state, onClick }: { state?: PublicationState; onClick: () => void }) {
+  const kind = state?.kind ?? "unpublished";
+  const label = state ? describeState(state) : "Publish";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      className="flex items-center gap-1.5 rounded-md border border-default px-2.5 py-1.5 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+    >
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PUBLICATION_DOT[kind]}`} aria-hidden />
+      {kind === "unpublished" ? "Publish" : label}
+    </button>
   );
 }
 
