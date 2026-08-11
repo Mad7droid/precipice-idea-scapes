@@ -33,6 +33,7 @@ export function PublishSheet({
   options,
   onClose,
   onSignIn,
+  onSignOut,
   isAdmin = false,
 }: {
   scape: Scape;
@@ -40,6 +41,8 @@ export function PublishSheet({
   options: RequestOptions;
   onClose: () => void;
   onSignIn: (turnstileToken: string) => Promise<void> | void;
+  /** Revokes the current publishing session so a changed role is picked up on the next sign-in. */
+  onSignOut: () => Promise<void> | void;
   isAdmin?: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -65,6 +68,18 @@ export function PublishSheet({
       notify.error(message);
       // A fresh Turnstile token is required before OAuth can begin, so an expired session is
       // surfaced here instead of silently launching a redirect the user cannot complete.
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const signOut = async () => {
+    setBusy("Signing out");
+    try {
+      await onSignOut();
+      notify.success("Signed out of publishing.");
+    } catch (error) {
+      notify.error(error instanceof PublishClientError ? error.message : "Could not sign out.");
     } finally {
       setBusy(null);
     }
@@ -169,7 +184,12 @@ export function PublishSheet({
           </p>
         )}
 
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex justify-end gap-2">
+          {signedIn && (
+            <Secondary disabled={busy !== null} onClick={() => void signOut()}>
+              Sign out
+            </Secondary>
+          )}
           <Secondary disabled={busy !== null} onClick={onClose}>
             Close
           </Secondary>

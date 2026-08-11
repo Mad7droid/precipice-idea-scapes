@@ -16,7 +16,14 @@ import { downloadScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
 import { PublishSheet } from "@/publish/PublishSheet";
-import { readSession, setPendingPublish, startSignIn, takePendingPublish } from "@/publish/session";
+import { logout } from "@/publish/client";
+import {
+  clearSession,
+  readSession,
+  setPendingPublish,
+  startSignIn,
+  takePendingPublish,
+} from "@/publish/session";
 import { usePublication } from "@/publish/usePublication";
 import { Outline } from "./Outline";
 import { takePendingWork } from "./pending";
@@ -660,6 +667,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
             // to sessionStorage rather than to a module-level box.
             setPendingPublish(scape.id);
             await startSignIn(scapeRoute(scape.id), turnstileToken);
+          }}
+          onSignOut={async () => {
+            if (session) await logout(requestOptions);
+            clearSession();
+            publication.refresh();
           }}
           isAdmin={session?.isAdmin}
         />

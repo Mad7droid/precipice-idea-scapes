@@ -7,6 +7,7 @@ import {
   deletePublication,
   exchange,
   listPublications,
+  logout,
   republish,
   unpublish,
   updatePublication,
@@ -192,6 +193,13 @@ describe("the publication lifecycle, against the stub", () => {
     const error = await createPublication(projectScape(scape()).scape, {
       fetchImpl: stub.fetch as unknown as typeof fetch,
     }).catch((e: unknown) => e);
+    expect((error as PublishClientError).code).toBe("unauthorized");
+  });
+
+  it("revokes the current publishing session on sign-out", async () => {
+    await logout(options);
+    const error = await listPublications(options).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(PublishClientError);
     expect((error as PublishClientError).code).toBe("unauthorized");
   });
 
