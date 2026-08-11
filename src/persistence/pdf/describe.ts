@@ -14,6 +14,7 @@
  * its own schema, still prints: a generic walk is a worse read than a tailored one, and much
  * better than a blank space where a block should be.
  */
+import { richTextToBlocks, richTextToPlainText } from "@/objects/markdownText";
 import { getPlugin } from "@/core/registry";
 import type { ScapeObject } from "@/core/types";
 import type { DocumentLine, DocumentSection } from "./document";
@@ -48,15 +49,27 @@ export function leadText(sections: DocumentSection[], max: number): string[] {
     .map((line) => line.text);
 }
 
+/**
+ * Note bodies are Markdown. Printing them raw puts `**bold**` on the page, asterisks and
+ * all, which is the one thing a PDF export must not do to a formatted document.
+ *
+ * `richTextToBlocks` strips inline syntax and keeps list structure — a bullet list stays a
+ * bullet list rather than collapsing into a run-on paragraph, which is what the flat
+ * `richTextToPlainText` (tuned for the model's one-line budget) would do to it.
+ */
 function describeNote(data: unknown): DocumentSection[] {
   const body =
     typeof (data as { body?: unknown }).body === "string" ? (data as { body: string }).body : "";
-  const paragraphs = body
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim())
-    .filter(Boolean);
-  if (paragraphs.length === 0) return [{ lines: [{ text: "Empty.", role: "muted" }] }];
-  return [{ lines: paragraphs.map((text) => ({ text: clamp(text, 1200) })) }];
+  const blocks = richTextToBlocks(body);
+  if (blocks.length === 0) return [{ lines: [{ text: "Empty.", role: "muted" }] }];
+  return [
+    {
+      lines: blocks.map((block) => ({
+        text: clamp(block.text, 1200),
+        ...(block.list ? { indent: 1 as const } : {}),
+      })),
+    },
+  ];
 }
 
 interface Step {
@@ -76,7 +89,13 @@ function describeJourney(data: unknown): DocumentSection[] {
       typeof step.label === "string" && step.label.trim() ? step.label : "Untitled step";
     lines.push({ text: `${index + 1}. ${clamp(label, MAX_LINE)}` });
     if (typeof step.detail === "string" && step.detail.trim()) {
-      lines.push({ text: clamp(step.detail, MAX_LINE), role: "muted", indent: 1 });
+      // Step details are Markdown too. Flattened rather than blocked: a step detail is one
+      // muted line under its label, and a list inside it would break that rhythm.
+      lines.push({
+        text: clamp(richTextToPlainText(step.detail), MAX_LINE),
+        role: "muted",
+        indent: 1,
+      });
     }
   }
   return [{ heading: "Steps", lines }];

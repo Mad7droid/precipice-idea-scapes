@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { continueList, insertLink, toggleWrap, type TextSelection } from "./markdownText";
 
 /**
  * Shared pieces for object plugins. This is a file, not a folder, so the registry glob
@@ -106,14 +107,10 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={`${FIELD_CLASS} resize-y ${props.className ?? ""}`} />;
 }
 
-export function richTextToPlainText(value: string): string {
-  return value
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[*_~>#-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// Lives in a React-free module so the PDF export can strip Markdown without pulling
+// react-markdown into the export chunk. Re-exported here because this is where callers
+// already look for it.
+export { richTextToPlainText } from "./markdownText";
 
 function safeHref(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -138,7 +135,13 @@ export function RichText({
         components={{
           a: ({ href, children }) => {
             const safe = safeHref(href);
-            return safe ? <a href={safe} target="_blank" rel="noopener noreferrer nofollow">{children}</a> : <>{children}</>;
+            return safe ? (
+              <a href={safe} target="_blank" rel="noopener noreferrer nofollow">
+                {children}
+              </a>
+            ) : (
+              <>{children}</>
+            );
           },
         }}
       >
@@ -148,6 +151,15 @@ export function RichText({
   );
 }
 
+/**
+ * A textarea that knows four things about Markdown: bold, italic, link, and that a list
+ * should keep going.
+ *
+ * Deliberately not a WYSIWYG surface. The value is Markdown source, stored in the plugin's
+ * existing `body: z.string()`, which is why there is no migration and why a `.scape` stays
+ * readable in a text editor. What the shortcuts buy is that you never have to type the
+ * syntax — which is the entire difference between this and a plain text box.
+ */
 export function RichTextEditor({
   value,
   onChange,
@@ -161,10 +173,56 @@ export function RichTextEditor({
   compact?: boolean;
   onBlur?: () => void;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  // Where the caret has to land once React has re-rendered with the new value. Setting it
+  // during the event handler is pointless: the controlled value has not been applied yet.
+  const pending = useRef<{ start: number; end: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const target = pending.current;
+    if (!target || !ref.current) return;
+    pending.current = null;
+    ref.current.setSelectionRange(target.start, target.end);
+  }, [value]);
+
+  function apply(next: TextSelection | null): boolean {
+    if (!next) return false;
+    pending.current = { start: next.start, end: next.end };
+    onChange(next.value);
+    return true;
+  }
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const field = event.currentTarget;
+    const state: TextSelection = {
+      value: field.value,
+      start: field.selectionStart,
+      end: field.selectionEnd,
+    };
+
+    // Cmd on macOS, Ctrl elsewhere. Never both, or Ctrl+Cmd+B would fire twice.
+    const shortcut = event.metaKey !== event.ctrlKey && !event.altKey;
+    if (shortcut) {
+      const key = event.key.toLowerCase();
+      if (key === "b" && apply(toggleWrap(state, "bold"))) return event.preventDefault();
+      if (key === "i" && apply(toggleWrap(state, "italic"))) return event.preventDefault();
+      if (key === "k" && apply(insertLink(state))) return event.preventDefault();
+      return;
+    }
+
+    // Shift+Enter stays a plain newline, so there is always a way to break a line without
+    // starting another list item.
+    if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
+      if (apply(continueList(state))) event.preventDefault();
+    }
+  }
+
   return (
     <textarea
+      ref={ref}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      onKeyDown={onKeyDown}
       onBlur={onBlur}
       placeholder={placeholder}
       aria-label={placeholder ?? "Markdown"}
