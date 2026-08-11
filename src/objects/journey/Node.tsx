@@ -2,12 +2,16 @@ import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
-import { EmptyHint, RichText } from "../ui";
+import { JourneyBody, type JourneyEditField } from "./Body";
 import type { JourneyData, JourneyStep } from "./schema";
 
+/**
+ * The editable card. Display lives in `Body.tsx`, which the public viewer also renders — this
+ * file is the editing state and the dispatch around it, and nothing else.
+ */
 export function JourneyNode({ object }: { object: ScapeObject; selected: boolean }) {
   const steps = ((object.data as Partial<JourneyData>).steps ?? []).filter(Boolean);
-  const [editing, setEditing] = useState<"title" | number | null>(null);
+  const [editing, setEditing] = useState<JourneyEditField | null>(null);
   const readOnly = useCanvasReadOnly();
 
   const dispatch = useScapeStore.getState().dispatchTx;
@@ -23,85 +27,45 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
   };
 
   return (
-    <>
-      {editing === "title" ? (
-        <input
-          autoFocus
-          defaultValue={object.title}
-          onBlur={(e) => {
-            setEditing(null);
-            commitTitle(e.currentTarget.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            if (e.key === "Escape") setEditing(null);
-          }}
-          className="nodrag nopan min-h-7 w-full rounded-sm border border-focus bg-raised px-1.5 py-1 text-sm font-medium leading-snug text-fg focus-self"
-        />
-      ) : (
-        <h4
-          onClick={() => !readOnly && setEditing("title")}
-          className="nodrag cursor-text text-sm font-medium leading-snug text-fg"
-        >
-          {object.title || "Untitled"}
-        </h4>
-      )}
-      <div className="mt-2">
-        {steps.length === 0 ? (
-          <EmptyHint>No steps yet</EmptyHint>
-        ) : (
-          <>
-            {/*
-              Numbering is legitimate here: the order carries real information about the
-              sequence a user moves through, unlike a decorative list.
-            */}
-            <ol className="space-y-1.5">
-              {steps.map((step, i) => (
-                <li key={step.id} className="flex gap-2 text-xs">
-                  <span className="mono w-3 shrink-0 pt-px text-right normal-case tracking-normal">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {editing === i ? (
-                      <input
-                        autoFocus
-                        defaultValue={step.label}
-                        onBlur={(e) => {
-                          setEditing(null);
-                          commitStep(i, e.currentTarget.value);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") e.currentTarget.blur();
-                          if (e.key === "Escape") setEditing(null);
-                        }}
-                        className="nodrag nopan min-h-6 w-full rounded-sm border border-focus bg-raised px-1.5 py-0.5 leading-snug text-fg-secondary focus-self"
-                      />
-                    ) : (
-                      <span
-                        onClick={() => !readOnly && setEditing(i)}
-                        className="nodrag block cursor-text text-fg-secondary"
-                      >
-                        {step.label}
-                      </span>
-                    )}
-                    {/*
-                      The detail was previously inspector-only, which meant the card showed
-                      an outline and the actual content lived somewhere you had to click to
-                      reach. If it was worth writing, it is worth showing.
-                    */}
-                    {step.detail && (
-                      <RichText
-                        value={step.detail}
-                        className="mt-0.5 text-2xs leading-snug text-fg-tertiary"
-                      />
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </>
-        )}
-      </div>
-    </>
+    <JourneyBody
+      object={object}
+      {...(readOnly ? {} : { onEdit: setEditing })}
+      {...(editing === "title"
+        ? {
+            renderTitle: (
+              <input
+                autoFocus
+                defaultValue={object.title}
+                onBlur={(e) => {
+                  setEditing(null);
+                  commitTitle(e.currentTarget.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") setEditing(null);
+                }}
+                className="nodrag nopan min-h-7 w-full rounded-sm border border-focus bg-raised px-1.5 py-1 text-sm font-medium leading-snug text-fg focus-self"
+              />
+            ),
+          }
+        : {})}
+      renderStepLabel={(i) =>
+        editing === i ? (
+          <input
+            autoFocus
+            defaultValue={steps[i]?.label ?? ""}
+            onBlur={(e) => {
+              setEditing(null);
+              commitStep(i, e.currentTarget.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") setEditing(null);
+            }}
+            className="nodrag nopan min-h-6 w-full rounded-sm border border-focus bg-raised px-1.5 py-0.5 leading-snug text-fg-secondary focus-self"
+          />
+        ) : undefined
+      }
+    />
   );
 }

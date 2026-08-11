@@ -40,3 +40,32 @@
 .rich-text ol {
   list-style: decimal;
 }
+
+/* Public-view chrome stays compact and quiet so the scape, rather than the viewer, is the
+   page. React Flow's stock controls are intentionally generic (bright rectangular buttons),
+   which reads as debug UI against Precipice's dark canvas. */
+.publication-canvas .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.publication-canvas .react-flow__controls-button {
+  width: 32px;
+  height: 32px;
+  border-bottom-color: var(--border-default);
+  background: transparent;
+  fill: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.publication-canvas .react-flow__controls-button:hover {
+  background: var(--bg-hover);
+}
+
+.publication-canvas .react-flow__controls-button svg {
+  max-width: 15px;
+  max-height: 15px;
+}

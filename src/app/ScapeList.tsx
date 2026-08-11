@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { getPlugin } from "@/core/registry";
-import type { ScapeSummary } from "@/core/types";
+import type { PublicationRecord, ScapeSummary } from "@/core/types";
 import { getStarter } from "@/starters";
 import { ScapeThumbnail } from "./ScapeThumbnail";
 
@@ -18,6 +18,7 @@ export function ScapeList({
   onRename,
   onDuplicate,
   onDelete,
+  publications,
   onExport,
 }: {
   scapes: ScapeSummary[];
@@ -27,6 +28,8 @@ export function ScapeList({
   onRename: (id: string, name: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Publication rows by scape id. Absent on surfaces that have not loaded them. */
+  publications?: Map<string, PublicationRecord>;
   onExport: (id: string) => void;
 }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -103,6 +106,8 @@ export function ScapeList({
                 </button>
               )}
 
+              <PublicationBadge status={publications?.get(scape.id)?.status} />
+
               <span className="mono hidden shrink-0 sm:block">{relativeTime(scape.updatedAt)}</span>
 
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-instant ease-out group-hover:opacity-100 focus-within:opacity-100">
@@ -128,7 +133,12 @@ export function ScapeList({
                     onBlur={() => setConfirmingId(null)}
                     className="rounded-full bg-danger px-2 py-0.5 text-2xs text-on-accent"
                   >
-                    Delete?
+                    {/* A published scape has a copy on a server that this delete has to take
+                        with it. Saying so on the button is the only warning there is room for,
+                        and there must be no path that leaves a live URL behind. */}
+                    {publications?.get(scape.id)?.status === "published"
+                      ? "Unpublish & delete?"
+                      : "Delete?"}
                   </button>
                 ) : (
                   <RowButton
@@ -145,6 +155,31 @@ export function ScapeList({
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * Whether this scape has a public copy, without hovering anything.
+ *
+ * Nothing is shown for a scape that was never published, which is most of them — a row of
+ * "Private" badges would be noise that makes the real signal harder to see.
+ */
+function PublicationBadge({ status }: { status?: PublicationRecord["status"] }) {
+  if (!status) return null;
+  const published = status === "published";
+  return (
+    <span
+      className="mono hidden shrink-0 items-center gap-1.5 sm:flex"
+      title={published ? "Published to a public address" : "Unpublished — the address is reserved"}
+    >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full ${
+          published ? "bg-[var(--success)]" : "bg-[var(--border-strong)]"
+        }`}
+      />
+      {published ? "public" : "unpublished"}
+    </span>
   );
 }
 

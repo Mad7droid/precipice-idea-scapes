@@ -1,30 +1,19 @@
 import type { ObjectPlugin } from "@/core/registry";
-import type { ScapeObject } from "@/core/types";
-import { clamp } from "../ui";
 import { WireframeInspector } from "./Inspector";
 import { WireframeNode } from "./Node";
+import view from "./view";
 import { wireframeSchema, type WireframeData } from "./schema";
 
+/** See `note/index.ts` for why the shared fields come from `./view`. */
 const plugin: ObjectPlugin<WireframeData> = {
-  type: "wireframe",
-  label: "Wireframe",
-  color: "--obj-wireframe",
+  type: view.type,
+  label: view.label,
+  color: view.color,
   schema: wireframeSchema,
   defaults: () => ({ primitives: [] }),
   Node: WireframeNode,
   Inspector: WireframeInspector,
-  toText: (object: ScapeObject) => {
-    const primitives = (object.data as Partial<WireframeData>).primitives ?? [];
-    const title = object.title || "Untitled";
-    if (primitives.length === 0) return clamp(`"${title}" · no elements`, 118);
-    // Labels carry more signal to the model than the primitive kinds do, and a section name
-    // says which region of the screen the labels after it belong to.
-    const labels = primitives
-      .map((p) => (p.kind === "section" ? `[${p.label ?? "section"}]` : p.label))
-      .filter(Boolean)
-      .join(", ");
-    return clamp(`"${title}" · ${primitives.length} elements${labels ? `: ${labels}` : ""}`, 118);
-  },
+  toText: view.toText,
   aiHint:
     "A low-fidelity screen layout on a column grid (12 by default; set `columns` to 4 or 6 for " +
     "a simpler screen). Elements are section, heading, text, box, image, avatar, input, " +

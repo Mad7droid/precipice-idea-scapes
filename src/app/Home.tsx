@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { notify } from "@/core/notify";
 import { useScapeStore } from "@/core/store";
-import { SETTING_KEYS, type ScapeSummary } from "@/core/types";
+import { SETTING_KEYS, type PublicationRecord, type ScapeSummary } from "@/core/types";
 import { Composer } from "@/ai/Composer";
 import { getStarter } from "@/starters";
 import { downloadScape, importScape, ScapeImportError } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { requestPersistence, warnIfStorageTight } from "@/persistence/storage";
 import { settingsRepository } from "@/persistence/settings";
+import { deletePublication, PublishClientError } from "@/publish/client";
+import { readSession } from "@/publish/session";
 import { ImportButton, ScapeList } from "./ScapeList";
 import { setPendingWork } from "./pending";
 import { navigate, scapeRoute } from "./router";
@@ -39,6 +41,7 @@ export function Home() {
   const [scapes, setScapes] = useState<ScapeSummary[]>([]);
   const [starterId, setStarterId] = useState("blank");
   const [query, setQuery] = useState("");
+  const [publications, setPublications] = useState<Map<string, PublicationRecord>>(new Map());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [theme, setTheme] = useTheme();
@@ -46,7 +49,48 @@ export function Home() {
 
   const starter = getStarter(starterId);
 
-  const refresh = async () => setScapes(await scapeRepository.list());
+  const refresh = async () => {
+    setScapes(await scapeRepository.list());
+    const rows = await scapeRepository.publications.all();
+    setPublications(new Map(rows.map((row) => [row.scapeId, row])));
+  };
+
+  /**
+   * Deleting a scape has to take its public copy with it.
+   *
+   * A local delete that leaves a live URL is the worst outcome available here: the author
+   * believes the thing is gone, and it is still being served to anyone holding the link. So the
+   * server call goes first, and the local delete only proceeds if it succeeded — except when
+   * the publication was already withdrawn, which leaves nothing public to strand.
+   */
+  const removeScape = async (id: string) => {
+    const row = publications.get(id);
+
+    if (row && row.status === "published") {
+      const session = readSession();
+      if (!session) {
+        notify.error(
+          "Sign in to delete this scape.",
+          "It is published, and the public copy has to come down with it.",
+        );
+        return;
+      }
+      try {
+        await deletePublication(row.publicationId, { token: session.token });
+      } catch (error) {
+        notify.error(
+          "Could not unpublish this scape.",
+          error instanceof PublishClientError ? error.message : "It has not been deleted.",
+        );
+        return;
+      }
+    }
+
+    if (row) await scapeRepository.publications.remove(id);
+    await scapeRepository.remove(id);
+    await refresh();
+    notify.success(row?.status === "published" ? "Unpublished and deleted." : "Deleted.");
+  };
 
   useEffect(() => {
     // Landing on home means no scape is open. Clearing it here is what makes the browser's
@@ -211,12 +255,8 @@ export function Home() {
                 notify.success("Duplicated.");
               })
             }
-            onDelete={(id) =>
-              void scapeRepository.remove(id).then(async () => {
-                await refresh();
-                notify.success("Deleted.");
-              })
-            }
+            onDelete={(id) => void removeScape(id)}
+            publications={publications}
             onExport={(id) => void onExport(id)}
           />
         </div>

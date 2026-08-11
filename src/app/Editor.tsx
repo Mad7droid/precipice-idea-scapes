@@ -15,11 +15,14 @@ import { acquireScapeLease, type ScapeLease } from "@/persistence/lease";
 import { downloadScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
+import { PublishSheet } from "@/publish/PublishSheet";
+import { readSession, setPendingPublish, startSignIn, takePendingPublish } from "@/publish/session";
+import { usePublication } from "@/publish/usePublication";
 import { Outline } from "./Outline";
 import { takePendingWork } from "./pending";
 import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverlays";
 import { RelationshipInspector } from "./RelationshipInspector";
-import { navigate } from "./router";
+import { navigate, scapeRoute } from "./router";
 import { SettingsModal } from "./SettingsModal";
 import { TopBar, type ExportFormat } from "./TopBar";
 import { useAppSettings } from "./useAppSettings";
@@ -39,6 +42,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [scope, setScope] = useState<Scope>("scape");
   const [selectedEdgeId, setSelectedEdgeId] = useState<RelationshipId | null>(null);
   const [booted, setBooted] = useState(false);
@@ -55,6 +59,28 @@ export function Editor({ scapeId }: { scapeId: string }) {
 
   const [readOnly, setReadOnly] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
+
+  /**
+   * Publication state for this scape. Derived from the local Dexie row plus the projection's
+   * hash — the server is the authority, but the top bar must be able to say "published"
+   * without a network request every time a scape opens.
+   */
+  const publication = usePublication(scape, scapeRepository);
+  const session = readSession();
+  const requestOptions = useMemo(
+    () => (session ? { token: session.token } : {}),
+    [session?.token],
+  );
+
+  /**
+   * Picks up an intent that survived the round trip to Google.
+   *
+   * Someone who clicked Publish, signed in, and came back to a closed sheet would reasonably
+   * conclude publishing is broken. Reading it clears it, so a reload does not reopen the sheet.
+   */
+  useEffect(() => {
+    if (takePendingPublish() === scapeId) setPublishOpen(true);
+  }, [scapeId]);
 
   const autosave = useRef<AutosaveHandle | null>(null);
   const lease = useRef<ScapeLease | null>(null);
@@ -372,6 +398,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
         onExport={exportAs}
         exporting={exporting}
         onOpenSettings={() => setSettingsOpen(true)}
+        onPublish={() => setPublishOpen(true)}
+        publicationState={publication.state}
         theme={theme}
         onThemeChange={setTheme}
       />
@@ -619,6 +647,21 @@ export function Editor({ scapeId }: { scapeId: string }) {
             setSettingsOpen(false);
             setShortcutsOpen(true);
           }}
+        />
+      )}
+      {publishOpen && (
+        <PublishSheet
+          scape={scape}
+          publication={publication}
+          options={requestOptions}
+          onClose={() => setPublishOpen(false)}
+          onSignIn={async (turnstileToken) => {
+            // The intent has to outlive a top-level navigation to Google and back, so it goes
+            // to sessionStorage rather than to a module-level box.
+            setPendingPublish(scape.id);
+            await startSignIn(scapeRoute(scape.id), turnstileToken);
+          }}
+          isAdmin={session?.isAdmin}
         />
       )}
       {commandOpen && <CommandPalette items={commandItems} onClose={() => setCommandOpen(false)} />}

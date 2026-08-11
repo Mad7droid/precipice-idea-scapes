@@ -50,7 +50,10 @@ export const LIMITS = {
 } as const;
 
 /** Active publications per account. */
-export const PUBLICATION_LIMIT = 5;
+/** Retained publication slots per account. Unpublished snapshots still occupy a slot. */
+export const PUBLICATION_LIMIT = 50;
+export const ACCOUNT_STORAGE_LIMIT = 100 * 1024 * 1024;
+export const DAILY_WRITE_LIMIT = 20;
 
 /** `pub_` + 128 bits, base32. Unguessability is the only access control a publication has. */
 export const PUBLICATION_ID_PATTERN = /^pub_[0-9a-z]{26}$/;
@@ -183,6 +186,12 @@ export const PUBLISH_ERRORS = [
   "invalid_projection",
   "too_large",
   "rate_limited",
+  "invite_required",
+  "account_suspended",
+  "bot_check_failed",
+  "daily_write_limit",
+  "storage_limit",
+  "admin_required",
   "server_error",
 ] as const;
 
@@ -205,6 +214,12 @@ export const ERROR_STATUS: Record<PublishErrorCode, number> = {
   invalid_projection: 422,
   too_large: 413,
   rate_limited: 429,
+  invite_required: 403,
+  account_suspended: 403,
+  bot_check_failed: 403,
+  daily_write_limit: 429,
+  storage_limit: 409,
+  admin_required: 403,
   server_error: 500,
 };
 
@@ -244,6 +259,9 @@ export const publicationListSchema = z.object({
   limit: z.number().int(),
   /** Count of `status: "published"`, which is what the quota actually counts. */
   used: z.number().int(),
+  /** Active public links; `used` includes unpublished slots retained for safe republish. */
+  activeUsed: z.number().int(),
+  storedBytes: z.number().int().nonnegative(),
 });
 
 export type PublicationList = z.infer<typeof publicationListSchema>;
@@ -271,9 +289,38 @@ export const sessionSchema = z.object({
   expiresAt: z.number().int(),
   email: z.string().max(320),
   name: z.string().max(200).optional(),
+  isAdmin: z.boolean().default(false),
 });
 
 export type Session = z.infer<typeof sessionSchema>;
+
+export const authStartRequestSchema = z.object({
+  return: z.string().max(200).optional(),
+  turnstileToken: z.string().min(1).max(2048),
+});
+export const authStartSchema = z.object({ authorizationUrl: z.string().url().max(4000) });
+
+export const inviteSchema = z.object({
+  email: z.string().email().max(320),
+  status: z.enum(["pending", "accepted", "revoked"]),
+  createdAt: z.number().int(),
+  acceptedAt: z.number().int().nullable(),
+});
+export const memberSchema = z.object({
+  id: z.string().max(128),
+  email: z.string().email().max(320),
+  name: z.string().max(200).nullable(),
+  role: z.enum(["member", "admin"]),
+  status: z.enum(["active", "suspended"]),
+  createdAt: z.number().int(),
+});
+export const adminListSchema = z.object({
+  invites: z.array(inviteSchema).max(100),
+  members: z.array(memberSchema).max(100),
+  /** Opaque enough for the small admin UI; pass as `?cursor=` to request older records. */
+  nextCursor: z.number().int().nullable(),
+});
+export type AdminList = z.infer<typeof adminListSchema>;
 
 /* -------------------------------------------------------------------------- */
 /* Paths                                                                       */

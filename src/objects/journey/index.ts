@@ -1,28 +1,19 @@
 import type { ObjectPlugin } from "@/core/registry";
-import type { ScapeObject } from "@/core/types";
-import { clamp } from "../ui";
 import { JourneyInspector } from "./Inspector";
 import { JourneyNode } from "./Node";
+import view from "./view";
 import { journeySchema, type JourneyData } from "./schema";
 
+/** See `note/index.ts` for why the shared fields come from `./view`. */
 const plugin: ObjectPlugin<JourneyData> = {
-  type: "journey",
-  label: "Journey",
-  color: "--obj-journey",
+  type: view.type,
+  label: view.label,
+  color: view.color,
   schema: journeySchema,
   defaults: () => ({ steps: [] }),
   Node: JourneyNode,
   Inspector: JourneyInspector,
-  toText: (object: ScapeObject) => {
-    const steps = (object.data as Partial<JourneyData>).steps ?? [];
-    const title = object.title || "Untitled";
-    if (steps.length === 0) return clamp(`"${title}" · no steps`, 118);
-    // Step labels in order: the sequence is the information, so it goes in the projection.
-    return clamp(
-      `"${title}" · ${steps.length} steps: ${steps.map((s) => s.label).join(" → ")}`,
-      118,
-    );
-  },
+  toText: view.toText,
   aiHint:
     "An ordered sequence a person moves through — a flow, a process, a path. Use it when the " +
     "order of the steps is itself the point.",

@@ -11,6 +11,13 @@ milestone is published.
 
 ### Changed
 
+- Added invite-only publishing with Google sign-in, Turnstile verification, administrator-managed
+  invitations, 50 retained publication slots, a 100 MiB per-account snapshot cap, and a 20-write
+  daily publishing budget.
+- Public and embeddable scapes now use an isolated read-only viewer. Its relationship lines render
+  from hidden, non-interactive React Flow anchors, so visitors can inspect the flow without being
+  able to edit it.
+
 - Note bodies and journey details now support Markdown formatting, while preserving the existing
   portable `.scape` data format.
 - PDF export downloads around 113 KB less code. The export is vector-only, so jsPDF's image
@@ -39,6 +46,10 @@ milestone is published.
   deployment hygiene, and incident response guidance.
 
 ### Security
+
+- Isolated the public viewer from local scapes, editor state, AI settings, and publication
+  credentials; narrowed its CSP and limited Worker requests with separate authentication, public
+  read, IP-mutation, and user-mutation counters.
 
 - Replaced the rich-text HTML path with allowlisted Markdown rendering. Raw HTML is rendered as
   text, and links are restricted to safe `http`/`https` destinations.

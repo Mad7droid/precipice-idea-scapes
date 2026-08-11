@@ -1,0 +1,366 @@
+{
+  "name": "Fintech onboarding",
+  "objects": [
+    {
+      "id": "brief",
+      "type": "note",
+      "title": "Onboarding brief",
+      "data": {
+        "body": "New customers abandon at identity verification. Target: first deposit within eight minutes of install, on a mid-range Android phone, without a support contact."
+      },
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "constraints",
+      "type": "note",
+      "title": "Regulatory constraints",
+      "data": {
+        "body": "KYC is mandatory before any deposit. Documents are held for seven years. We cannot defer verification to after the first transaction, however much we would like to."
+      },
+      "x": 0,
+      "y": 180
+    },
+    {
+      "id": "happy-path",
+      "type": "journey",
+      "title": "Account opening",
+      "data": {
+        "steps": [
+          {
+            "id": "s1",
+            "label": "Install and open",
+            "detail": "No account required to browse."
+          },
+          {
+            "id": "s2",
+            "label": "Enter phone number",
+            "detail": "One-tap SMS autofill."
+          },
+          {
+            "id": "s3",
+            "label": "Verify identity",
+            "detail": "Document scan plus liveness check."
+          },
+          {
+            "id": "s4",
+            "label": "Link a funding source",
+            "detail": "Bank or debit card."
+          },
+          {
+            "id": "s5",
+            "label": "Make first deposit"
+          }
+        ]
+      },
+      "x": 340,
+      "y": 0
+    },
+    {
+      "id": "recovery",
+      "type": "journey",
+      "title": "Verification retry",
+      "data": {
+        "steps": [
+          {
+            "id": "r1",
+            "label": "Scan rejected",
+            "detail": "Glare, crop, or expiry."
+          },
+          {
+            "id": "r2",
+            "label": "Show what failed",
+            "detail": "Name the specific problem."
+          },
+          {
+            "id": "r3",
+            "label": "Retry with guidance"
+          },
+          {
+            "id": "r4",
+            "label": "Escalate to manual review",
+            "detail": "Under four hours."
+          }
+        ]
+      },
+      "x": 340,
+      "y": 260
+    },
+    {
+      "id": "returning",
+      "type": "journey",
+      "title": "Returning user",
+      "data": {
+        "steps": [
+          {
+            "id": "g1",
+            "label": "Recognise device"
+          },
+          {
+            "id": "g2",
+            "label": "Biometric unlock"
+          },
+          {
+            "id": "g3",
+            "label": "Resume where they stopped"
+          }
+        ]
+      },
+      "x": 340,
+      "y": 520
+    },
+    {
+      "id": "wf-welcome",
+      "type": "wireframe",
+      "title": "Welcome screen",
+      "data": {
+        "primitives": [
+          {
+            "id": "p1",
+            "kind": "box",
+            "label": "Brand mark",
+            "span": 12
+          },
+          {
+            "id": "p2",
+            "kind": "text",
+            "label": "Move money without the wait",
+            "span": 12
+          },
+          {
+            "id": "p3",
+            "kind": "text",
+            "label": "Supporting line",
+            "span": 10
+          },
+          {
+            "id": "p4",
+            "kind": "button",
+            "label": "Get started",
+            "span": 12
+          },
+          {
+            "id": "p5",
+            "kind": "button",
+            "label": "I already have an account",
+            "span": 12
+          }
+        ]
+      },
+      "x": 700,
+      "y": 0
+    },
+    {
+      "id": "wf-phone",
+      "type": "wireframe",
+      "title": "Phone entry",
+      "data": {
+        "primitives": [
+          {
+            "id": "q1",
+            "kind": "text",
+            "label": "What's your number?",
+            "span": 12
+          },
+          {
+            "id": "q2",
+            "kind": "input",
+            "label": "+1",
+            "span": 3
+          },
+          {
+            "id": "q3",
+            "kind": "input",
+            "label": "Phone number",
+            "span": 9
+          },
+          {
+            "id": "q4",
+            "kind": "text",
+            "label": "We'll text a six-digit code",
+            "span": 12
+          },
+          {
+            "id": "q5",
+            "kind": "button",
+            "label": "Send code",
+            "span": 12
+          }
+        ]
+      },
+      "x": 700,
+      "y": 260
+    },
+    {
+      "id": "wf-verify",
+      "type": "wireframe",
+      "title": "Identity capture",
+      "data": {
+        "primitives": [
+          {
+            "id": "v1",
+            "kind": "text",
+            "label": "Photograph your ID",
+            "span": 12
+          },
+          {
+            "id": "v2",
+            "kind": "box",
+            "label": "Camera viewport",
+            "span": 12
+          },
+          {
+            "id": "v3",
+            "kind": "list",
+            "label": "Flat surface / good light / no glare",
+            "span": 12
+          },
+          {
+            "id": "v4",
+            "kind": "button",
+            "label": "Capture",
+            "span": 12
+          }
+        ]
+      },
+      "x": 700,
+      "y": 520
+    },
+    {
+      "id": "wf-fund",
+      "type": "wireframe",
+      "title": "Funding source",
+      "data": {
+        "primitives": [
+          {
+            "id": "f1",
+            "kind": "text",
+            "label": "How would you like to add money?",
+            "span": 12
+          },
+          {
+            "id": "f2",
+            "kind": "list",
+            "label": "Bank / Debit card / Wire",
+            "span": 12
+          },
+          {
+            "id": "f3",
+            "kind": "input",
+            "label": "Amount",
+            "span": 6
+          },
+          {
+            "id": "f4",
+            "kind": "button",
+            "label": "Continue",
+            "span": 6
+          }
+        ]
+      },
+      "x": 700,
+      "y": 780
+    },
+    {
+      "id": "drop-off",
+      "type": "note",
+      "title": "Where people leave",
+      "data": {
+        "body": "Sixty-one percent of abandonment happens on the document scan. Half of those never retry. The second-largest drop is the funding step, at fourteen percent."
+      },
+      "x": 1060,
+      "y": 0
+    },
+    {
+      "id": "open-question",
+      "type": "note",
+      "title": "Open question",
+      "data": {
+        "body": "Can the funding step be deferred until after the first deposit intent, so the user has already committed before we ask for bank credentials?"
+      },
+      "x": 1060,
+      "y": 180
+    },
+    {
+      "id": "copy-rules",
+      "type": "note",
+      "title": "Copy rules",
+      "data": {
+        "body": "Sentence case. No exclamation marks. Errors say what failed and what to do next. Never apologise for a rejected document scan — explain the problem instead."
+      },
+      "x": 1060,
+      "y": 360
+    }
+  ],
+  "relationships": [
+    {
+      "id": "r-brief-happy",
+      "from": "brief",
+      "to": "happy-path",
+      "label": "drives"
+    },
+    {
+      "id": "r-constraints-happy",
+      "from": "constraints",
+      "to": "happy-path",
+      "label": "constrains"
+    },
+    {
+      "id": "r-happy-welcome",
+      "from": "happy-path",
+      "to": "wf-welcome"
+    },
+    {
+      "id": "r-happy-phone",
+      "from": "happy-path",
+      "to": "wf-phone"
+    },
+    {
+      "id": "r-happy-verify",
+      "from": "happy-path",
+      "to": "wf-verify"
+    },
+    {
+      "id": "r-happy-fund",
+      "from": "happy-path",
+      "to": "wf-fund"
+    },
+    {
+      "id": "r-happy-recovery",
+      "from": "happy-path",
+      "to": "recovery",
+      "label": "on failure"
+    },
+    {
+      "id": "r-recovery-verify",
+      "from": "recovery",
+      "to": "wf-verify"
+    },
+    {
+      "id": "r-returning-welcome",
+      "from": "returning",
+      "to": "wf-welcome"
+    },
+    {
+      "id": "r-dropoff-verify",
+      "from": "drop-off",
+      "to": "wf-verify",
+      "label": "evidence"
+    },
+    {
+      "id": "r-question-fund",
+      "from": "open-question",
+      "to": "wf-fund"
+    },
+    {
+      "id": "r-copy-verify",
+      "from": "copy-rules",
+      "to": "wf-verify"
+    }
+  ],
+  "viewState": {
+    "x": 0,
+    "y": 0,
+    "zoom": 1
+  }
+}
