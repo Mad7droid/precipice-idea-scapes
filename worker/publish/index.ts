@@ -106,6 +106,16 @@ function response(request: Request, env: Env, body: unknown, status = 200, isPub
 function error(request: Request, env: Env, code: PublishErrorCode, message?: string, isPublic = false): Response {
   return response(request, env, { error: code, ...(message ? { message } : {}) }, ERROR_STATUS[code], isPublic);
 }
+/**
+ * OAuth callbacks need to return to the app rather than leave the user on a JSON error page.
+ * The route was validated when the OAuth state was created; safeReturn is repeated here so this
+ * redirect remains safe if this callback's state handling changes later.
+ */
+function authErrorRedirect(env: Env, code: PublishErrorCode, returnPath: string): Response {
+  const redirect = new URL("/", env.APP_ORIGIN);
+  redirect.hash = new URLSearchParams({ auth_error: code, return: safeReturn(returnPath) }).toString();
+  return Response.redirect(redirect.toString(), 302);
+}
 async function parseJson(request: Request): Promise<unknown | Response> {
   const body = await request.arrayBuffer();
   if (body.byteLength > LIMITS.payloadBytes) return new Response(null, { status: 413 });
@@ -189,7 +199,7 @@ async function authCallback(request: Request, env: Env): Promise<Response> {
       ]);
     }
     user = await env.PUBLISH_DB.prepare("SELECT id, email, display_name, role, status FROM users WHERE google_sub = ?").bind(claims.sub).first<User>();
-    if (!user) return error(request, env, "invite_required", "This beta is invite-only.");
+    if (!user) return authErrorRedirect(env, "invite_required", pending.return_path);
   }
   if (user.status !== "active") return error(request, env, "account_suspended", "This account is suspended.");
   const sessionId = `ses_${randomBase64Url(18)}`, sessionSeed = randomBase64Url(), exchange = randomBase64Url();

@@ -2,7 +2,13 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { notify } from "@/core/notify";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { consumePublicCopy, localCopyFromPublication } from "@/shared/publicCopy";
-import { completeSignIn, readAuthFragment } from "@/publish/session";
+import {
+  completeSignIn,
+  readAuthErrorFragment,
+  readAuthFragment,
+  type AuthErrorReturn,
+} from "@/publish/session";
+import { AuthErrorModal } from "@/publish/AuthErrorModal";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
 import { Link, match, navigate, scapeRoute, useRoute } from "./router";
@@ -32,16 +38,16 @@ const DEV_ROUTES: Array<[string, string]> = [
 ];
 
 export function App() {
-  const signingIn = useSignInReturn();
+  const signIn = useSignInReturn();
   const copying = usePublicCopyImport();
 
   // Routing is held back only while a sign-in code is being exchanged, which is one request
   // against a 60-second code. Rendering the route first would flash the wrong screen and then
   // navigate away from it.
-  if (signingIn || copying) {
+  if (signIn.pending || copying) {
     return (
       <main className="grid h-full place-items-center bg-base" role="status">
-        {signingIn ? "Signing you in…" : "Creating your local copy…"}
+        {signIn.pending ? "Signing you in…" : "Creating your local copy…"}
       </main>
     );
   }
@@ -50,6 +56,7 @@ export function App() {
     <AppSettingsProvider>
       <Routes />
       <ToastHost />
+      {signIn.error && <AuthErrorModal error={signIn.error} onClose={signIn.dismissError} />}
     </AppSettingsProvider>
   );
 }
@@ -93,8 +100,23 @@ function usePublicCopyImport(): boolean {
  * once, the fragment is stripped, and the user is put back where they were — which is the whole
  * reason `return` travels at all.
  */
-function useSignInReturn(): boolean {
+function useSignInReturn(): {
+  pending: boolean;
+  error: AuthErrorReturn | null;
+  dismissError: () => void;
+} {
   const [pending, setPending] = useState(() => readAuthFragment(window.location.hash) !== null);
+  const [error, setError] = useState<AuthErrorReturn | null>(() =>
+    readAuthErrorFragment(window.location.hash),
+  );
+
+  useEffect(() => {
+    if (!error) return;
+    // Remove the one-shot auth result before navigating. The route is restored separately so
+    // the hash router never has to interpret the auth payload as a page.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    navigate(error.returnRoute);
+  }, [error]);
 
   useEffect(() => {
     if (!pending) return;
@@ -118,7 +140,7 @@ function useSignInReturn(): boolean {
     };
   }, [pending]);
 
-  return pending;
+  return { pending, error, dismissError: () => setError(null) };
 }
 
 function Routes() {

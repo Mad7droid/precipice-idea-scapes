@@ -132,6 +132,29 @@ export function readAuthFragment(hash: string): { code: string; returnRoute: str
   return { code, returnRoute: safeRoute(params.get("return")) };
 }
 
+export type AuthErrorCode = "invite_required";
+
+export interface AuthErrorReturn {
+  code: AuthErrorCode;
+  returnRoute: string;
+}
+
+/**
+ * The Worker sends an OAuth rejection back to the app in the same fragment channel as a
+ * successful sign-in. Keeping this parser strict means an arbitrary hash can never turn into an
+ * app-level error or an unsafe navigation.
+ */
+export function readAuthErrorFragment(hash: string): AuthErrorReturn | null {
+  const raw = hash.replace(/^#/, "");
+  if (!raw.startsWith("auth_error=")) return null;
+
+  const params = new URLSearchParams(raw);
+  const code = params.get("auth_error");
+  if (code !== "invite_required") return null;
+
+  return { code, returnRoute: safeRoute(params.get("return")) };
+}
+
 /**
  * The same path-only rule the Worker applies to `return`. The Worker is the defence that
  * matters — it is what stops an open redirect becoming token theft — but this value is about
