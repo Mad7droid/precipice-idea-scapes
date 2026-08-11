@@ -185,10 +185,21 @@ export function RichTextEditor({
     ref.current.setSelectionRange(target.start, target.end);
   }, [value]);
 
-  function apply(next: TextSelection | null): boolean {
+  function apply(
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+    next: TextSelection | null,
+  ): boolean {
     if (!next) return false;
     pending.current = { start: next.start, end: next.end };
     onChange(next.value);
+    event.preventDefault();
+    // Claim the key, do not merely block its default.
+    //
+    // `src/app/Editor.tsx` binds Cmd+K to the command palette on `window`, and it tests for
+    // the key *before* its "ignore keystrokes inside a text field" guard. React dispatches
+    // from its root container, which is below `window`, so without this a Cmd+K in a note
+    // body would insert the link and open the palette on top of it.
+    event.stopPropagation();
     return true;
   }
 
@@ -204,16 +215,16 @@ export function RichTextEditor({
     const shortcut = event.metaKey !== event.ctrlKey && !event.altKey;
     if (shortcut) {
       const key = event.key.toLowerCase();
-      if (key === "b" && apply(toggleWrap(state, "bold"))) return event.preventDefault();
-      if (key === "i" && apply(toggleWrap(state, "italic"))) return event.preventDefault();
-      if (key === "k" && apply(insertLink(state))) return event.preventDefault();
+      if (key === "b") apply(event, toggleWrap(state, "bold"));
+      else if (key === "i") apply(event, toggleWrap(state, "italic"));
+      else if (key === "k") apply(event, insertLink(state));
       return;
     }
 
     // Shift+Enter stays a plain newline, so there is always a way to break a line without
     // starting another list item.
     if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
-      if (apply(continueList(state))) event.preventDefault();
+      apply(event, continueList(state));
     }
   }
 

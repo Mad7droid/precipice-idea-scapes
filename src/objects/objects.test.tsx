@@ -135,6 +135,33 @@ describe("RichTextEditor shortcuts", () => {
     it_.unmount();
   });
 
+  it("Cmd+K does not also reach the global command palette", () => {
+    // Editor.tsx binds Cmd+K on `window` and checks the key before its text-field guard, so
+    // without stopPropagation a link insert would open the palette on top of it.
+    const seen: string[] = [];
+    const spy = (event: KeyboardEvent) => seen.push(event.key);
+    window.addEventListener("keydown", spy);
+    const it_ = editor("read docs");
+    it_.press("k", [5, 9]);
+    window.removeEventListener("keydown", spy);
+
+    expect(it_.value).toBe("read [docs](url)");
+    expect(seen).toEqual([]);
+    it_.unmount();
+  });
+
+  it("lets an unhandled shortcut through to the app", () => {
+    const seen: string[] = [];
+    const spy = (event: KeyboardEvent) => seen.push(event.key);
+    window.addEventListener("keydown", spy);
+    const it_ = editor("text");
+    it_.press("z", [0, 0]);
+    window.removeEventListener("keydown", spy);
+
+    expect(seen).toEqual(["z"]);
+    it_.unmount();
+  });
+
   it("leaves Enter alone outside a list, so native undo still applies", () => {
     const it_ = editor("prose");
     it_.enter(5);
