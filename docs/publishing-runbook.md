@@ -9,6 +9,14 @@ production Worker until its metrics and alerting are visible.
 
 ## Configuration
 
+Start from the committed template. The resulting `wrangler.publish.toml` is intentionally ignored:
+it contains the account-specific Worker name and resource identifiers used to operate one
+deployment. Never replace the template with production values in Git.
+
+```sh
+cp wrangler.publish.example.toml wrangler.publish.toml
+```
+
 | Item | Production value |
 | --- | --- |
 | Worker config | ignored `wrangler.publish.toml` (copy the committed example) |
