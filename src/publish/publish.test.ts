@@ -14,7 +14,7 @@ import {
 } from "./client";
 import { LIMITS, PUBLICATION_LIMIT, publishedScapeSchema } from "./contract";
 import { projectScape, projectionHash } from "./project";
-import { readAuthFragment, safeRoute } from "./session";
+import { readAuthErrorFragment, readAuthFragment, safeRoute } from "./session";
 import { PublishStub } from "./stub";
 
 const scape = () => fixtureScape();
@@ -222,6 +222,17 @@ describe("the OAuth return fragment", () => {
   it("ignores a fragment that is an ordinary route", () => {
     expect(readAuthFragment("#/s/scp_abc123")).toBeNull();
     expect(readAuthFragment("")).toBeNull();
+  });
+
+  it("reads an invite rejection and restores the editor route", () => {
+    expect(readAuthErrorFragment("#auth_error=invite_required&return=%2Fs%2Fscp_abc123")).toEqual({
+      code: "invite_required",
+      returnRoute: "/s/scp_abc123",
+    });
+  });
+
+  it("ignores unknown auth errors", () => {
+    expect(readAuthErrorFragment("#auth_error=server_error&return=%2Fs%2Fscp_abc123")).toBeNull();
   });
 
   it("rejects a malformed code rather than sending it", () => {
