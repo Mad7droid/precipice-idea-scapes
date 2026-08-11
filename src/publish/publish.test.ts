@@ -231,8 +231,17 @@ describe("the OAuth return fragment", () => {
     });
   });
 
+  it("reads a retryable server rejection without trusting the return route", () => {
+    expect(
+      readAuthErrorFragment("#auth_error=server_error&return=https%3A%2F%2Fevil.example"),
+    ).toEqual({
+      code: "server_error",
+      returnRoute: "/",
+    });
+  });
+
   it("ignores unknown auth errors", () => {
-    expect(readAuthErrorFragment("#auth_error=server_error&return=%2Fs%2Fscp_abc123")).toBeNull();
+    expect(readAuthErrorFragment("#auth_error=unauthorized&return=%2Fs%2Fscp_abc123")).toBeNull();
   });
 
   it("rejects a malformed code rather than sending it", () => {

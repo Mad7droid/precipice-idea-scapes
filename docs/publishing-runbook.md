@@ -69,6 +69,11 @@ Never commit any of these secret values. The Worker validates Turnstile server-s
 and the expected `APP_ORIGIN` hostname before it creates OAuth state; the widget alone is not a
 security control.
 
+For GitHub Actions, store the two public build values as repository variables. Store the ignored
+`wrangler.publish.toml` contents as the `WRANGLER_PUBLISH_CONFIG` Actions secret so database and
+binding identifiers do not need to be committed. Keep the Cloudflare API token in
+`CLOUDFLARE_API_TOKEN`; never reuse the local Wrangler OAuth credential in CI.
+
 For a direct Wrangler Pages deployment, pass the two public build values explicitly rather than
 relying on a developer's local shell configuration:
 

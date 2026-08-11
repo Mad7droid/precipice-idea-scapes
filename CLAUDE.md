@@ -45,7 +45,7 @@ Do not relitigate these. If you think one is wrong, stop and report — do not c
 | **Single app, not a monorepo** | One Vite app, directory-based modules. Packages get extracted later, not today. |
 | **Naming** | `Object` in code. `Artifact` only in user-facing copy. Never mix them in a filename or type. |
 | **API keys** | Held in `sessionStorage` only, unencrypted, so the key does not outlive the tab (`src/app/useAppSettings.ts`). The settings UI says so plainly. No security theatre. Real encryption lands with the desktop shell and the OS keychain. |
-| **Publication session token** | `localStorage`, 30-day expiry, server-revocable. A *different* risk class from the API key: scoped to publications, revocable, expiring. Bearer header, never a cookie — see `.context/publishing-plan.md`. |
+| **Publication session token** | `localStorage`, 7-day expiry, server-revocable. A *different* risk class from the API key: scoped to publications, revocable, expiring. Bearer header, never a cookie — see `.context/publishing-plan.md`. |
 
 ### Stack — and what we cut
 

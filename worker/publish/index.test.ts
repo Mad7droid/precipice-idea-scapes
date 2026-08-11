@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { fixtureScape } from "../../src/core/fixtures";
 import { PUBLICATION_LIMIT, canonicalHash } from "../../src/publish/contract";
 import { projectScape } from "../../src/publish/project";
-import worker, { safeReturn } from "./index";
+import worker, { claimInvitation, safeReturn } from "./index";
 import { APP_ORIGIN, harness, request, seedSession, sha256, type Harness } from "./harness";
 
 /**
@@ -125,6 +125,20 @@ describe("POST /auth/start", () => {
     const response = await start({ turnstileToken: "valid-turnstile-token" }, "https://evil.example");
     expect(response.status).toBe(401);
     expect(h.db.count("oauth_states")).toBe(0);
+  });
+});
+
+describe("invitation claim", () => {
+  it("creates the referenced user before accepting the invitation", async () => {
+    const now = Date.now();
+    h.db.db.prepare("INSERT INTO invites (email, status, created_at) VALUES (?, 'pending', ?)").run("invitee@example.com", now);
+    await claimInvitation(h.env as never, { id: "usr_invitee", googleSub: "google-invitee", email: "invitee@example.com", displayName: "Invitee" }, now);
+
+    expect(h.db.count("users", "id = 'usr_invitee' AND role = 'member'")).toBe(1);
+    expect(h.db.count("invites", "email = 'invitee@example.com' AND status = 'accepted' AND accepted_user_id = 'usr_invitee'")).toBe(1);
+
+    await claimInvitation(h.env as never, { id: "usr_replay", googleSub: "google-replay", email: "invitee@example.com", displayName: null }, now + 1);
+    expect(h.db.count("users", "id = 'usr_replay'")).toBe(0);
   });
 });
 
@@ -573,6 +587,26 @@ describe("DELETE /account", () => {
     expect(h.db.count("publications")).toBe(0);
     expect(h.db.count("exchange_codes")).toBe(0);
     expect(h.r2.objects.size).toBe(0);
+  });
+
+  it("does not allow the last active administrator to delete their account", async () => {
+    const { userId, token } = await seedSession(h.db, { userId: "usr_admin", email: "admin@example.com", token: "a".repeat(40) });
+    h.db.db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(userId);
+
+    const response = await fetch(request("DELETE", "/account", { token }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ error: "invalid_projection" });
+    expect(h.db.count("users", "id = 'usr_admin'")).toBe(1);
+  });
+
+  it("allows an administrator to delete their account when another active admin remains", async () => {
+    const first = await seedSession(h.db, { userId: "usr_admin_one", email: "one@example.com", token: "a".repeat(40) });
+    const second = await seedSession(h.db, { userId: "usr_admin_two", email: "two@example.com", token: "b".repeat(40) });
+    h.db.db.prepare("UPDATE users SET role = 'admin' WHERE id IN (?, ?)").run(first.userId, second.userId);
+
+    expect((await fetch(request("DELETE", "/account", { token: first.token }))).status).toBe(204);
+    expect(h.db.count("users", "id = 'usr_admin_one'")).toBe(0);
+    expect(h.db.count("users", "id = 'usr_admin_two' AND role = 'admin'")).toBe(1);
   });
 });
 
