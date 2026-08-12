@@ -11,7 +11,7 @@ Deviations and gaps worth flagging, not blockers.
 Wave 0 put both plugin globs in `src/core/registry.ts` — the editor's
 `/src/objects/*/index.ts` at line 71 and the viewer's `/src/objects/*/view.ts` at line 107.
 Both are `eager`, and an eager `import.meta.glob` compiles to static imports at the top of the
-module that holds it. So *any* importer of `getViewPlugin` also statically imported every
+module that holds it. So _any_ importer of `getViewPlugin` also statically imported every
 `index.ts`, and those reach `@/core/store`.
 
 That put zustand and the whole editor inside the public viewer's bundle, which is the one thing
@@ -88,7 +88,7 @@ nobody is currently hitting. Still open, still worth doing before core grows fur
 Journey map, Mind map, Screens. A starter binds allowed object types, a layout mode, an edge
 mode, a prompt hint, a placeholder and an optional seed object.
 
-"Mind map" is notes plus relationships plus a radial layout — deliberately *not* a fourth
+"Mind map" is notes plus relationships plus a radial layout — deliberately _not_ a fourth
 object type. The three-object-type rule is intact. `LayoutMode` and `EdgeMode` are defined
 here rather than in the canvas, because both are properties of the kind of document you are
 making; the dependency runs canvas → starters → core, never the other way.
@@ -101,8 +101,8 @@ making; the dependency runs canvas → starters → core, never the other way.
 2. **`DisconnectObjects` was unreachable from the UI.** It has been in the action protocol
    since the beginning and only the model could emit it — a user could draw an edge and then
    had no way to label, reverse or remove it. Selecting an edge now opens a relationship
-   inspector. Relabelling and reversing are a disconnect and a reconnect on the *same
-   relationship id*, in one transaction; there is no `UpdateRelationship` action and there does
+   inspector. Relabelling and reversing are a disconnect and a reconnect on the _same
+   relationship id_, in one transaction; there is no `UpdateRelationship` action and there does
    not need to be.
 3. **The composer's scope pill did nothing.** `scope` was held in the shell, rendered, and
    never passed to the generation — `useGeneration` always sent the selection into the
@@ -130,7 +130,7 @@ radial clearance; the same card pointing up needs half its height). Sizing rings
 alone overlaps wide cards — the unit test catches this — and by `max(width, height)` produces
 rings thousands of pixels across.
 
-A **chain** graph still produces an enormous circle, because every node at depth *d* sits at
+A **chain** graph still produces an enormous circle, because every node at depth _d_ sits at
 its parent's angle and must clear it radially. That is inherent to radial layout and correct;
 mind maps branch rather than chain, and Tidy is a manual override. Nothing is broken, but do
 not read a radial pass over a 20-step flow as a bug.
@@ -160,7 +160,7 @@ scape. A second parameter or nested routes is the point to swap in a real router
 ## `LayoutScape` carries engine-computed positions
 
 The AI layer never emits coordinates, per the locked decision. But Dagre's output has to
-land in the store somehow, so `LayoutScape` is an action whose payload *is* a full set of
+land in the store somehow, so `LayoutScape` is an action whose payload _is_ a full set of
 `{ id, x, y }` positions — computed by the canvas engine, dispatched as one transaction, and
 treated by the reducer like any other action with a computed (not model-authored) inverse.
 This is not the AI emitting coordinates; it's the one place in the system that is allowed to.
@@ -221,7 +221,7 @@ look the way they do.
 2. ~~**`UpdateObject.patch.data` replaces rather than merges.**~~ There is now a distinct
    `MergeObjectData`. Both actions exist because their inverses differ: a replace inverts to
    the previous `data`, but a merge cannot invert to another merge — a merge has no way to
-   say "remove the key I just added" — so `MergeObjectData` inverts to a *total*
+   say "remove the key I just added" — so `MergeObjectData` inverts to a _total_
    `UpdateObject` carrying the whole prior `data`. It is engine-only and deliberately not an
    AI tool: a model that can merge can grow `data` one key at a time past whatever the plugin
    schema validated, so every AI write stays a full, validated object.
@@ -307,7 +307,7 @@ Two changes, both flagged in the plan before they were made:
 1. **`registry.ts` grew a second glob**, `/src/objects/*/view.ts`, with a `ViewPlugin`
    interface and `getViewPlugin` / `allViewPlugins`. The alternative was a parallel set of
    read-only components under `src/viewer/`, which is two renderers per object type forever
-   and guaranteed to drift. The second *file* rather than a second field on `ObjectPlugin` is
+   and guaranteed to drift. The second _file_ rather than a second field on `ObjectPlugin` is
    the whole point: `index.ts` reaches the store, the inspector and the action protocol, and
    `view.ts` must reach none of them. Splitting the entry point makes that provable by a
    bundler instead of enforceable by code review.
@@ -331,7 +331,7 @@ schema migration is the one thing that must never be written twice in parallel: 
 each defining a `version(2)` produce databases that disagree about what version 2 is, and the
 loser's is already on a user's disk.
 
-`remove()` deletes the local publication row in the same transaction. That is the *local* row
+`remove()` deletes the local publication row in the same transaction. That is the _local_ row
 only — taking the publication down on the server is the caller's job, and the UI is required
 to offer "Unpublish & delete" rather than leaving a public URL serving a document its author
 believes they deleted.
@@ -356,7 +356,7 @@ else, because a page rendering a stranger's document has no business reading the
 stored theme out of `localStorage`. Its hash is in `public/_headers`, and `csp.test.ts` now
 recomputes hashes across both HTML entries rather than just `index.html`.
 
-`_headers` deliberately still has a single `/*` block. Cloudflare Pages *merges* matching
+`_headers` deliberately still has a single `/*` block. Cloudflare Pages _merges_ matching
 rules and browsers intersect multiple CSP headers, so adding an `/embed/*` block granting
 `frame-ancestors *` underneath would not loosen anything — it would be intersected against
 `frame-ancestors 'none'`, and the embed would stay blocked while looking like a code bug.
@@ -367,7 +367,7 @@ Narrowing `/*` first is wave 2's job.
 `CACHE` is `precipice-v2`. `/p/` and `/embed/` navigations are not handled at all, so they
 behave exactly as they would with no service worker installed, and the offline shell fallback
 is independently path-gated as a second line of defence. Without this, an offline published
-link served `/index.html` — showing a stranger the editor, listing the *reader's* own scapes,
+link served `/index.html` — showing a stranger the editor, listing the _reader's_ own scapes,
 in place of the document they followed a link to.
 
 `src/app/sw.test.ts` is new. `sw.js` is a classic script, not a module, so it is evaluated
@@ -382,7 +382,7 @@ a redirect to `/view`, throwing the publication id away and landing every publis
 viewer with nothing to render.
 
 This is invisible locally in the obvious ways — `vite preview` does not read `_redirects` at
-all, and the file *looks* right. Wave 1's agent B would have hit it as "the viewer never gets
+all, and the file _looks_ right. Wave 1's agent B would have hit it as "the viewer never gets
 an id" and debugged it as a code bug. `src/viewer/entry.test.ts` now pins the target.
 
 ### Deliberately not done in wave 0
@@ -395,3 +395,55 @@ an id" and debugged it as a code bug. `src/viewer/entry.test.ts` now pins the ta
   the long pole — start it first.
 - `src/publish/contract.ts` declares `LIMITS`, but nothing enforces them yet. The Worker's
   enforcement is the one that matters; the client's is a courtesy.
+
+---
+
+## Scapey — phase 1 (the spine)
+
+`src/ai/scapey/**`, plus `projectScapeForChat` in `src/ai/context.ts` and a panel mounted in
+`src/routes/dev/ai.tsx`. Plan: `.context/plans/scapey-implementation.md`.
+
+### The invariant most likely to be "simplified" back into a bug
+
+`result.response.messages` is typed `Array<AssistantModelMessage | ToolModelMessage>` — it
+contains **only what the model generated, never the user's question**. So history is stored as
+`ModelTurn { user, response }` and flattened at request time, not as a flat message array.
+
+Collapse that pair and nothing throws: the model just starts reading a monologue of answers with
+no questions, and by the second turn it cannot answer "what did I just ask?". Follow-ups drift
+with no visible failure. `modelContext.test.ts` is the guard — if it fails, the fix is to restore
+the pairing, not to relax the test.
+
+The same file also pins that `response` goes back **verbatim**, including the opaque
+`encryptedContent` on web-search results. Stripping it to save bytes silently kills citation
+continuity in later turns.
+
+### Completed Scapey product path
+
+- **Web search is optional.** It uses Anthropic's hosted `webSearch_20260209` tool through the
+  existing proxy. If the API key owner has not enabled it in Anthropic's Console, Scapey retries
+  the same question with canvas grounding only and explains why the toggle is unavailable.
+- **Display history is session-only.** Up to ten completed visible turns are kept under
+  `precipice.scapey.<scapeId>` and pruned if browser quota rejects a write. Provider model
+  messages, including encrypted search payloads, remain in memory only; a reload shows the
+  transcript but begins a fresh model conversation.
+- **Editor integration is complete.** `⌘J` opens the lazy-loaded 560px drawer (720px expanded),
+  preserves the Build composer beneath it, focuses object chips on the canvas, and routes an
+  explicit “Turn into an edit” confirmation through the existing generation path.
+- **Intent labels are advisory.** Answer-format labels are inferred from the question, never
+  model-directed, so natural Markdown remains natural rather than being forced into a schema.
+
+### Flags
+
+- **`ScapeyPanel` imports `react-markdown` statically.** That is fine today because its only
+  importer is the lazily-loaded dev route — verified: the built `main` chunk contains neither
+  Scapey nor markdown. **When it is mounted in `Editor.tsx` (phase 5) it must be lazy-loaded**,
+  or react-markdown lands in the editor's initial bundle.
+- **`worker/index.ts` rate limit is 20 req/min per IP** and a Scapey turn is 2–4 requests
+  (each tool round-trip is its own request). Active use plus a generation can plausibly trip it,
+  and the in-memory bucket is per-isolate so the real ceiling is non-deterministic. Raising it is
+  an Integrator change; flagging rather than touching the Worker.
+- **`effort: "low"` is hard-coded** in `ask.ts`. Deliberate — latency is the thing a user feels
+  every turn — but it is the first knob to expose if answer quality disappoints.
+- **No `src/core` change was needed.** Turn ids use a local counter because `core/ids.ts` is
+  frozen and has no generic helper; they are React keys only, never persisted or displayed.

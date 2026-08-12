@@ -1,0 +1,19 @@
+import { describe, expect, it } from "vitest";
+import { isWebSearchUnavailable } from "./ask";
+
+describe("web search fallback", () => {
+  it.each([
+    "Web search is not enabled for this organization.",
+    "The web_search tool is unavailable for this API key.",
+    "Search permission was denied.",
+  ])("recognises unavailable search access: %s", (message) => {
+    expect(isWebSearchUnavailable(new Error(message))).toBe(true);
+  });
+
+  it.each(["Rate limit exceeded", "Invalid API key", "The model is overloaded"])(
+    "does not mistake unrelated failures for a search setting: %s",
+    (message) => {
+      expect(isWebSearchUnavailable(new Error(message))).toBe(false);
+    },
+  );
+});

@@ -1,4 +1,4 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAnthropic, type AnthropicProvider } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
 import { MODELS, type ModelChoice } from "./models";
 
@@ -59,6 +59,12 @@ export const anthropicProvider: Provider = {
     return provider(modelId);
   },
 };
+
+/** The language model and Anthropic-hosted tools must share the same BYOK proxy settings. */
+export function anthropicClient(apiKey: string): AnthropicProvider {
+  if (!apiKey?.trim()) throw new MissingApiKeyError();
+  return createAnthropic({ apiKey, baseURL: proxyBaseUrl() });
+}
 
 /** Turns provider failures into copy that says what happened and what to do about it. */
 export function describeProviderError(error: unknown): { message: string; detail: string } {

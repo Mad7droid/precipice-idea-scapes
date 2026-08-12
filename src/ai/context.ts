@@ -1,5 +1,5 @@
 import { allPlugins, summarize } from "@/core/registry";
-import type { ObjectId, Scape } from "@/core/types";
+import type { ObjectId, Scape, ScapeObject } from "@/core/types";
 
 /**
  * Turning a Scape into something the model can read.
@@ -164,6 +164,72 @@ function renderDetail(scape: Scape, ids: Set<ObjectId>, budgetTokens: number): s
 
   if (blocks.length === 0) return "";
   return ["## In focus", ...blocks].join("\n");
+}
+
+/**
+ * Scapey's view of the document.
+ *
+ * A different job from `projectScape` above, and deliberately a different function rather than
+ * a flag on that one. Generation needs to know the whole graph exists and read closely around
+ * the selection; answering a question needs to read *everything*, because the user can ask
+ * about any object and the model has no way to ask for a body it was never shown. So every
+ * object gets a body here, the budget is far larger, and relationships are paid for first
+ * because "what connects to what" is the question this projection most often has to answer.
+ *
+ * When it still does not fit, `omitted` is non-zero and `read_objects` becomes the escape
+ * hatch — the model can pull the bodies it was denied.
+ */
+export const CHAT_BUDGET_TOKENS = 12000;
+
+/** One very long note must not be able to crowd out every other object's body. */
+const MAX_CHAT_OBJECT_CHARS = 1200;
+
+/** Relationships are dense, structural, and cheap. Cap rather than let them dominate. */
+const REL_BUDGET_SHARE = 0.2;
+
+export function renderObjectBlock(object: ScapeObject): string {
+  const body = JSON.stringify(object.data);
+  const truncated =
+    body.length > MAX_CHAT_OBJECT_CHARS
+      ? `${body.slice(0, MAX_CHAT_OBJECT_CHARS)}…(truncated)`
+      : body;
+  return `### ${object.id} · ${object.type} · "${object.title}"\n${truncated}`;
+}
+
+export function projectScapeForChat(
+  scape: Scape,
+  options: { budgetTokens?: number } = {},
+): Projection {
+  const budget = options.budgetTokens ?? CHAT_BUDGET_TOKENS;
+  const objects = scape.objectOrder.map((id) => scape.objects[id]).filter(Boolean);
+  const relationships = Object.values(scape.relationships);
+
+  const header = [
+    `# Scape: ${scape.name}`,
+    `${objects.length} objects, ${relationships.length} relationships.`,
+  ].join("\n");
+
+  const relLines = relationships.map(
+    (r) => `${r.from} -> ${r.to}${r.label ? ` (${r.label})` : ""}`,
+  );
+  const relBudget = Math.min(
+    estimateTokens(relLines.join("\n")) + 16,
+    Math.floor(budget * REL_BUDGET_SHARE),
+  );
+  const rels = truncateMiddle(relLines, "## Relationships", relBudget, "relationships");
+
+  // Whatever the header and the edge list did not use goes to bodies, minus headroom for the
+  // separators and any truncation marker.
+  const remaining = Math.max(0, budget - estimateTokens(`${header}\n\n${rels.text}`) - 48);
+  const blocks = objects.map(renderObjectBlock);
+  const bodies = truncateMiddle(blocks, "## Objects", remaining, "objects");
+
+  const text = [header, bodies.text, rels.text].filter(Boolean).join("\n\n");
+  return {
+    text,
+    estimatedTokens: estimateTokens(text),
+    omitted: bodies.omitted + rels.omitted,
+  };
 }
 
 /**
