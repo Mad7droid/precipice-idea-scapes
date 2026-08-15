@@ -1,7 +1,7 @@
 import type { Scape } from "@/core/types";
 
 /** Useful first questions come from the canvas, never from a generic help-card catalogue. */
-export function suggestScapeyQuestions(scape: Scape): string[] {
+export function suggestScapiQuestions(scape: Scape): string[] {
   const suggestions: string[] = [];
   const linked = new Set(
     Object.values(scape.relationships).flatMap((relationship) => [

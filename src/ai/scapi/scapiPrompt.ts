@@ -3,7 +3,7 @@ import type { ObjectId, Scape } from "@/core/types";
 import { responseGuidance } from "./answerFormat";
 
 /**
- * What Scapey is told it is, and what it is told about the canvas.
+ * What Scapi is told it is, and what it is told about the canvas.
  *
  * The formatting guidance here is deliberately advisory. An earlier design had the model
  * declare a shape from a closed set on its first token; that is still the plan for a later
@@ -47,7 +47,7 @@ const GUIDANCE = `## How to answer
 - End with at most one offer of a concrete next step, and only when there is an obvious one.
   Nothing to offer is a fine way to end.`;
 
-export function scapeySystemPrompt(): string {
+export function scapiSystemPrompt(): string {
   return `${PREAMBLE}\n\n${GUIDANCE}`;
 }
 

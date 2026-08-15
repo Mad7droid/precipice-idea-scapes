@@ -2,7 +2,7 @@ import type { ModelMessage } from "ai";
 import type { ObjectId } from "@/core/types";
 
 /**
- * Scapey's two representations of a conversation, and why they are not one.
+ * Scapi's two representations of a conversation, and why they are not one.
  *
  * The **display transcript** (`Turn`) is what we render and what survives a reload. The
  * **model context** (`ModelTurn`) is what the provider needs back, verbatim, to stay coherent.
@@ -36,7 +36,7 @@ export interface Turn {
 export type SearchAvailability = "unknown" | "available" | "unavailable";
 
 /**
- * What Scapey is doing right now, as a list rather than a single value.
+ * What Scapi is doing right now, as a list rather than a single value.
  *
  * Kept after the turn finishes and collapsed to a summary line, because "it searched twice and
  * read four objects" is exactly the provenance a user wants when deciding whether to believe an

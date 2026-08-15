@@ -14,7 +14,7 @@ import type { ActivityEvent, SearchAvailability, Turn } from "./types";
  * state this already carries, so nothing here is scaffolding to be thrown away.
  */
 
-export interface ScapeyPanelProps {
+export interface ScapiPanelProps {
   turns: Turn[];
   streaming: boolean;
   onSend: (question: string) => void;
@@ -98,7 +98,7 @@ const markdownComponents: Components = {
   ),
 };
 
-export function ScapeyPanel({
+export function ScapiPanel({
   turns,
   streaming,
   onSend,
@@ -114,7 +114,7 @@ export function ScapeyPanel({
   searchAvailability = "unknown",
   restored = false,
   suggestions = [],
-}: ScapeyPanelProps) {
+}: ScapiPanelProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -171,7 +171,7 @@ export function ScapeyPanel({
         )}
       </div>
 
-      <ScapeyComposer
+      <ScapiComposer
         streaming={streaming}
         onSend={onSend}
         onCancel={onCancel}
@@ -250,13 +250,15 @@ const TurnView = memo(function TurnView({
 
       {turn.reasoning && <ReasoningDisclosure turn={turn} />}
 
-      {/* The trail is the interesting part of the wait, so it is shown in full until there is
-          an answer to read — then it steps aside for a one-line summary. */}
-      {streaming && !turn.body ? (
-        <ActivityTrail activity={turn.activity} />
+      {streaming ? (
+        <WorkingDisclosure activity={turn.activity} hasAnswer={Boolean(turn.body)} />
       ) : (
         summary && <p className="mono px-1 text-fg-tertiary">{summary}</p>
       )}
+
+      {/* Research can resolve before the model starts writing. Do not make its evidence wait
+          behind the final prose. */}
+      {!turn.body && turn.sources.length > 0 && <Sources sources={turn.sources} title="Research" />}
 
       {turn.body && (
         <AnswerCard>
@@ -270,7 +272,7 @@ const TurnView = memo(function TurnView({
               onTurnIntoEdit={onTurnIntoEdit}
             />
           )}
-          {turn.sources.length > 0 && <Sources sources={turn.sources} />}
+          {turn.sources.length > 0 && <Sources sources={turn.sources} title="Sources" />}
         </AnswerCard>
       )}
 
@@ -348,7 +350,7 @@ function ReasoningDisclosure({ turn }: { turn: Turn }) {
         aria-expanded={expanded}
         className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
       >
-        <span>Reasoning</span>
+        <span>Approach</span>
         <span aria-hidden className="mono">
           {expanded ? "−" : "+"}
         </span>
@@ -421,10 +423,10 @@ function TurnActions({
   );
 }
 
-function Sources({ sources }: { sources: Turn["sources"] }) {
+function Sources({ sources, title }: { sources: Turn["sources"]; title: string }) {
   return (
-    <section className="mt-3 border-t border-subtle pt-3">
-      <h4 className="text-xs font-[var(--weight-emph)] text-fg-secondary">Sources</h4>
+    <section className="mt-3 border-t border-subtle pt-3" aria-live="polite">
+      <h4 className="text-xs font-[var(--weight-emph)] text-fg-secondary">{title}</h4>
       <ol className="mt-1.5 space-y-1 text-xs">
         {sources.map((source, index) => {
           let host = source.url;
@@ -460,25 +462,57 @@ function Sources({ sources }: { sources: Turn["sources"] }) {
  * by this app's own copy rule — and a wait is far less annoying when it is legible, so the real
  * activity is better material than a platitude anyway.
  */
-function ActivityTrail({ activity }: { activity: ActivityEvent[] }) {
+function WorkingDisclosure({
+  activity,
+  hasAnswer,
+}: {
+  activity: ActivityEvent[];
+  hasAnswer: boolean;
+}) {
+  const [expanded, setExpanded] = useState(!hasAnswer);
+
+  useEffect(() => {
+    if (hasAnswer) setExpanded(false);
+  }, [hasAnswer]);
+
   const done = activity.slice(0, -1);
   const current = activity[activity.length - 1];
 
   return (
-    <div className="space-y-1 px-1 py-1">
-      {done.map((event, i) => (
-        <p
-          key={i}
-          className="mono animate-ribbon-line normal-case tracking-normal text-fg-tertiary"
-        >
-          <span aria-hidden className="mr-1.5">
-            ↳
-          </span>
-          {activityLabel(event)}
-        </p>
-      ))}
-      <DotMatrix label={current ? activityLabel(current) : "connecting"} />
-    </div>
+    <section className="rounded-md bg-inset" aria-live="polite">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
+      >
+        <span>{hasAnswer ? "Working" : "Working…"}</span>
+        <span className="min-w-0 truncate pl-3 text-right">
+          {current ? activityLabel(current) : "connecting"}
+        </span>
+        <span aria-hidden className="mono pl-2">
+          {expanded ? "−" : "+"}
+        </span>
+      </button>
+      <div
+        className="grid transition-[grid-template-rows,opacity] duration-base ease-out"
+        style={{ gridTemplateRows: expanded ? "1fr" : "0fr", opacity: expanded ? 1 : 0 }}
+      >
+        <div className="min-h-0 overflow-hidden px-3 pb-3">
+          <div className="space-y-1 border-l-2 border-default pl-3">
+            {done.map((event, i) => (
+              <p key={i} className="mono normal-case tracking-normal text-fg-tertiary">
+                <span aria-hidden className="mr-1.5">
+                  ✓
+                </span>
+                {activityLabel(event)}
+              </p>
+            ))}
+            <DotMatrix label={current ? activityLabel(current) : "connecting"} />
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -529,7 +563,7 @@ function summarise(activity: ActivityEvent[]): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function ScapeyComposer({
+function ScapiComposer({
   streaming,
   onSend,
   onCancel,

@@ -9,9 +9,9 @@ import { EVALS, formatEvalTable, runEvals, type EvalResult } from "@/ai/evals";
 import { useGeneration } from "@/ai/useGeneration";
 import { Ribbon } from "@/ai/Ribbon";
 import { Composer } from "@/ai/Composer";
-import { ScapeyPanel } from "@/ai/scapey/ScapeyPanel";
-import { useScapey } from "@/ai/scapey/useScapey";
-import { suggestScapeyQuestions } from "@/ai/scapey/suggestions";
+import { ScapiPanel } from "@/ai/scapi/ScapiPanel";
+import { useScapi } from "@/ai/scapi/useScapi";
+import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
 import { Select } from "@/design/Select";
 
 /**
@@ -29,9 +29,9 @@ export function DevAi() {
 
   const { state, start, startRecorded, cancel, undo, dismiss } = useGeneration();
 
-  // Scapey runs against the same store, but through its own path: read-only tools, its own
+  // Scapi runs against the same store, but through its own path: read-only tools, its own
   // context projection, and nothing that can reach the reducer.
-  const scapey = useScapey({
+  const scapi = useScapi({
     getScape: () => useScapeStore.getState().scape,
     getSelection: () => useScapeStore.getState().selection,
     apiKey,
@@ -177,22 +177,22 @@ export function DevAi() {
           <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapi</h2>
           <button
             type="button"
-            onClick={scapey.clear}
-            disabled={scapey.turns.length === 0}
+            onClick={scapi.clear}
+            disabled={scapi.turns.length === 0}
             className="mono text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg disabled:opacity-40"
           >
             clear
           </button>
         </div>
-        <ScapeyPanel
-          turns={scapey.turns}
-          streaming={scapey.streaming}
-          onSend={(question) => void scapey.send(question)}
-          onCancel={scapey.cancel}
-          onRetry={scapey.retry}
+        <ScapiPanel
+          turns={scapi.turns}
+          streaming={scapi.streaming}
+          onSend={(question) => void scapi.send(question)}
+          onCancel={scapi.cancel}
+          onRetry={scapi.retry}
           objects={scape?.objects}
           onObjectClick={(id) => useScapeStore.getState().setSelection([id])}
-          suggestions={scape ? suggestScapeyQuestions(scape) : []}
+          suggestions={scape ? suggestScapiQuestions(scape) : []}
           disabled={!apiKey.trim()}
           {...(apiKey.trim() ? {} : { placeholder: "Add an API key above to ask." })}
         />

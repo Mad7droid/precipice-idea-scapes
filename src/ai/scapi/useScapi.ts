@@ -4,7 +4,7 @@ import { applyAskEvent, isComplete, startTurn } from "./reducer";
 import type { AskEvent, ModelTurn, SearchAvailability, Turn } from "./types";
 
 /**
- * Scapey's state for one scape.
+ * Scapi's state for one scape.
  *
  * Two stores, deliberately not derived from each other:
  *
@@ -16,13 +16,12 @@ import type { AskEvent, ModelTurn, SearchAvailability, Turn } from "./types";
  */
 
 /**
- * Provider chunks are not human-sized. Re-rendering Markdown as they arrive makes paragraphs
- * jump even with a character buffer, because list and link structure keeps changing. Scapey
- * therefore buffers prose off-screen and paints the complete response in one stable render;
- * the activity trail makes the wait legible without typewriter theatre.
+ * Provider chunks are not human-sized. Re-rendering each one makes Markdown jump, but holding
+ * the entire answer until completion makes a capable assistant look idle. We coalesce deltas to
+ * a frame and keep only ambiguous Markdown syntax off-screen, so stable prose appears promptly.
  */
 
-export interface UseScapeyOptions {
+export interface UseScapiOptions {
   /** Read at send time rather than captured, so a question always sees the current canvas. */
   getScape: () => Scape | null;
   /** Objects selected on the canvas right now. */
@@ -32,7 +31,58 @@ export interface UseScapeyOptions {
   scapeId?: string;
 }
 
-export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: UseScapeyOptions) {
+/**
+ * Keep a trailing Markdown construct out of ReactMarkdown until it is complete.
+ *
+ * This intentionally covers the constructs most likely to arrive across provider chunks rather
+ * than attempting to reimplement CommonMark. The server is still the source of truth; this is a
+ * small presentation buffer that prevents visibly broken links and code blocks mid-stream.
+ */
+export function splitStableMarkdown(markdown: string): { stable: string; pending: string } {
+  let boundary = markdown.length;
+
+  const lastFence = markdown.lastIndexOf("```");
+  if (lastFence !== -1 && (markdown.match(/```/g)?.length ?? 0) % 2 === 1) boundary = lastFence;
+
+  const lastTick = markdown.lastIndexOf("`");
+  if (
+    lastTick !== -1 &&
+    lastTick !== lastFence &&
+    (markdown.match(/(?<!`)`(?!`)/g)?.length ?? 0) % 2 === 1
+  )
+    boundary = Math.min(boundary, lastTick);
+
+  const openLink = markdown.lastIndexOf("[");
+  if (openLink > markdown.lastIndexOf("]")) boundary = Math.min(boundary, openLink);
+
+  // `[label](` is no longer caught by the unmatched-bracket check above, but still cannot be
+  // rendered as a link until its destination closes. Keep the whole construct together.
+  const linkDestination = markdown.lastIndexOf("](");
+  if (linkDestination !== -1 && linkDestination > markdown.lastIndexOf(")")) {
+    const linkStart = markdown.lastIndexOf("[", linkDestination);
+    if (linkStart !== -1) boundary = Math.min(boundary, linkStart);
+  }
+
+  const strong = markdown.lastIndexOf("**");
+  if (strong !== -1 && (markdown.match(/\*\*/g)?.length ?? 0) % 2 === 1)
+    boundary = Math.min(boundary, strong);
+
+  // Single emphasis markers are only considered Markdown at the start of a word. This avoids
+  // treating ordinary identifiers such as `object_id` as markup while still holding `*draft`.
+  const emphasis = [...markdown.matchAll(/(?:^|\s)([*_])(?=\S)/gm)];
+  if (emphasis.length % 2 === 1) {
+    const match = emphasis[emphasis.length - 1];
+    const marker = match.index! + match[0].length - 1;
+    boundary = Math.min(boundary, marker);
+  }
+
+  // A single Markdown marker at the tail is ambiguous until the next token arrives.
+  if (/[*_`\[]$/.test(markdown)) boundary = Math.min(boundary, markdown.length - 1);
+
+  return { stable: markdown.slice(0, boundary), pending: markdown.slice(boundary) };
+}
+
+export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: UseScapiOptions) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [webSearch, setWebSearch] = useState(true);
@@ -43,10 +93,12 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
   const controller = useRef<AbortController | null>(null);
 
   const queue = useRef({ text: "", reasoning: "" });
+  const animationFrame = useRef<number | null>(null);
   /** Prevent the initial empty render from overwriting a transcript before it has been read. */
   const storageHydrated = useRef(false);
 
-  const storageKey = scapeId ? `precipice.scapey.${scapeId}` : null;
+  const storageKey = scapeId ? `precipice.scapi.${scapeId}` : null;
+  const legacyStorageKey = scapeId ? `precipice.scapey.${scapeId}` : null;
 
   // Display history is safe to retain; provider messages (including encrypted search content)
   // deliberately remain only in memory, so a reload starts a fresh model conversation.
@@ -60,7 +112,16 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
       return;
     }
     try {
-      const saved = sessionStorage.getItem(storageKey);
+      let saved = sessionStorage.getItem(storageKey);
+      if (!saved && legacyStorageKey) {
+        const legacy = sessionStorage.getItem(legacyStorageKey);
+        if (legacy) {
+          // Only remove the old name after the new value has been safely written.
+          sessionStorage.setItem(storageKey, legacy);
+          sessionStorage.removeItem(legacyStorageKey);
+          saved = legacy;
+        }
+      }
       if (saved) {
         const parsed = JSON.parse(saved) as Turn[];
         if (Array.isArray(parsed)) {
@@ -73,7 +134,7 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
     } finally {
       storageHydrated.current = true;
     }
-  }, [storageKey]);
+  }, [legacyStorageKey, storageKey]);
 
   useEffect(() => {
     if (!storageKey || streaming || !storageHydrated.current) return;
@@ -110,7 +171,7 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
     [updateLast],
   );
 
-  /** Paint all accumulated Markdown only when its structure has stopped changing. */
+  /** Paint all accumulated Markdown, including a currently incomplete tail. */
   const drainNow = useCallback(() => {
     const { text, reasoning } = queue.current;
     queue.current = { text: "", reasoning: "" };
@@ -119,9 +180,26 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
     if (text) updateLast((turn) => applyAskEvent(turn, { kind: "text", text }));
   }, [updateLast]);
 
+  /** Paint stable text at most once per frame; leave ambiguous Markdown in the queue. */
+  const drainStable = useCallback(() => {
+    animationFrame.current = null;
+    const { stable, pending } = splitStableMarkdown(queue.current.text);
+    const reasoning = queue.current.reasoning;
+    queue.current = { text: pending, reasoning: "" };
+    if (reasoning)
+      updateLast((turn) => applyAskEvent(turn, { kind: "reasoning", text: reasoning }));
+    if (stable) updateLast((turn) => applyAskEvent(turn, { kind: "text", text: stable }));
+  }, [updateLast]);
+
+  const scheduleDrain = useCallback(() => {
+    if (animationFrame.current !== null) return;
+    animationFrame.current = requestAnimationFrame(drainStable);
+  }, [drainStable]);
+
   useEffect(
     () => () => {
       controller.current?.abort();
+      if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
     },
     [],
   );
@@ -131,10 +209,12 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
       switch (event.kind) {
         case "text":
           queue.current.text += event.text;
+          scheduleDrain();
           return;
 
         case "reasoning":
           queue.current.reasoning += event.text;
+          scheduleDrain();
           return;
 
         case "done":
@@ -151,7 +231,7 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
           return;
       }
     },
-    [commit, drainNow],
+    [commit, drainNow, scheduleDrain],
   );
 
   const send = useCallback(
@@ -169,7 +249,7 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
 
       try {
         // The provider SDK is large and is already kept out of the initial bundle by the
-        // generator. Scapey follows the same rule: nothing loads until someone asks.
+        // generator. Scapi follows the same rule: nothing loads until someone asks.
         const { ask } = await import("./ask");
         await ask({
           question: question.trim(),
@@ -187,7 +267,7 @@ export function useScapey({ getScape, getSelection, apiKey, modelId, scapeId }: 
         // failure to even start one — a bad dynamic import, say.
         commit({
           kind: "error",
-          message: "Scapey could not start",
+          message: "Scapi could not start",
           detail: error instanceof Error ? error.message : String(error),
         });
         commit({ kind: "done", turn: null });

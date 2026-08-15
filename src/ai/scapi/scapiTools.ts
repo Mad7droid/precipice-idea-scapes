@@ -4,14 +4,14 @@ import { renderObjectBlock } from "@/ai/context";
 import type { ObjectId, Scape } from "@/core/types";
 
 /**
- * Scapey's tools. Every one of them reads.
+ * Scapi's tools. Every one of them reads.
  *
- * This is a capability boundary, not a style choice. Scapey reads the open web, so a page it
+ * This is a capability boundary, not a style choice. Scapi reads the open web, so a page it
  * fetches can carry instructions; with no write tool the worst a hostile page achieves is a
  * wrong answer, never an edited document. `applyAction` also stays the single mutation path,
  * which is the rule the whole architecture rests on.
  *
- * `scapeyTools.test.ts` asserts this set contains nothing that mutates. If someone adds a
+ * `scapiTools.test.ts` asserts this set contains nothing that mutates. If someone adds a
  * `CreateObject` here, that test is the thing that has to fail.
  */
 
@@ -20,7 +20,7 @@ const MAX_READ_IDS = 8;
 
 export interface ToolContext {
   scape: Scape;
-  /** Called as tools run, so the panel can show what Scapey is doing while it does it. */
+  /** Called as tools run, so the panel can show what Scapi is doing while it does it. */
   onActivity: (
     event: { kind: "reading-canvas"; query: string } | { kind: "reading-objects"; ids: ObjectId[] },
   ) => void;
@@ -38,7 +38,7 @@ function matches(scape: Scape, query: string): ObjectId[] {
   });
 }
 
-export function scapeyTools(context: ToolContext): ToolSet {
+export function scapiTools(context: ToolContext): ToolSet {
   return {
     search_scape: tool({
       description:

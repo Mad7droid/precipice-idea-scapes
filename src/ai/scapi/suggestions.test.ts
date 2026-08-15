@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { fixtureScape } from "@/core/fixtures";
-import { suggestScapeyQuestions } from "./suggestions";
+import { suggestScapiQuestions } from "./suggestions";
 
-describe("Scapey suggestions", () => {
+describe("Scapi suggestions", () => {
   it("derives questions from the open canvas", () => {
     const scape = fixtureScape();
-    const suggestions = suggestScapeyQuestions(scape);
+    const suggestions = suggestScapiQuestions(scape);
     expect(suggestions).toContain("Compare the wireframes and explain the trade-offs.");
     expect(suggestions).toContain("What's missing from this scape?");
   });
@@ -15,7 +15,7 @@ describe("Scapey suggestions", () => {
     for (const id of scape.objectOrder) {
       scape.relationships[`rel_${id}`] = { id: `rel_${id}`, from: id, to: id };
     }
-    expect(suggestScapeyQuestions(scape)).not.toContain(
+    expect(suggestScapiQuestions(scape)).not.toContain(
       "Which objects aren't connected to anything?",
     );
   });

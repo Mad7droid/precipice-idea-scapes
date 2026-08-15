@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { emptyScape, fixtureScape, syntheticScape } from "@/core/fixtures";
 import { CHAT_BUDGET_TOKENS, estimateTokens, projectScapeForChat } from "@/ai/context";
 import { applyAskEvent, startTurn } from "./reducer";
-import { scapeyTools } from "./scapeyTools";
-import { questionBlock, scapeContextBlock, scapeySystemPrompt } from "./scapeyPrompt";
+import { scapiTools } from "./scapiTools";
+import { questionBlock, scapeContextBlock, scapiSystemPrompt } from "./scapiPrompt";
 
 const scape = fixtureScape();
 
@@ -47,11 +47,11 @@ describe("projectScapeForChat", () => {
 
 describe("prompt", () => {
   it("frames canvas data as untrusted", () => {
-    expect(scapeySystemPrompt()).toMatch(/untrusted/i);
+    expect(scapiSystemPrompt()).toMatch(/untrusted/i);
   });
 
   it("tells the model it cannot change the document", () => {
-    expect(scapeySystemPrompt()).toMatch(/cannot change it/i);
+    expect(scapiSystemPrompt()).toMatch(/cannot change it/i);
   });
 
   it("marks the scape block as authoritative over older turns", () => {
@@ -80,12 +80,12 @@ describe("prompt", () => {
 });
 
 describe("tools", () => {
-  const tools = scapeyTools({ scape, onActivity: () => {} });
+  const tools = scapiTools({ scape, onActivity: () => {} });
 
   it("offer nothing that mutates", () => {
-    // The guard on the one-writer rule. If someone adds a write tool to Scapey, this is the
+    // The guard on the one-writer rule. If someone adds a write tool to Scapi, this is the
     // test that has to fail — `applyAction` is the only path state changes through, and
-    // Scapey reads the open web, so a tool here is a tool a hostile page can reach.
+    // Scapi reads the open web, so a tool here is a tool a hostile page can reach.
     const names = Object.keys(tools);
     expect(names.sort()).toEqual(["read_objects", "search_scape"]);
 
@@ -95,7 +95,7 @@ describe("tools", () => {
 
   it("search_scape finds objects by title and reports activity", () => {
     const onActivity = vi.fn();
-    const searching = scapeyTools({ scape, onActivity });
+    const searching = scapiTools({ scape, onActivity });
     const target = scape.objects[scape.objectOrder[0]];
 
     return searching.search_scape.execute!({ query: target.title }, {} as never).then(

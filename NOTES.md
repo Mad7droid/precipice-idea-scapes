@@ -398,10 +398,10 @@ an id" and debugged it as a code bug. `src/viewer/entry.test.ts` now pins the ta
 
 ---
 
-## Scapey — phase 1 (the spine)
+## Scapi — phase 1 (the spine)
 
-`src/ai/scapey/**`, plus `projectScapeForChat` in `src/ai/context.ts` and a panel mounted in
-`src/routes/dev/ai.tsx`. Plan: `.context/plans/scapey-implementation.md`.
+`src/ai/scapi/**`, plus `projectScapeForChat` in `src/ai/context.ts` and a panel mounted in
+`src/routes/dev/ai.tsx`. Plan: `.context/plans/scapi-implementation.md`.
 
 ### The invariant most likely to be "simplified" back into a bug
 
@@ -418,13 +418,13 @@ The same file also pins that `response` goes back **verbatim**, including the op
 `encryptedContent` on web-search results. Stripping it to save bytes silently kills citation
 continuity in later turns.
 
-### Completed Scapey product path
+### Completed Scapi product path
 
 - **Web search is optional.** It uses Anthropic's hosted `webSearch_20260209` tool through the
-  existing proxy. If the API key owner has not enabled it in Anthropic's Console, Scapey retries
+  existing proxy. If the API key owner has not enabled it in Anthropic's Console, Scapi retries
   the same question with canvas grounding only and explains why the toggle is unavailable.
 - **Display history is session-only.** Up to ten completed visible turns are kept under
-  `precipice.scapey.<scapeId>` and pruned if browser quota rejects a write. Provider model
+  `precipice.scapi.<scapeId>` and pruned if browser quota rejects a write. Provider model
   messages, including encrypted search payloads, remain in memory only; a reload shows the
   transcript but begins a fresh model conversation.
 - **Editor integration is complete.** `⌘J` opens the lazy-loaded 560px drawer (720px expanded),
@@ -435,11 +435,11 @@ continuity in later turns.
 
 ### Flags
 
-- **`ScapeyPanel` imports `react-markdown` statically.** That is fine today because its only
+- **`ScapiPanel` imports `react-markdown` statically.** That is fine today because its only
   importer is the lazily-loaded dev route — verified: the built `main` chunk contains neither
-  Scapey nor markdown. **When it is mounted in `Editor.tsx` (phase 5) it must be lazy-loaded**,
+  Scapi nor markdown. **When it is mounted in `Editor.tsx` (phase 5) it must be lazy-loaded**,
   or react-markdown lands in the editor's initial bundle.
-- **`worker/index.ts` rate limit is 20 req/min per IP** and a Scapey turn is 2–4 requests
+- **`worker/index.ts` rate limit is 20 req/min per IP** and a Scapi turn is 2–4 requests
   (each tool round-trip is its own request). Active use plus a generation can plausibly trip it,
   and the in-memory bucket is per-isolate so the real ceiling is non-deterministic. Raising it is
   an Integrator change; flagging rather than touching the Worker.

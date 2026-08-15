@@ -3,15 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureScape } from "@/core/fixtures";
 import { render } from "@/test/react";
 import type { AskEvent } from "./types";
-import { useScapey } from "./useScapey";
+import { splitStableMarkdown, useScapi } from "./useScapi";
 
 /**
- * The smoothing buffer.
+ * The streaming buffer.
  *
- * Text arrives in bursts shaped by the network; it has to leave at a steady rate, and a turn
- * must never look finished while there is still buffered text to show. Both are UX guarantees
- * rather than correctness ones, which is exactly why they need a test — nothing else in the
- * suite would notice them regressing.
+ * Text arrives in bursts shaped by the network. It should leave at a steady rate, while an
+ * unfinished Markdown construct remains invisible until it is safe to render. Both are UX
+ * guarantees rather than correctness ones, which is exactly why they need a test.
  */
 
 const stub = vi.hoisted(() => ({
@@ -38,10 +37,10 @@ afterEach(() => vi.unstubAllGlobals());
 
 async function harness(start = true) {
   const scape = fixtureScape();
-  let api!: ReturnType<typeof useScapey>;
+  let api!: ReturnType<typeof useScapi>;
 
   function Probe() {
-    api = useScapey({
+    api = useScapi({
       getScape: () => scape,
       apiKey: "sk-ant-test",
       modelId: "claude-sonnet-5",
@@ -68,13 +67,22 @@ async function harness(start = true) {
   };
 }
 
-describe("smoothing buffer", () => {
-  it("holds a burst off-screen until the complete answer can paint once", async () => {
+async function flushFrame() {
+  await act(async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+}
+
+describe("streaming buffer", () => {
+  it("paints stable prose on the next frame instead of waiting for completion", async () => {
     const h = await harness();
-    const burst = "x".repeat(400);
+    const burst = "Scapi is comparing the selected objects.";
 
     h.emit({ kind: "text", text: burst });
     expect(h.turn().body).toBe("");
+    await flushFrame();
+    expect(h.turn().body).toBe(burst);
+    expect(h.turn().status).toBe("streaming");
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
     expect(h.turn().body).toBe(burst);
     expect(h.turn().status).toBe("done");
@@ -82,10 +90,12 @@ describe("smoothing buffer", () => {
     h.mounted.unmount();
   });
 
-  it("does not reflow a trickle as individual provider chunks", async () => {
+  it("coalesces a trickle until the next frame", async () => {
     const h = await harness();
     h.emit({ kind: "text", text: "hi" });
     expect(h.turn().body).toBe("");
+    await flushFrame();
+    expect(h.turn().body).toBe("hi");
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
     expect(h.turn().body).toBe("hi");
     h.mounted.unmount();
@@ -95,6 +105,9 @@ describe("smoothing buffer", () => {
     const h = await harness();
     h.emit({ kind: "reasoning", text: "r".repeat(50) });
     h.emit({ kind: "text", text: "a".repeat(50) });
+    await flushFrame();
+    expect(h.turn().reasoning).toBe("r".repeat(50));
+    expect(h.turn().body).toBe("a".repeat(50));
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
 
     expect(h.turn().reasoning).toBe("r".repeat(50));
@@ -105,6 +118,7 @@ describe("smoothing buffer", () => {
   it("completes only after it has painted the buffered response", async () => {
     const h = await harness();
     h.emit({ kind: "text", text: "y".repeat(400) });
+    await flushFrame();
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
 
     expect(h.turn().body).toHaveLength(400);
@@ -116,7 +130,8 @@ describe("smoothing buffer", () => {
   it("shows everything at once when the user stops it", async () => {
     const h = await harness();
     h.emit({ kind: "text", text: "z".repeat(400) });
-    expect(h.turn().body).toBe("");
+    await flushFrame();
+    expect(h.turn().body).toHaveLength(400);
 
     // Stop means stop. Holding buffered text back after the user asked it to end is the one
     // moment smoothing would be felt as latency rather than as polish.
@@ -135,7 +150,8 @@ describe("activity", () => {
 
     // The status line leads the prose it describes — that is the point of it.
     expect(h.turn().activity).toHaveLength(1);
-    expect(h.turn().body).toBe("");
+    await flushFrame();
+    expect(h.turn().body).toHaveLength(400);
     h.mounted.unmount();
   });
 });
@@ -153,13 +169,38 @@ describe("lifecycle", () => {
       status: "done" as const,
       error: null,
     };
-    sessionStorage.setItem("precipice.scapey.scp_smoothing", JSON.stringify([saved]));
+    sessionStorage.setItem("precipice.scapi.scp_smoothing", JSON.stringify([saved]));
 
     const h = await harness(false);
     expect(h.read().turns).toEqual([saved]);
-    expect(JSON.parse(sessionStorage.getItem("precipice.scapey.scp_smoothing") ?? "[]")).toEqual([
+    expect(JSON.parse(sessionStorage.getItem("precipice.scapi.scp_smoothing") ?? "[]")).toEqual([
       saved,
     ]);
+    h.mounted.unmount();
+  });
+
+  it("migrates a Scapey transcript to the Scapi key without losing it", async () => {
+    const saved = [
+      {
+        id: "turn_legacy",
+        question: "Earlier",
+        pinned: [],
+        reasoning: "",
+        body: "Answer",
+        activity: [],
+        sources: [],
+        status: "done",
+        error: null,
+      },
+    ];
+    sessionStorage.setItem("precipice.scapey.scp_smoothing", JSON.stringify(saved));
+
+    const h = await harness(false);
+    expect(h.read().turns).toEqual(saved);
+    expect(JSON.parse(sessionStorage.getItem("precipice.scapi.scp_smoothing") ?? "[]")).toEqual(
+      saved,
+    );
+    expect(sessionStorage.getItem("precipice.scapey.scp_smoothing")).toBeNull();
     h.mounted.unmount();
   });
 
@@ -181,5 +222,37 @@ describe("lifecycle", () => {
     expect(h.read().turns).toHaveLength(0);
     expect(h.read().streaming).toBe(false);
     h.mounted.unmount();
+  });
+});
+
+describe("Markdown streaming safety", () => {
+  it("holds incomplete links, emphasis, inline code, and fences until they are complete", () => {
+    expect(splitStableMarkdown("Read [the guide")).toEqual({
+      stable: "Read ",
+      pending: "[the guide",
+    });
+    expect(splitStableMarkdown("Read [the guide](")).toEqual({
+      stable: "Read ",
+      pending: "[the guide](",
+    });
+    expect(splitStableMarkdown("Compare *these")).toEqual({
+      stable: "Compare ",
+      pending: "*these",
+    });
+    expect(splitStableMarkdown("Use `object_id")).toEqual({
+      stable: "Use ",
+      pending: "`object_id",
+    });
+    expect(splitStableMarkdown("before\n```ts\nconst x = 1")).toEqual({
+      stable: "before\n",
+      pending: "```ts\nconst x = 1",
+    });
+  });
+
+  it("passes complete Markdown through unchanged", () => {
+    expect(splitStableMarkdown("Read [the guide](https://example.com).")).toEqual({
+      stable: "Read [the guide](https://example.com).",
+      pending: "",
+    });
   });
 });

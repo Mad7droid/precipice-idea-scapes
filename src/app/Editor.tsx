@@ -8,8 +8,8 @@ import { Composer } from "@/ai/Composer";
 import type { Scope } from "@/ai/prompt";
 import { Ribbon } from "@/ai/Ribbon";
 import { useGeneration } from "@/ai/useGeneration";
-import { useScapey } from "@/ai/scapey/useScapey";
-import { suggestScapeyQuestions } from "@/ai/scapey/suggestions";
+import { useScapi } from "@/ai/scapi/useScapi";
+import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
 import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
 import { starterFor } from "@/starters";
 import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
@@ -37,9 +37,9 @@ import { TopBar, type ExportFormat } from "./TopBar";
 import { useAppSettings } from "./useAppSettings";
 import { useTheme } from "./theme";
 
-// Markdown is sizeable and Scapey is optional. Keep it out of the editor's first paint.
-const ScapeyPanel = lazy(() =>
-  import("@/ai/scapey/ScapeyPanel").then((module) => ({ default: module.ScapeyPanel })),
+// Markdown is sizeable and Scapi is optional. Keep it out of the editor's first paint.
+const ScapiPanel = lazy(() =>
+  import("@/ai/scapi/ScapiPanel").then((module) => ({ default: module.ScapiPanel })),
 );
 
 /**
@@ -68,8 +68,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [scapeyOpen, setScapeyOpen] = useState(false);
-  const [scapeyWide, setScapeyWide] = useState(false);
+  const [scapiOpen, setScapiOpen] = useState(false);
+  const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
   const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
 
@@ -123,7 +123,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
-  const scapey = useScapey({
+  const scapi = useScapi({
     getScape: () => useScapeStore.getState().scape,
     getSelection: () => useScapeStore.getState().selection,
     apiKey,
@@ -247,7 +247,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
       }
       if (meta && event.key.toLowerCase() === "j") {
         event.preventDefault();
-        setScapeyOpen(true);
+        setScapiOpen(true);
         setComposerCollapsed(true);
         return;
       }
@@ -391,12 +391,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
           run: focusComposer,
         },
         {
-          id: "ask-scapey",
+          id: "ask-scapi",
           label: "Ask Scapi",
           hint: "Ask about this scape",
           shortcut: "⌘J",
           run: () => {
-            setScapeyOpen(true);
+            setScapiOpen(true);
             setComposerCollapsed(true);
           },
         },
@@ -503,7 +503,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
           <div
             className={
               "pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4" +
-              (scapeyOpen ? " invisible" : "")
+              (scapiOpen ? " invisible" : "")
             }
           >
             <div className="pointer-events-auto w-full max-w-[720px]">
@@ -593,8 +593,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
         <div
           className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
           style={{
-            width: scapeyOpen
-              ? scapeyWide
+            width: scapiOpen
+              ? scapiWide
                 ? 720
                 : 560
               : rightPanelCollapsed
@@ -604,29 +604,29 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   : 0,
           }}
         >
-          {scapeyOpen ? (
+          {scapiOpen ? (
             <aside className="z-panel flex h-full w-full min-w-0 flex-col border-l border-subtle bg-surface">
               <div className="flex shrink-0 items-center justify-between border-b border-subtle px-4 py-2.5">
                 <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapi</h2>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setScapeyWide((wide) => !wide)}
+                    onClick={() => setScapiWide((wide) => !wide)}
                     className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
                   >
-                    {scapeyWide ? "Narrow" : "Expand"}
+                    {scapiWide ? "Narrow" : "Expand"}
                   </button>
                   <button
                     type="button"
-                    onClick={scapey.clear}
-                    disabled={scapey.turns.length === 0}
+                    onClick={scapi.clear}
+                    disabled={scapi.turns.length === 0}
                     className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg disabled:opacity-40"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
-                    onClick={() => setScapeyOpen(false)}
+                    onClick={() => setScapiOpen(false)}
                     aria-label="Close Scapi"
                     className="text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg"
                   >
@@ -635,29 +635,29 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 </div>
               </div>
               <Suspense fallback={<div className="flex-1 bg-surface" />}>
-                <ScapeyPanel
-                  turns={scapey.turns}
-                  streaming={scapey.streaming}
-                  onSend={(question) => void scapey.send(question)}
-                  onCancel={scapey.cancel}
-                  onRetry={scapey.retry}
+                <ScapiPanel
+                  turns={scapi.turns}
+                  streaming={scapi.streaming}
+                  onSend={(question) => void scapi.send(question)}
+                  onCancel={scapi.cancel}
+                  onRetry={scapi.retry}
                   onObjectClick={(id) => {
                     setSelectedEdgeId(null);
                     useScapeStore.getState().setSelection([id]);
                     commands.current?.focus(id);
                   }}
                   onTurnIntoEdit={(turn) => {
-                    setScapeyOpen(false);
+                    setScapiOpen(false);
                     void handleSend(
                       `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
                     );
                   }}
                   objects={scape.objects}
-                  webSearch={scapey.webSearch}
-                  onWebSearchChange={scapey.setWebSearch}
-                  searchAvailability={scapey.searchAvailability}
-                  restored={scapey.restored}
-                  suggestions={suggestScapeyQuestions(scape)}
+                  webSearch={scapi.webSearch}
+                  onWebSearchChange={scapi.setWebSearch}
+                  searchAvailability={scapi.searchAvailability}
+                  restored={scapi.restored}
+                  suggestions={suggestScapiQuestions(scape)}
                   disabled={!apiKey.trim()}
                   {...(apiKey.trim() ? {} : { placeholder: "Add an API key in settings to ask." })}
                 />
@@ -718,7 +718,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
               </aside>
             )
           )}
-          {!scapeyOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
+          {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
             <button
               type="button"
               onClick={() => setRightPanelCollapsed(true)}
@@ -729,7 +729,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
               ›
             </button>
           )}
-          {!scapeyOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
+          {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
             <span
               role="separator"
               aria-label="Resize inspector"

@@ -167,7 +167,7 @@ function renderDetail(scape: Scape, ids: Set<ObjectId>, budgetTokens: number): s
 }
 
 /**
- * Scapey's view of the document.
+ * Scapi's view of the document.
  *
  * A different job from `projectScape` above, and deliberately a different function rather than
  * a flag on that one. Generation needs to know the whole graph exists and read closely around

@@ -2,15 +2,15 @@ import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropicClient, describeProviderError } from "@/ai/provider";
 import type { ObjectId, Scape } from "@/core/types";
 import { responseTokenBudget } from "./answerFormat";
-import { questionBlock, scapeContextBlock, scapeySystemPrompt } from "./scapeyPrompt";
-import { scapeyTools } from "./scapeyTools";
+import { questionBlock, scapeContextBlock, scapiSystemPrompt } from "./scapiPrompt";
+import { scapiTools } from "./scapiTools";
 import type { AskEvent, ModelTurn } from "./types";
 
 /**
  * One question, answered.
  *
  * The counterpart to `generate()`: same provider, same error vocabulary, same "stream and report
- * as it arrives" shape. The difference is that nothing here can reach the reducer — Scapey has
+ * as it arrives" shape. The difference is that nothing here can reach the reducer — Scapi has
  * only read tools, so the entire result of this function is text on a screen.
  */
 
@@ -111,7 +111,7 @@ async function runAsk(
 
   try {
     const client = anthropicClient(options.apiKey);
-    const tools = scapeyTools({
+    const tools = scapiTools({
       scape,
       onActivity: (event) => onEvent({ kind: "activity", event }),
     });
@@ -121,7 +121,7 @@ async function runAsk(
 
     const result = streamText({
       model: client(options.modelId),
-      system: scapeySystemPrompt(),
+      system: scapiSystemPrompt(),
       maxOutputTokens: responseTokenBudget(options.question),
       messages: assembleMessages(scape, options.history, options.question, pinned),
       tools,
