@@ -63,7 +63,7 @@ const markdownComponents: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => <li className="pl-1">{children}</li>,
+  li: ({ children }) => (String(children).trim() ? <li className="pl-1">{children}</li> : null),
   strong: ({ children }) => (
     <strong className="font-[var(--weight-emph)] text-fg">{children}</strong>
   ),
@@ -299,7 +299,7 @@ const TurnView = memo(function TurnView({
       {/* Research can resolve before the model starts writing. Do not make its evidence wait
           behind the final prose. */}
       {turn.body && (
-        <AnswerCard>
+        <div className="space-y-3">
           <p className="mb-4 text-sm font-[var(--weight-emph)] text-fg-secondary">{label}</p>
           <AnswerBody body={turn.body} objects={objects} onObjectClick={onObjectClick} />
           {turn.status !== "streaming" && (
@@ -313,7 +313,7 @@ const TurnView = memo(function TurnView({
           {!streaming && turn.sources.length > 0 && (
             <Sources sources={turn.sources} title="Sources" />
           )}
-        </AnswerCard>
+        </div>
       )}
 
       {turn.status === "error" && turn.error && (
@@ -327,15 +327,6 @@ const TurnView = memo(function TurnView({
     </div>
   );
 });
-
-/** The card reserves its complete final layout before its text starts to reveal. */
-function AnswerCard({ children }: { children: React.ReactNode }) {
-  return (
-    <article className="animate-ribbon-line rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
-      {children}
-    </article>
-  );
-}
 
 /**
  * Separately memoised so that an activity or source event — which arrives while the body is
@@ -388,9 +379,11 @@ const MarkdownBlock = memo(function MarkdownBlock({
   components: Components;
 }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {content}
-    </ReactMarkdown>
+    <article className="animate-ribbon-line rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {content}
+      </ReactMarkdown>
+    </article>
   );
 });
 
@@ -407,7 +400,7 @@ function splitMarkdownBlocks(markdown: string): string[] {
     }
   }
   if (start < markdown.length) blocks.push(markdown.slice(start));
-  return blocks;
+  return blocks.filter((block) => block.replace(/^\s*(?:[-*+]|\|)?\s*$/gm, "").trim().length > 0);
 }
 
 /**
