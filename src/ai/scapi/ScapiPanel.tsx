@@ -49,17 +49,17 @@ const markdownComponents: Components = {
     </h4>
   ),
   p: ({ children }) => (
-    <p className="animate-ribbon-line mt-4 text-[length:var(--text-base)] leading-relaxed text-fg first:mt-0">
+    <p className="mt-4 text-[length:var(--text-base)] leading-relaxed text-fg first:mt-0">
       {children}
     </p>
   ),
   ul: ({ children }) => (
-    <ul className="animate-ribbon-line mt-5 list-disc space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
+    <ul className="mt-5 list-disc space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="animate-ribbon-line mt-5 list-decimal space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
+    <ol className="mt-5 list-decimal space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
       {children}
     </ol>
   ),
@@ -78,7 +78,7 @@ const markdownComponents: Components = {
     </a>
   ),
   table: ({ children }) => (
-    <div className="animate-ribbon-line mt-5 overflow-x-auto">
+    <div className="mt-5 overflow-x-auto">
       <table className="w-full border-collapse text-[length:var(--text-base)] text-fg">
         {children}
       </table>
@@ -379,7 +379,7 @@ const MarkdownBlock = memo(function MarkdownBlock({
   components: Components;
 }) {
   return (
-    <article className="animate-ribbon-line rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
+    <article className="rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
@@ -388,19 +388,11 @@ const MarkdownBlock = memo(function MarkdownBlock({
 });
 
 function splitMarkdownBlocks(markdown: string): string[] {
-  const blocks: string[] = [];
-  let start = 0;
-  let fenced = false;
-  for (let index = 0; index < markdown.length; index++) {
-    if (markdown.startsWith("```", index)) fenced = !fenced;
-    if (!fenced && markdown.startsWith("\n\n", index)) {
-      blocks.push(markdown.slice(start, index + 2));
-      start = index + 2;
-      index += 1;
-    }
-  }
-  if (start < markdown.length) blocks.push(markdown.slice(start));
-  return blocks.filter((block) => block.replace(/^\s*(?:[-*+]|\|)?\s*$/gm, "").trim().length > 0);
+  // An answer is one thought by default. Break only where the author explicitly introduces a
+  // new top-level section; paragraph breaks and lists stay in their natural conversational card.
+  return markdown
+    .split(/\n(?=##\s)/)
+    .filter((block) => block.replace(/^\s*(?:[-*+]|\|)?\s*$/gm, "").trim().length > 0);
 }
 
 /**

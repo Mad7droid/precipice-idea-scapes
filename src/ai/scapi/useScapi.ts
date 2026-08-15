@@ -199,7 +199,11 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
     queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
     if (reasoning)
       updateLast((turn) => applyAskEvent(turn, { kind: "reasoning", text: reasoning }));
-    if (text) updateLast((turn) => applyAskEvent(turn, { kind: "text", text }));
+    // A provider can end mid-emphasis. Show the useful words rather than a literal unmatched
+    // marker in the final, non-streaming answer.
+    const completeText = text.replace(/(^|[^*])\*\*([^*]+)$/m, "$1$2");
+    if (completeText)
+      updateLast((turn) => applyAskEvent(turn, { kind: "text", text: completeText }));
   }, [updateLast]);
 
   /** Paint meaningful chunks promptly, but cap updates so text never feels like a typewriter. */
