@@ -252,6 +252,10 @@ describe("Markdown streaming safety", () => {
       stable: "Use ",
       pending: "`object_id",
     });
+    expect(splitStableMarkdown("Before\n| One | Two |\n| --- | --- |")).toEqual({
+      stable: "Before\n",
+      pending: "| One | Two |\n| --- | --- |",
+    });
     expect(splitStableMarkdown("before\n```ts\nconst x = 1")).toEqual({
       stable: "before\n",
       pending: "```ts\nconst x = 1",

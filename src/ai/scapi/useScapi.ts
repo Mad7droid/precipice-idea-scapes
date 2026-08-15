@@ -63,6 +63,14 @@ export function splitStableMarkdown(markdown: string): { stable: string; pending
   const openLink = markdown.lastIndexOf("[");
   if (openLink > markdown.lastIndexOf("]")) boundary = Math.min(boundary, openLink);
 
+  // A pipe table is visually noisy until its terminating blank line. Keep its complete run
+  // atomic, rather than briefly showing raw pipes while rows are still arriving.
+  const table = /(?:^|\n)(\|[^\n]*\|(?:\n\|[^\n]*)*)$/.exec(markdown);
+  if (table?.index !== undefined) {
+    const tableStart = table.index + (table[0].startsWith("\n") ? 1 : 0);
+    boundary = Math.min(boundary, tableStart);
+  }
+
   // `[label](` is no longer caught by the unmatched-bracket check above, but still cannot be
   // rendered as a link until its destination closes. Keep the whole construct together.
   const linkDestination = markdown.lastIndexOf("](");
@@ -99,6 +107,7 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
 
   const history = useRef<ModelTurn[]>([]);
   const controller = useRef<AbortController | null>(null);
+  const streamTiming = useRef({ startedAt: 0, lastEventAt: 0 });
 
   const queue = useRef({ text: "", reasoning: "", lastPaintAt: 0 });
   const animationFrame = useRef<number | null>(null);
@@ -236,6 +245,14 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
 
   const handleEvent = useCallback(
     (event: AskEvent) => {
+      if (import.meta.env.DEV && window.location.pathname.startsWith("/dev/")) {
+        const now = performance.now();
+        console.debug("[Scapi stream]", event.kind, {
+          sinceStartMs: Math.round(now - streamTiming.current.startedAt),
+          sincePreviousEventMs: Math.round(now - streamTiming.current.lastEventAt),
+        });
+        streamTiming.current.lastEventAt = now;
+      }
       switch (event.kind) {
         case "text":
           queue.current.text += event.text;
@@ -274,6 +291,7 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
       controller.current = new AbortController();
 
       queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
+      streamTiming.current = { startedAt: performance.now(), lastEventAt: performance.now() };
       setTurns((prev) => [...prev, startTurn(question.trim(), pinned)]);
       setStreaming(true);
 

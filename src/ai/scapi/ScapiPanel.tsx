@@ -1,5 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { DotMatrix } from "@/ai/DotMatrix";
 import type { ObjectId, ScapeObject } from "@/core/types";
 import { answerFormatLabel, inferAnswerFormat } from "./answerFormat";
@@ -266,6 +267,13 @@ const TurnView = memo(function TurnView({
   onTurnIntoEdit?: (turn: Turn) => void;
 }) {
   const streaming = turn.status === "streaming";
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    if (!streaming) return;
+    setPaused(false);
+    const timer = window.setTimeout(() => setPaused(true), 700);
+    return () => window.clearTimeout(timer);
+  }, [streaming, turn.body, turn.activity.length]);
   const summary = summarise(turn.activity);
   const label = answerFormatLabel(inferAnswerFormat(turn.question));
 
@@ -282,6 +290,7 @@ const TurnView = memo(function TurnView({
           activity={turn.activity}
           sources={turn.sources}
           hasAnswer={Boolean(turn.body)}
+          paused={paused}
         />
       ) : (
         summary && <p className="mono px-1 text-fg-tertiary">{summary}</p>
@@ -378,7 +387,11 @@ const MarkdownBlock = memo(function MarkdownBlock({
   content: string;
   components: Components;
 }) {
-  return <ReactMarkdown components={components}>{content}</ReactMarkdown>;
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {content}
+    </ReactMarkdown>
+  );
 });
 
 function splitMarkdownBlocks(markdown: string): string[] {
@@ -533,10 +546,12 @@ function WorkingDisclosure({
   activity,
   sources,
   hasAnswer,
+  paused,
 }: {
   activity: ActivityEvent[];
   sources: Turn["sources"];
   hasAnswer: boolean;
+  paused: boolean;
 }) {
   const [expanded, setExpanded] = useState(!hasAnswer);
 
@@ -557,7 +572,7 @@ function WorkingDisclosure({
       >
         <span>{hasAnswer ? "Working" : "Working…"}</span>
         <span className="min-w-0 truncate pl-3 text-right">
-          {current ? activityLabel(current) : "connecting"}
+          {paused ? "preparing the next part" : current ? activityLabel(current) : "connecting"}
         </span>
         <span aria-hidden className="mono pl-2">
           {expanded ? "−" : "+"}
@@ -577,7 +592,11 @@ function WorkingDisclosure({
                 {activityLabel(event)}
               </p>
             ))}
-            <DotMatrix label={current ? activityLabel(current) : "connecting"} />
+            <DotMatrix
+              label={
+                paused ? "preparing the next part" : current ? activityLabel(current) : "connecting"
+              }
+            />
             {sources.length > 0 && <Sources sources={sources} title="Research" />}
           </div>
         </div>

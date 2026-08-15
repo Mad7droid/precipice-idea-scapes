@@ -61,4 +61,15 @@ describe("ScapiPanel streaming states", () => {
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("Canvas research");
   });
+
+  it("renders valid GFM comparison tables", () => {
+    const container = panel(
+      streamingTurn({
+        body: "| Editor | Viewer |\n| --- | --- |\n| Author | Reader |",
+        status: "done",
+      }),
+    );
+    expect(container.querySelectorAll("table")).toHaveLength(1);
+    expect(container.textContent).toContain("Author");
+  });
 });
