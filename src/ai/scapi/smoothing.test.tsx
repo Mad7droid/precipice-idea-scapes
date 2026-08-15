@@ -73,6 +73,13 @@ async function flushFrame() {
   });
 }
 
+async function flushCadence() {
+  await act(async () => {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+  });
+  await flushFrame();
+}
+
 describe("streaming buffer", () => {
   it("paints stable prose on the next frame instead of waiting for completion", async () => {
     const h = await harness();
@@ -95,6 +102,8 @@ describe("streaming buffer", () => {
     h.emit({ kind: "text", text: "hi" });
     expect(h.turn().body).toBe("");
     await flushFrame();
+    expect(h.turn().body).toBe("");
+    await flushCadence();
     expect(h.turn().body).toBe("hi");
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
     expect(h.turn().body).toBe("hi");
@@ -105,7 +114,7 @@ describe("streaming buffer", () => {
     const h = await harness();
     h.emit({ kind: "reasoning", text: "r".repeat(50) });
     h.emit({ kind: "text", text: "a".repeat(50) });
-    await flushFrame();
+    await flushCadence();
     expect(h.turn().reasoning).toBe("r".repeat(50));
     expect(h.turn().body).toBe("a".repeat(50));
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });

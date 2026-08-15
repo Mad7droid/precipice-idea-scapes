@@ -18,7 +18,8 @@ import type { AskEvent, ModelTurn, SearchAvailability, Turn } from "./types";
 /**
  * Provider chunks are not human-sized. Re-rendering each one makes Markdown jump, but holding
  * the entire answer until completion makes a capable assistant look idle. We coalesce deltas to
- * a frame and keep only ambiguous Markdown syntax off-screen, so stable prose appears promptly.
+ * a calm, bounded cadence and keep only ambiguous Markdown syntax off-screen, so stable prose
+ * appears promptly without turning into a character-by-character typewriter.
  */
 
 export interface UseScapiOptions {
@@ -29,6 +30,13 @@ export interface UseScapiOptions {
   apiKey: string;
   modelId: string;
   scapeId?: string;
+}
+
+const MIN_PAINT_INTERVAL_MS = 80;
+const MAX_BUFFERED_CHARS = 160;
+
+function isSemanticBoundary(text: string): boolean {
+  return /(?:[.!?…](?:\s|$)|\n\n)$/.test(text);
 }
 
 /**
@@ -92,8 +100,9 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
   const history = useRef<ModelTurn[]>([]);
   const controller = useRef<AbortController | null>(null);
 
-  const queue = useRef({ text: "", reasoning: "" });
+  const queue = useRef({ text: "", reasoning: "", lastPaintAt: 0 });
   const animationFrame = useRef<number | null>(null);
+  const paintTimer = useRef<number | null>(null);
   /** Prevent the initial empty render from overwriting a transcript before it has been read. */
   const storageHydrated = useRef(false);
 
@@ -174,32 +183,53 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
   /** Paint all accumulated Markdown, including a currently incomplete tail. */
   const drainNow = useCallback(() => {
     const { text, reasoning } = queue.current;
-    queue.current = { text: "", reasoning: "" };
+    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+    if (paintTimer.current !== null) window.clearTimeout(paintTimer.current);
+    animationFrame.current = null;
+    paintTimer.current = null;
+    queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
     if (reasoning)
       updateLast((turn) => applyAskEvent(turn, { kind: "reasoning", text: reasoning }));
     if (text) updateLast((turn) => applyAskEvent(turn, { kind: "text", text }));
   }, [updateLast]);
 
-  /** Paint stable text at most once per frame; leave ambiguous Markdown in the queue. */
+  /** Paint meaningful chunks promptly, but cap updates so text never feels like a typewriter. */
   const drainStable = useCallback(() => {
     animationFrame.current = null;
     const { stable, pending } = splitStableMarkdown(queue.current.text);
     const reasoning = queue.current.reasoning;
-    queue.current = { text: pending, reasoning: "" };
+    const elapsed = performance.now() - queue.current.lastPaintAt;
+    if (
+      stable &&
+      !isSemanticBoundary(stable) &&
+      stable.length < MAX_BUFFERED_CHARS &&
+      elapsed < MIN_PAINT_INTERVAL_MS
+    ) {
+      paintTimer.current = window.setTimeout(() => {
+        paintTimer.current = null;
+        scheduleDrainRef.current();
+      }, MIN_PAINT_INTERVAL_MS - elapsed);
+      return;
+    }
+    queue.current = { text: pending, reasoning: "", lastPaintAt: performance.now() };
     if (reasoning)
       updateLast((turn) => applyAskEvent(turn, { kind: "reasoning", text: reasoning }));
     if (stable) updateLast((turn) => applyAskEvent(turn, { kind: "text", text: stable }));
   }, [updateLast]);
 
+  const scheduleDrainRef = useRef<() => void>(() => {});
+
   const scheduleDrain = useCallback(() => {
-    if (animationFrame.current !== null) return;
+    if (animationFrame.current !== null || paintTimer.current !== null) return;
     animationFrame.current = requestAnimationFrame(drainStable);
   }, [drainStable]);
+  scheduleDrainRef.current = scheduleDrain;
 
   useEffect(
     () => () => {
       controller.current?.abort();
       if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+      if (paintTimer.current !== null) window.clearTimeout(paintTimer.current);
     },
     [],
   );
@@ -243,7 +273,7 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
       controller.current?.abort();
       controller.current = new AbortController();
 
-      queue.current = { text: "", reasoning: "" };
+      queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
       setTurns((prev) => [...prev, startTurn(question.trim(), pinned)]);
       setStreaming(true);
 
@@ -296,7 +326,7 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
 
   const clear = useCallback(() => {
     controller.current?.abort();
-    queue.current = { text: "", reasoning: "" };
+    queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
     history.current = [];
     if (storageKey) {
       try {

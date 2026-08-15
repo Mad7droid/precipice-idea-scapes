@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { DotMatrix } from "@/ai/DotMatrix";
 import type { ObjectId, ScapeObject } from "@/core/types";
@@ -117,6 +117,7 @@ export function ScapiPanel({
 }: ScapiPanelProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const [atLatest, setAtLatest] = useState(true);
 
   // A cheap signature of everything that can change the scroll height. Without a dependency
   // list this effect ran after *every* render and wrote `scrollTop` each time — a forced
@@ -126,7 +127,10 @@ export function ScapiPanel({
 
   useLayoutEffect(() => {
     const el = scroller.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
+    if (el && stick.current) {
+      el.scrollTop = el.scrollHeight;
+      setAtLatest(true);
+    }
   }, [growth]);
 
   const onScroll = () => {
@@ -135,10 +139,23 @@ export function ScapiPanel({
     // Follow the stream, but yield the moment the user scrolls away. A panel that drags you
     // back to the bottom while you are reading a table is worse than one that never follows.
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    setAtLatest(stick.current);
   };
 
+  const jumpToLatest = () => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    stick.current = true;
+    setAtLatest(true);
+  };
+  const liveStatus = statusFor(last, streaming);
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
+    <div className="relative flex h-full min-h-0 flex-col bg-surface">
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {liveStatus}
+      </p>
       <div
         ref={scroller}
         onScroll={onScroll}
@@ -170,6 +187,16 @@ export function ScapiPanel({
           </ol>
         )}
       </div>
+
+      {!atLatest && turns.length > 0 && (
+        <button
+          type="button"
+          onClick={jumpToLatest}
+          className="absolute bottom-24 right-4 rounded-full border border-subtle bg-raised px-3 py-1.5 text-xs text-fg shadow-sm transition-colors duration-instant ease-out hover:bg-hover active:scale-[0.98]"
+        >
+          Jump to latest
+        </button>
+      )}
 
       <ScapiComposer
         streaming={streaming}
@@ -251,15 +278,17 @@ const TurnView = memo(function TurnView({
       {turn.reasoning && <ReasoningDisclosure turn={turn} />}
 
       {streaming ? (
-        <WorkingDisclosure activity={turn.activity} hasAnswer={Boolean(turn.body)} />
+        <WorkingDisclosure
+          activity={turn.activity}
+          sources={turn.sources}
+          hasAnswer={Boolean(turn.body)}
+        />
       ) : (
         summary && <p className="mono px-1 text-fg-tertiary">{summary}</p>
       )}
 
       {/* Research can resolve before the model starts writing. Do not make its evidence wait
           behind the final prose. */}
-      {!turn.body && turn.sources.length > 0 && <Sources sources={turn.sources} title="Research" />}
-
       {turn.body && (
         <AnswerCard>
           <p className="mb-4 text-sm font-[var(--weight-emph)] text-fg-secondary">{label}</p>
@@ -272,12 +301,14 @@ const TurnView = memo(function TurnView({
               onTurnIntoEdit={onTurnIntoEdit}
             />
           )}
-          {turn.sources.length > 0 && <Sources sources={turn.sources} title="Sources" />}
+          {!streaming && turn.sources.length > 0 && (
+            <Sources sources={turn.sources} title="Sources" />
+          )}
         </AnswerCard>
       )}
 
       {turn.status === "error" && turn.error && (
-        <div className="rounded-md border border-subtle bg-raised p-3">
+        <div role="alert" className="rounded-md border border-subtle bg-raised p-3">
           <p className="text-sm font-[var(--weight-emph)] text-danger">{turn.error.message}</p>
           <p className="mt-0.5 text-xs text-fg-secondary">{turn.error.detail}</p>
         </div>
@@ -310,25 +341,61 @@ const AnswerBody = memo(function AnswerBody({
   objects: Record<ObjectId, ScapeObject>;
   onObjectClick?: (id: ObjectId) => void;
 }) {
-  const components: Components = {
-    ...markdownComponents,
-    code: ({ children }) => {
-      const id = String(children).replace(/\n$/, "");
-      const object = objects[id];
-      return object ? (
-        <ObjectChip
-          object={object}
-          {...(onObjectClick ? { onClick: () => onObjectClick(id) } : {})}
-        />
-      ) : (
-        <code className="mono rounded-xs bg-inset px-1 py-0.5 normal-case tracking-normal text-fg-secondary">
-          {children}
-        </code>
-      );
-    },
-  };
-  return <ReactMarkdown components={components}>{body}</ReactMarkdown>;
+  const blocks = useMemo(() => splitMarkdownBlocks(body), [body]);
+  const components = useMemo<Components>(
+    () => ({
+      ...markdownComponents,
+      code: ({ children }) => {
+        const id = String(children).replace(/\n$/, "");
+        const object = objects[id];
+        return object ? (
+          <ObjectChip
+            object={object}
+            {...(onObjectClick ? { onClick: () => onObjectClick(id) } : {})}
+          />
+        ) : (
+          <code className="mono rounded-xs bg-inset px-1 py-0.5 normal-case tracking-normal text-fg-secondary">
+            {children}
+          </code>
+        );
+      },
+    }),
+    [objects, onObjectClick],
+  );
+  return (
+    <>
+      {blocks.map((block, index) => (
+        <MarkdownBlock key={index} content={block} components={components} />
+      ))}
+    </>
+  );
 });
+
+const MarkdownBlock = memo(function MarkdownBlock({
+  content,
+  components,
+}: {
+  content: string;
+  components: Components;
+}) {
+  return <ReactMarkdown components={components}>{content}</ReactMarkdown>;
+});
+
+function splitMarkdownBlocks(markdown: string): string[] {
+  const blocks: string[] = [];
+  let start = 0;
+  let fenced = false;
+  for (let index = 0; index < markdown.length; index++) {
+    if (markdown.startsWith("```", index)) fenced = !fenced;
+    if (!fenced && markdown.startsWith("\n\n", index)) {
+      blocks.push(markdown.slice(start, index + 2));
+      start = index + 2;
+      index += 1;
+    }
+  }
+  if (start < markdown.length) blocks.push(markdown.slice(start));
+  return blocks;
+}
 
 /**
  * Thinking is useful evidence while Scapi is waiting, then yields to the answer as soon as it
@@ -425,7 +492,7 @@ function TurnActions({
 
 function Sources({ sources, title }: { sources: Turn["sources"]; title: string }) {
   return (
-    <section className="mt-3 border-t border-subtle pt-3" aria-live="polite">
+    <section className="mt-3 border-t border-subtle pt-3">
       <h4 className="text-xs font-[var(--weight-emph)] text-fg-secondary">{title}</h4>
       <ol className="mt-1.5 space-y-1 text-xs">
         {sources.map((source, index) => {
@@ -464,9 +531,11 @@ function Sources({ sources, title }: { sources: Turn["sources"]; title: string }
  */
 function WorkingDisclosure({
   activity,
+  sources,
   hasAnswer,
 }: {
   activity: ActivityEvent[];
+  sources: Turn["sources"];
   hasAnswer: boolean;
 }) {
   const [expanded, setExpanded] = useState(!hasAnswer);
@@ -479,7 +548,7 @@ function WorkingDisclosure({
   const current = activity[activity.length - 1];
 
   return (
-    <section className="rounded-md bg-inset" aria-live="polite">
+    <section className="rounded-md bg-inset">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -509,11 +578,21 @@ function WorkingDisclosure({
               </p>
             ))}
             <DotMatrix label={current ? activityLabel(current) : "connecting"} />
+            {sources.length > 0 && <Sources sources={sources} title="Research" />}
           </div>
         </div>
       </div>
     </section>
   );
+}
+
+function statusFor(turn: Turn | undefined, streaming: boolean): string {
+  if (!turn) return "";
+  if (turn.status === "error") return `Scapi could not respond: ${turn.error?.message ?? "error"}`;
+  if (!streaming && turn.status === "done") return "Scapi response complete.";
+  if (streaming && turn.body) return "Scapi is responding.";
+  const current = turn.activity[turn.activity.length - 1];
+  return current ? `Scapi is ${activityLabel(current)}.` : "Scapi is working.";
 }
 
 function activityLabel(event: ActivityEvent): string {
