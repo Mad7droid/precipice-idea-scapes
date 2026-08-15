@@ -20,7 +20,12 @@ export type AnswerFormat =
 export function inferAnswerFormat(question: string): AnswerFormat {
   const text = question.toLowerCase();
   if (/\b(summari[sz]e|summary|tldr|shorten|brief)\b/.test(text)) return "summarise";
-  if (/\b(expand|more detail|elaborate|go deeper)\b/.test(text)) return "expand";
+  if (
+    /\b(expand|more detail|detail(?:ed)?|detail out|elaborate|go deeper|in[- ]depth|comprehensive|entire|thorough(?:ly)?)\b/.test(
+      text,
+    )
+  )
+    return "expand";
   if (/\b(simplify|plainer|plain language|eli5)\b/.test(text)) return "simplify";
   if (/\b(compare|versus|vs\.?|difference between)\b/.test(text)) return "compare";
   if (/\b(debug|troubleshoot|why (?:is|does|isn't|is not)|broken|error|problem)\b/.test(text)) {
@@ -72,7 +77,7 @@ export function responseGuidance(question: string): string {
     case "simplify":
       return "Use plain language, short sentences, and define unavoidable jargon in place. Keep the meaning intact.";
     case "compare":
-      return "Lead with the deciding difference, then use a compact markdown table. End with one rule of thumb if useful.";
+      return "Lead with the deciding difference. In Scapi's narrow panel, use a two-column Aspect and Comparison table, or short headed sections for three or more options. Do not create a wide multi-option table. End with one rule of thumb if useful.";
     case "troubleshoot":
       return "Lead with the most likely diagnosis. Then give evidence from the scape and the smallest ordered steps to resolve it.";
     case "suggest":

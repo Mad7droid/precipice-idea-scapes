@@ -14,6 +14,8 @@ describe("answer format hints", () => {
     ["How do I improve this flow?", "suggest"],
     ["Research the current market", "research"],
     ["Summarise this scape", "summarise"],
+    ["Detail out the entire thing with comparisons", "expand"],
+    ["Give me an in-depth review", "expand"],
   ] as const)("infers %s as %s", (question, expected) => {
     expect(inferAnswerFormat(question)).toBe(expected);
   });
@@ -26,6 +28,7 @@ describe("answer format hints", () => {
     expect(responseGuidance("Summarise this flow")).toMatch(/at most four bullets/i);
     expect(responseGuidance("Why is verification broken?")).toMatch(/diagnosis/i);
     expect(responseGuidance("Simplify this")).toMatch(/plain language/i);
+    expect(responseGuidance("Compare these wireframes")).toMatch(/two-column/i);
   });
 
   it("caps ordinary replies more tightly than deliberate deep dives", () => {

@@ -78,19 +78,25 @@ const markdownComponents: Components = {
     </a>
   ),
   table: ({ children }) => (
-    <div className="mt-5 overflow-x-auto">
-      <table className="w-full border-collapse text-[length:var(--text-base)] text-fg">
+    <section className="mt-5" aria-label="Comparison table">
+      <div className="mb-2 flex items-center justify-between gap-3 text-xs text-fg-tertiary">
+        <span>Comparison</span>
+        <span>Scroll sideways to see all columns</span>
+      </div>
+      <div className="overflow-x-auto pb-2">
+        <table className="min-w-full border-collapse text-[length:var(--text-base)] text-fg">
         {children}
-      </table>
-    </div>
+        </table>
+      </div>
+    </section>
   ),
   th: ({ children }) => (
-    <th className="border-b border-subtle px-3 py-2 text-left align-top font-[var(--weight-ui)] text-fg-secondary">
+    <th className="min-w-36 border-b border-subtle px-3 py-2 text-left align-top font-[var(--weight-ui)] text-fg-secondary">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="border-b border-subtle px-3 py-2 align-top leading-relaxed">{children}</td>
+    <td className="min-w-36 border-b border-subtle px-3 py-2 align-top leading-relaxed">{children}</td>
   ),
   blockquote: ({ children }) => (
     <blockquote className="mt-5 border-l-2 border-default pl-4 text-[length:var(--text-base)] leading-relaxed text-fg-secondary">

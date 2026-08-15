@@ -71,6 +71,7 @@ describe("ScapiPanel streaming states", () => {
     );
     expect(container.querySelectorAll("table")).toHaveLength(1);
     expect(container.textContent).toContain("Author");
+    expect(container.textContent).toContain("Scroll sideways to see all columns");
   });
 
   it("keeps semantic Markdown fragments inside one continuous answer surface", () => {
