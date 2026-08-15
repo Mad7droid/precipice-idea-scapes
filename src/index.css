@@ -23,6 +23,28 @@
   }
 }
 
+/* Streamed answer chunks settle in with a small opacity-only reveal. The animation names
+   alternate from React as content grows, so the existing card stays mounted and readable. */
+@keyframes scapi-stream-reveal-a {
+  from { opacity: 0.84; }
+  to { opacity: 1; }
+}
+
+@keyframes scapi-stream-reveal-b {
+  from { opacity: 0.84; }
+  to { opacity: 1; }
+}
+
+.scapi-stream-reveal-a,
+.scapi-stream-reveal-b {
+  animation-duration: 240ms;
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+}
+
+.scapi-stream-reveal-a { animation-name: scapi-stream-reveal-a; }
+.scapi-stream-reveal-b { animation-name: scapi-stream-reveal-b; }
+
 .rich-text p + p {
   margin-top: 0.4em;
 }

@@ -75,7 +75,7 @@ async function flushFrame() {
 
 async function flushCadence() {
   await act(async () => {
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 180));
   });
   await flushFrame();
 }
@@ -88,7 +88,7 @@ describe("streaming buffer", () => {
     h.emit({ kind: "text", text: burst });
     expect(h.turn().body).toBe("");
     await flushFrame();
-    expect(h.turn().body).toBe(burst);
+    expect(h.turn().body).toBe("Scapi is comparing ");
     expect(h.turn().status).toBe("streaming");
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
     expect(h.turn().body).toBe(burst);

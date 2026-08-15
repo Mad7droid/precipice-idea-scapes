@@ -301,7 +301,12 @@ const TurnView = memo(function TurnView({
       {turn.body && (
         <div className="space-y-3">
           <p className="mb-4 text-sm font-[var(--weight-emph)] text-fg-secondary">{label}</p>
-          <AnswerBody body={turn.body} objects={objects} onObjectClick={onObjectClick} />
+          <AnswerBody
+            body={turn.body}
+            streaming={streaming}
+            objects={objects}
+            onObjectClick={onObjectClick}
+          />
           {turn.status !== "streaming" && (
             <TurnActions
               body={turn.body}
@@ -334,10 +339,12 @@ const TurnView = memo(function TurnView({
  */
 const AnswerBody = memo(function AnswerBody({
   body,
+  streaming,
   objects,
   onObjectClick,
 }: {
   body: string;
+  streaming: boolean;
   objects: Record<ObjectId, ScapeObject>;
   onObjectClick?: (id: ObjectId) => void;
 }) {
@@ -365,7 +372,12 @@ const AnswerBody = memo(function AnswerBody({
   return (
     <>
       {blocks.map((block, index) => (
-        <MarkdownBlock key={index} content={block} components={components} />
+        <MarkdownBlock
+          key={index}
+          content={block}
+          streaming={streaming}
+          components={components}
+        />
       ))}
     </>
   );
@@ -373,13 +385,24 @@ const AnswerBody = memo(function AnswerBody({
 
 const MarkdownBlock = memo(function MarkdownBlock({
   content,
+  streaming,
   components,
 }: {
   content: string;
+  streaming: boolean;
   components: Components;
 }) {
+  // The alternating animation names restart only when this block receives new content. Starting
+  // above zero keeps existing text legible while the newly painted chunk settles into place.
+  const revealClass = streaming
+    ? content.length % 2 === 0
+      ? "scapi-stream-reveal-a"
+      : "scapi-stream-reveal-b"
+    : "";
   return (
-    <article className="rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
+    <article
+      className={`rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm ${revealClass}`}
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
