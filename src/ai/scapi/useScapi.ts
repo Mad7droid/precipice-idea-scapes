@@ -34,6 +34,7 @@ export interface UseScapiOptions {
 
 const MIN_PAINT_INTERVAL_MS = 80;
 const MAX_BUFFERED_CHARS = 160;
+const MAX_CHARS_PER_PAINT = 42;
 
 function isSemanticBoundary(text: string): boolean {
   return /(?:[.!?…](?:\s|$)|\n\n)$/.test(text);
@@ -96,6 +97,13 @@ export function splitStableMarkdown(markdown: string): { stable: string; pending
   if (/[*_`\[]$/.test(markdown)) boundary = Math.min(boundary, markdown.length - 1);
 
   return { stable: markdown.slice(0, boundary), pending: markdown.slice(boundary) };
+}
+
+export function cleanFinalMarkdown(markdown: string): string {
+  return markdown
+    .replace(/(^|[^*])\*\*([^*]+)$/m, "$1$2")
+    .replace(/\n\s*[-*+]\s*$/m, "")
+    .trimEnd();
 }
 
 export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: UseScapiOptions) {
@@ -201,7 +209,7 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
       updateLast((turn) => applyAskEvent(turn, { kind: "reasoning", text: reasoning }));
     // A provider can end mid-emphasis. Show the useful words rather than a literal unmatched
     // marker in the final, non-streaming answer.
-    const completeText = text.replace(/(^|[^*])\*\*([^*]+)$/m, "$1$2");
+    const completeText = cleanFinalMarkdown(text);
     if (completeText)
       updateLast((turn) => applyAskEvent(turn, { kind: "text", text: completeText }));
   }, [updateLast]);
@@ -224,10 +232,23 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
       }, MIN_PAINT_INTERVAL_MS - elapsed);
       return;
     }
-    queue.current = { text: pending, reasoning: "", lastPaintAt: performance.now() };
+    let visible = stable;
+    let remainder = "";
+    if (
+      stable.length > MAX_CHARS_PER_PAINT &&
+      !/[\[\]`*]/.test(stable.slice(0, MAX_CHARS_PER_PAINT))
+    ) {
+      const boundary = stable.lastIndexOf(" ", MAX_CHARS_PER_PAINT);
+      if (boundary > 0) {
+        visible = stable.slice(0, boundary + 1);
+        remainder = stable.slice(boundary + 1);
+      }
+    }
+    queue.current = { text: remainder + pending, reasoning: "", lastPaintAt: performance.now() };
     if (reasoning)
       updateLast((turn) => applyAskEvent(turn, { kind: "reasoning", text: reasoning }));
-    if (stable) updateLast((turn) => applyAskEvent(turn, { kind: "text", text: stable }));
+    if (visible) updateLast((turn) => applyAskEvent(turn, { kind: "text", text: visible }));
+    if (remainder) scheduleDrainRef.current();
   }, [updateLast]);
 
   const scheduleDrainRef = useRef<() => void>(() => {});
@@ -270,6 +291,7 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
 
         case "done":
           drainNow();
+          updateLast((turn) => ({ ...turn, body: cleanFinalMarkdown(turn.body) }));
           commit(event);
           setStreaming(false);
           return;
