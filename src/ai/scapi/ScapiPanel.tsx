@@ -49,17 +49,17 @@ const markdownComponents: Components = {
     </h4>
   ),
   p: ({ children }) => (
-    <p className="mt-4 text-[length:var(--text-base)] leading-relaxed text-fg first:mt-0">
+    <p className="animate-ribbon-line mt-4 text-[length:var(--text-base)] leading-relaxed text-fg first:mt-0">
       {children}
     </p>
   ),
   ul: ({ children }) => (
-    <ul className="mt-5 list-disc space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
+    <ul className="animate-ribbon-line mt-5 list-disc space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="mt-5 list-decimal space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
+    <ol className="animate-ribbon-line mt-5 list-decimal space-y-4 pl-5 text-[length:var(--text-base)] leading-relaxed text-fg">
       {children}
     </ol>
   ),
@@ -78,7 +78,7 @@ const markdownComponents: Components = {
     </a>
   ),
   table: ({ children }) => (
-    <div className="mt-5 overflow-x-auto">
+    <div className="animate-ribbon-line mt-5 overflow-x-auto">
       <table className="w-full border-collapse text-[length:var(--text-base)] text-fg">
         {children}
       </table>
@@ -331,7 +331,7 @@ const TurnView = memo(function TurnView({
 /** The card reserves its complete final layout before its text starts to reveal. */
 function AnswerCard({ children }: { children: React.ReactNode }) {
   return (
-    <article className="rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
+    <article className="animate-ribbon-line rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
       {children}
     </article>
   );
