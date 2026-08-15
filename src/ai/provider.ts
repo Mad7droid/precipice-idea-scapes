@@ -66,7 +66,7 @@ export function anthropicClient(apiKey: string): AnthropicProvider {
   return createAnthropic({ apiKey, baseURL: proxyBaseUrl() });
 }
 
-/** Turns provider failures into copy that says what happened and what to do about it. */
+/** Turns provider failures into safe, actionable copy. Raw provider diagnostics stay out of the UI. */
 export function describeProviderError(error: unknown): { message: string; detail: string } {
   if (error instanceof MissingApiKeyError) {
     return {
@@ -80,14 +80,14 @@ export function describeProviderError(error: unknown): { message: string; detail
 
   if (status === 401 || /authentication|invalid x-api-key/i.test(raw)) {
     return {
-      message: "That API key was rejected",
-      detail: "Check the key in settings. It should start with sk-ant-.",
+      message: "Scapi could not connect",
+      detail: "Check the API key in settings, then try again.",
     };
   }
   if (status === 429 || /rate.?limit/i.test(raw)) {
     return {
-      message: "Rate limited by Anthropic",
-      detail: "Wait a moment and run the prompt again.",
+      message: "Scapi is temporarily busy",
+      detail: "Wait a moment, then try again.",
     };
   }
   if (status === 404 || /model.*(not found|not available)|invalid.*model/i.test(raw)) {
@@ -97,10 +97,13 @@ export function describeProviderError(error: unknown): { message: string; detail
     };
   }
   if (status === 529 || /overloaded/i.test(raw)) {
-    return { message: "Anthropic is overloaded", detail: "Try again in a few seconds." };
+    return { message: "Scapi is temporarily busy", detail: "Try again in a few seconds." };
   }
   if (/fetch|network|Failed to fetch/i.test(raw)) {
     return { message: "Could not reach Anthropic", detail: "Check your connection and try again." };
   }
-  return { message: "Generation failed", detail: raw };
+  return {
+    message: "Something went wrong",
+    detail: "Scapi could not complete this response. Please try again.",
+  };
 }

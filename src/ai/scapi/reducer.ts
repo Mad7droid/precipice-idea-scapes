@@ -49,6 +49,7 @@ export function applyAskEvent(turn: Turn, event: AskEvent): Turn {
 
     // Availability is panel-level state. It does not belong in the display transcript.
     case "search-unavailable":
+    case "history-reset":
       return turn;
 
     case "error":

@@ -88,6 +88,8 @@ export type AskEvent =
   | { kind: "activity"; event: ActivityEvent }
   | { kind: "source"; source: Source }
   | { kind: "search-unavailable" }
+  /** An invalid provider tool record was discarded before retrying the request. */
+  | { kind: "history-reset" }
   | { kind: "error"; message: string; detail: string }
   /** The turn completed and may be recorded. Absent `turn` means nothing is safe to keep. */
   | { kind: "done"; turn: ModelTurn | null };

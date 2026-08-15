@@ -298,6 +298,12 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
           setStreaming(false);
           return;
 
+        case "history-reset":
+          // The provider rejected an internal tool record from an older turn. Keep the visible
+          // transcript, but start the model's context fresh so the retry and later turns work.
+          history.current = [];
+          return;
+
         default:
           // Activity and sources are low-frequency and ordering-sensitive relative to each
           // other, but not to the text — a status line may lead the prose it describes.

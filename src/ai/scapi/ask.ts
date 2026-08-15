@@ -93,6 +93,7 @@ async function runAsk(
   options: AskOptions,
   webSearch: boolean,
   retriedWithoutSearch = false,
+  retriedWithoutHistory = false,
 ): Promise<void> {
   const { onEvent, scape, signal } = options;
   const pinned = options.pinned ?? [];
@@ -187,12 +188,31 @@ async function runAsk(
       await runAsk(options, false, true);
       return;
     }
+    if (
+      !cancelled &&
+      !sawText &&
+      options.history.length > 0 &&
+      !retriedWithoutHistory &&
+      isMalformedToolHistory(error)
+    ) {
+      // Tool transcript records are provider-shaped and normally replay safely. If a provider
+      // rejects one of its own internal records, preserve the visible transcript but retry this
+      // question with a fresh model context rather than showing a dead-end error.
+      onEvent({ kind: "history-reset" });
+      await runAsk({ ...options, history: [] }, webSearch, retriedWithoutSearch, true);
+      return;
+    }
     if (!cancelled) onEvent({ kind: "error", ...describeProviderError(error) });
 
     // Nothing partial is ever recorded. A half-turn in history is worse than a lost one: it
     // leaves a question the model will try to answer again, or an answer to no question.
     onEvent({ kind: "done", turn: null });
   }
+}
+
+export function isMalformedToolHistory(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:code_execution|tool use).*without a corresponding.*tool.result/i.test(message);
 }
 
 export function isWebSearchUnavailable(error: unknown): boolean {

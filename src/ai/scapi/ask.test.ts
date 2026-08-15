@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isWebSearchUnavailable } from "./ask";
+import { isMalformedToolHistory, isWebSearchUnavailable } from "./ask";
+import { describeProviderError } from "@/ai/provider";
 
 describe("web search fallback", () => {
   it.each([
@@ -16,4 +17,21 @@ describe("web search fallback", () => {
       expect(isWebSearchUnavailable(new Error(message))).toBe(false);
     },
   );
+});
+
+describe("safe error presentation", () => {
+  it("recognises malformed internal tool history for a clean-context retry", () => {
+    expect(
+      isMalformedToolHistory(
+        new Error("messages.11: code_execution tool use was found without a corresponding tool_result block"),
+      ),
+    ).toBe(true);
+  });
+
+  it("never exposes an unknown provider diagnostic to the user", () => {
+    expect(describeProviderError(new Error("internal id secret_123 failed"))).toEqual({
+      message: "Something went wrong",
+      detail: "Scapi could not complete this response. Please try again.",
+    });
+  });
 });
