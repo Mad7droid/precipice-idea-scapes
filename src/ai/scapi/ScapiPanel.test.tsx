@@ -72,4 +72,14 @@ describe("ScapiPanel streaming states", () => {
     expect(container.querySelectorAll("table")).toHaveLength(1);
     expect(container.textContent).toContain("Author");
   });
+
+  it("keeps semantic Markdown fragments inside one continuous answer surface", () => {
+    const container = panel(
+      streamingTurn({ body: "First point.\n\nSecond point.", status: "streaming" }),
+    );
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(container.textContent).toContain("First point.");
+    expect(container.textContent).toContain("Second point.");
+  });
 });

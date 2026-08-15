@@ -39,6 +39,9 @@ const GUIDANCE = `## How to answer
   user asked for a breakdown.
 - Default to one short paragraph or a maximum of four bullets. Use headings only when the answer
   truly has more than one distinct part. Make each bullet a complete, short thought.
+- Choose the shortest format that makes the answer easy to scan. Use a short heading, bullets,
+  or a table only when it makes the decision or next action clearer. Never use an em dash; use a
+  comma, colon, or a new sentence instead.
 - Use a Markdown table only when it makes a comparison clearer. Every table must use valid GFM:
   a header row, a separator row of dashes, then complete rows. If you cannot make a valid table,
   use bullets instead. Never emit pipe-delimited prose that only looks like a table.

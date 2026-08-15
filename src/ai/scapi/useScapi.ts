@@ -32,11 +32,11 @@ export interface UseScapiOptions {
   scapeId?: string;
 }
 
-// Keep the reveal deliberately calm: roughly half the previous throughput, while still
-// flushing at semantic boundaries so short sentences never feel artificially delayed.
-const MIN_PAINT_INTERVAL_MS = 160;
-const MAX_BUFFERED_CHARS = 160;
-const MAX_CHARS_PER_PAINT = 21;
+// Network chunks are arbitrary. Present short, readable phrases at a steady cadence instead.
+// This is fast enough for slow providers without allowing a fast provider to visibly burst.
+const MIN_PAINT_INTERVAL_MS = 50;
+const MAX_BUFFERED_CHARS = 120;
+const MAX_CHARS_PER_PAINT = 56;
 
 function isSemanticBoundary(text: string): boolean {
   return /(?:[.!?…](?:\s|$)|\n\n)$/.test(text);

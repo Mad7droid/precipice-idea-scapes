@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fixtureScape } from "@/core/fixtures";
 import { render } from "@/test/react";
 import type { AskEvent } from "./types";
+import { splitMarkdownBlocks } from "./ScapiPanel";
 import { splitStableMarkdown, useScapi } from "./useScapi";
 
 /**
@@ -75,7 +76,7 @@ async function flushFrame() {
 
 async function flushCadence() {
   await act(async () => {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 180));
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 70));
   });
   await flushFrame();
 }
@@ -88,7 +89,7 @@ describe("streaming buffer", () => {
     h.emit({ kind: "text", text: burst });
     expect(h.turn().body).toBe("");
     await flushFrame();
-    expect(h.turn().body).toBe("Scapi is comparing ");
+    expect(h.turn().body).toBe(burst);
     expect(h.turn().status).toBe("streaming");
     h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
     expect(h.turn().body).toBe(burst);
@@ -267,5 +268,19 @@ describe("Markdown streaming safety", () => {
       stable: "Read [the guide](https://example.com).",
       pending: "",
     });
+  });
+
+  it("keeps completed semantic blocks separate from the active Markdown tail", () => {
+    expect(splitMarkdownBlocks("First paragraph.\n\nSecond paragraph.")).toEqual([
+      "First paragraph.",
+      "Second paragraph.",
+    ]);
+  });
+
+  it("does not split a fenced code block at an internal blank line", () => {
+    expect(splitMarkdownBlocks("```ts\nconst a = 1;\n\nconst b = 2;\n```\n\nDone.")).toEqual([
+      "```ts\nconst a = 1;\n\nconst b = 2;\n```",
+      "Done.",
+    ]);
   });
 });

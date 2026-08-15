@@ -301,12 +301,7 @@ const TurnView = memo(function TurnView({
       {turn.body && (
         <div className="space-y-3">
           <p className="mb-4 text-sm font-[var(--weight-emph)] text-fg-secondary">{label}</p>
-          <AnswerBody
-            body={turn.body}
-            streaming={streaming}
-            objects={objects}
-            onObjectClick={onObjectClick}
-          />
+          <AnswerBody body={turn.body} objects={objects} onObjectClick={onObjectClick} />
           {turn.status !== "streaming" && (
             <TurnActions
               body={turn.body}
@@ -339,12 +334,10 @@ const TurnView = memo(function TurnView({
  */
 const AnswerBody = memo(function AnswerBody({
   body,
-  streaming,
   objects,
   onObjectClick,
 }: {
   body: string;
-  streaming: boolean;
   objects: Record<ObjectId, ScapeObject>;
   onObjectClick?: (id: ObjectId) => void;
 }) {
@@ -370,52 +363,52 @@ const AnswerBody = memo(function AnswerBody({
     [objects, onObjectClick],
   );
   return (
-    <>
+    <article className="rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm">
       {blocks.map((block, index) => (
-        <MarkdownBlock
-          key={index}
-          content={block}
-          streaming={streaming}
-          components={components}
-        />
+        <MarkdownBlock key={index} content={block} components={components} />
       ))}
-    </>
+    </article>
   );
 });
 
 const MarkdownBlock = memo(function MarkdownBlock({
   content,
-  streaming,
   components,
 }: {
   content: string;
-  streaming: boolean;
   components: Components;
 }) {
-  // The alternating animation names restart only when this block receives new content. Starting
-  // above zero keeps existing text legible while the newly painted chunk settles into place.
-  const revealClass = streaming
-    ? content.length % 2 === 0
-      ? "scapi-stream-reveal-a"
-      : "scapi-stream-reveal-b"
-    : "";
   return (
-    <article
-      className={`rounded-lg border border-subtle bg-raised p-5 text-fg shadow-sm ${revealClass}`}
-    >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {content}
-      </ReactMarkdown>
-    </article>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {content}
+    </ReactMarkdown>
   );
 });
 
-function splitMarkdownBlocks(markdown: string): string[] {
-  // An answer is one thought by default. Break only where the author explicitly introduces a
-  // new top-level section; paragraph breaks and lists stay in their natural conversational card.
-  return markdown
-    .split(/\n(?=##\s)/)
-    .filter((block) => block.replace(/^\s*(?:[-*+]|\|)?\s*$/gm, "").trim().length > 0);
+export function splitMarkdownBlocks(markdown: string): string[] {
+  // A blank line is a stable Markdown block boundary. Everything before it becomes immutable
+  // from React's perspective; only the final fragment receives new content and is reparsed.
+  // The surrounding article keeps all fragments in one conversational surface.
+  const blocks: string[] = [];
+  let start = 0;
+  let inFence = false;
+  const lines = markdown.split("\n");
+  let offset = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^\s*```/.test(line)) inFence = !inFence;
+    if (!inFence && line.trim() === "") {
+      const block = markdown.slice(start, offset).trim();
+      if (block) blocks.push(block);
+      start = offset + line.length + 1;
+    }
+    offset += line.length + 1;
+  }
+
+  const active = markdown.slice(start).trim();
+  if (active) blocks.push(active);
+  return blocks;
 }
 
 /**
@@ -431,7 +424,7 @@ function ReasoningDisclosure({ turn }: { turn: Turn }) {
   }, [hasAnswer]);
 
   return (
-    <section className="rounded-md bg-inset">
+    <section className="rounded-md border border-subtle bg-surface">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -571,14 +564,14 @@ function WorkingDisclosure({
   const current = activity[activity.length - 1];
 
   return (
-    <section className="rounded-md bg-inset">
+    <section className="rounded-md border border-subtle bg-surface">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
         aria-expanded={expanded}
         className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
       >
-        <span>{hasAnswer ? "Working" : "Working…"}</span>
+        <span>{hasAnswer ? "Responding" : "Working…"}</span>
         <span className="min-w-0 truncate pl-3 text-right">
           {paused ? "preparing the next part" : current ? activityLabel(current) : "connecting"}
         </span>
@@ -625,7 +618,7 @@ function statusFor(turn: Turn | undefined, streaming: boolean): string {
 function activityLabel(event: ActivityEvent): string {
   switch (event.kind) {
     case "reading-scape":
-      return `reading the canvas — ${event.objects} object${event.objects === 1 ? "" : "s"}`;
+      return `reading the canvas: ${event.objects} object${event.objects === 1 ? "" : "s"}`;
     case "thinking":
       return "thinking it through";
     case "reading-canvas":
