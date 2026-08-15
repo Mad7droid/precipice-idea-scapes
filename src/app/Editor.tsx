@@ -392,7 +392,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
         },
         {
           id: "ask-scapey",
-          label: "Ask Scapey",
+          label: "Ask Scapi",
           hint: "Ask about this scape",
           shortcut: "⌘J",
           run: () => {
@@ -607,7 +607,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
           {scapeyOpen ? (
             <aside className="z-panel flex h-full w-full min-w-0 flex-col border-l border-subtle bg-surface">
               <div className="flex shrink-0 items-center justify-between border-b border-subtle px-4 py-2.5">
-                <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapey</h2>
+                <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapi</h2>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -627,7 +627,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   <button
                     type="button"
                     onClick={() => setScapeyOpen(false)}
-                    aria-label="Close Scapey"
+                    aria-label="Close Scapi"
                     className="text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg"
                   >
                     ✕
@@ -649,7 +649,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   onTurnIntoEdit={(turn) => {
                     setScapeyOpen(false);
                     void handleSend(
-                      `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapey's proposal:\n${turn.body}`,
+                      `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
                     );
                   }}
                   objects={scape.objects}

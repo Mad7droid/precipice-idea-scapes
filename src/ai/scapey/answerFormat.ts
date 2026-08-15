@@ -58,7 +58,7 @@ export function answerFormatLabel(format: AnswerFormat): string {
     case "research":
       return "Researching";
     case "direct":
-      return "Scapey";
+      return "Scapi";
   }
 }
 

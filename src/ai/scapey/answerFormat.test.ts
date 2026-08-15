@@ -19,7 +19,7 @@ describe("answer format hints", () => {
   });
 
   it("keeps the generic label for a direct answer", () => {
-    expect(answerFormatLabel("direct")).toBe("Scapey");
+    expect(answerFormatLabel("direct")).toBe("Scapi");
   });
 
   it("gives a concise, intent-specific brief to the model", () => {

@@ -174,7 +174,7 @@ export function DevAi() {
           often asked for, and it is unreadable in a narrow rail. */}
       <aside className="flex h-full w-[560px] shrink-0 flex-col border-l border-subtle">
         <div className="flex shrink-0 items-center justify-between border-b border-subtle bg-surface px-4 py-2.5">
-          <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapey</h2>
+          <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapi</h2>
           <button
             type="button"
             onClick={scapey.clear}

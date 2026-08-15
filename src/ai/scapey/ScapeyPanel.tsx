@@ -7,7 +7,7 @@ import { ObjectChip } from "./ObjectChip";
 import type { ActivityEvent, SearchAvailability, Turn } from "./types";
 
 /**
- * Scapey's panel — phase 1 shape.
+ * Scapi's panel — phase 1 shape.
  *
  * The spine only: a question, a streaming answer, an activity trail, and a way to stop it. The
  * reasoning disclosure, object chips and the shape header land in later phases and all hang off
@@ -197,7 +197,7 @@ function EmptyState({
     <div className="mt-6">
       <p className="text-base font-[var(--weight-emph)] text-fg">Ask about this scape.</p>
       <p className="mt-1 text-sm text-fg-secondary">
-        Scapey can read every object on the canvas. It answers questions; it never changes the
+        Scapi can read every object on the canvas. It answers questions; it never changes the
         document.
       </p>
       {suggestions.length > 0 && (
@@ -329,7 +329,7 @@ const AnswerBody = memo(function AnswerBody({
 });
 
 /**
- * Thinking is useful evidence while Scapey is waiting, then yields to the answer as soon as it
+ * Thinking is useful evidence while Scapi is waiting, then yields to the answer as soon as it
  * exists. The grid-row transition avoids measuring a stream that is still growing.
  */
 function ReasoningDisclosure({ turn }: { turn: Turn }) {
@@ -454,7 +454,7 @@ function Sources({ sources }: { sources: Turn["sources"] }) {
 }
 
 /**
- * What Scapey has done so far, in order, with the current step live.
+ * What Scapi has done so far, in order, with the current step live.
  *
  * Every label is literally what happened. The reference says "Almost there…", which is filler
  * by this app's own copy rule — and a wait is far less annoying when it is legible, so the real
@@ -572,7 +572,7 @@ function ScapeyComposer({
           rows={2}
           disabled={disabled}
           placeholder={placeholder ?? "Ask about this scape…"}
-          aria-label="Ask Scapey"
+          aria-label="Ask Scapi"
           className="focus-self w-full resize-none bg-transparent px-1.5 py-1 text-sm text-fg outline-none placeholder:text-fg-tertiary"
         />
         <div className="flex items-center justify-between px-1.5">
