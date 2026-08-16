@@ -64,7 +64,7 @@ const JOURNEY_MAP: Starter = {
   id: "journey-map",
   label: "Journey map",
   blurb: "Flows and the thinking around them, read left to right.",
-  types: ["journey", "note"],
+  types: ["journey", "note", "scape"],
   layout: "LR",
   edgeMode: "all",
   promptHint:
@@ -112,7 +112,7 @@ const SCREEN_FLOW: Starter = {
   id: "screen-flow",
   label: "Screens",
   blurb: "Low-fidelity screens laid out as a contact sheet.",
-  types: ["wireframe", "note"],
+  types: ["wireframe", "note", "scape"],
   layout: "grid",
   edgeMode: "selected",
   promptHint:

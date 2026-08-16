@@ -56,6 +56,10 @@
   --type-wireframe-dark: #8794d4;
   --type-persona-light: #a85f5a;
   --type-persona-dark: #c98a85;
+  /* Same hue as persona, which is unused. A scape block is prose like a note, so it wants a
+     warm hue, but a distinct one — the two types sit side by side in the add palette. */
+  --type-scape-light: #a85f5a;
+  --type-scape-dark: #c98a85;
   --type-metric-light: #6e8c3f;
   --type-metric-dark: #96b368;
 
@@ -198,6 +202,7 @@
   --obj-note: var(--type-note-light);
   --obj-journey: var(--type-journey-light);
   --obj-wireframe: var(--type-wireframe-light);
+  --obj-scape: var(--type-scape-light);
   --obj-persona: var(--type-persona-light);
   --obj-metric: var(--type-metric-light);
   --obj-risk: var(--signal-500);
@@ -255,6 +260,7 @@
   --obj-note: var(--type-note-dark);
   --obj-journey: var(--type-journey-dark);
   --obj-wireframe: var(--type-wireframe-dark);
+  --obj-scape: var(--type-scape-dark);
   --obj-persona: var(--type-persona-dark);
   --obj-metric: var(--type-metric-dark);
   --obj-risk: var(--signal-400);

@@ -209,8 +209,9 @@ const PRINT_FALLBACK_HEIGHT: Record<string, number> = {
   note: 116,
   journey: 168,
   wireframe: 190,
+  scape: 220,
 };
-const PRINT_FALLBACK_WIDTH: Record<string, number> = { wireframe: 380 };
+const PRINT_FALLBACK_WIDTH: Record<string, number> = { wireframe: 380, scape: 380 };
 const DEFAULT_HEIGHT = 130;
 const DEFAULT_WIDTH = 220;
 const MIN_WIDTH = 200;

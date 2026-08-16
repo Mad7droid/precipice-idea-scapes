@@ -4,6 +4,48 @@ Deviations and gaps worth flagging, not blockers.
 
 ---
 
+## Scape block — the fourth object type
+
+A long-form Markdown block that renders headings, tables and fenced code, and swaps to source
+on the canvas when you click a block that is already selected (or press ⏎). `src/objects/scape/`,
+the same six-file shape as `note/`.
+
+### What it cost outside the plugin folder
+
+Four registries turned out to be hardcoded lists rather than derived from `allPlugins()`:
+
+- **`worker/publish/index.ts:62` — `ALLOWED_TYPES`.** The Worker refuses any object type not in
+  this set, so a scape block was a 422 on publish until it was added. **This means publishing a
+  scape block needs the Worker redeployed**, not just the app. It is the only place a new object
+  type is gated server-side, and nothing in the app surfaces why the publish failed beyond
+  "invalid projection".
+- `src/design/tokens.css` — `--type-scape-light/dark` and `--obj-scape` in both themes, mirrored
+  literally in `src/export/pdf/palette.ts` (`palette.test.ts` compares the two).
+- `src/core/geometry.ts` — `NODE_WIDTHS.scape = 380`, with the same number duplicated in
+  `src/export/pdf/document.ts` on purpose.
+- `src/app/Editor.tsx` — the add-command list was `["note","journey","wireframe"] as const`; it
+  now maps `allPlugins()`, so the next type reaches the palette by existing. `BLOCK_SHORTCUTS`
+  and `BlockIcon` still need one line each per type.
+
+### Flags
+
+- **Enter is claimed for a lone selected scape block.** Every other type opens the inspector on
+  Enter (`src/canvas/Canvas.tsx:641`). The block registers a capture-phase `keydown` on
+  `document` and stops it. The canvas binding is untouched; the inspector is still reachable by
+  double-click. If a second type ever wants this, it belongs in the canvas, not in two plugins.
+- **`richTextToBlocks` grew a table case and a `heading` flag** (`src/objects/markdownText.ts`),
+  so a printed scape block keeps its structure. Notes are unaffected — `RichText` renders
+  neither, so a note body cannot contain one.
+- **`describe.ts` gained a fourth `switch` arm** rather than the `toDocument?` hook its header
+  comment describes. Same shortcut as the existing three, now one type wider.
+- **The fixture is 13 objects, not 12.** `src/core/fixtures.ts` needed a real scape block so
+  `src/ai/prompt.ts` has a data-shape example with actual Markdown in it; the `plugin.defaults()`
+  fallback is `{ body: "" }`, which teaches the model nothing. Counts in
+  `persistence.test.ts`, `document.test.ts` and `worker/publish/index.test.ts` moved with it.
+  `src/viewer/fixtures/sample-publication.json` is a separate frozen artifact and still has 12.
+
+---
+
 ## Publishing wave 1 — viewer, publish client
 
 ### `src/core` was opened again: the view registry had to leave `registry.ts`

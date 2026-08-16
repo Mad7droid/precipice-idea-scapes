@@ -6,7 +6,7 @@ import { allViewPlugins, getViewPlugin, viewTypes } from "./viewRegistry";
 
 describe("view registry", () => {
   it("registers a view for every object type", () => {
-    expect(viewTypes()).toEqual(["journey", "note", "wireframe"]);
+    expect(viewTypes()).toEqual(["journey", "note", "scape", "wireframe"]);
   });
 
   it("returns undefined for an unregistered type rather than throwing", () => {
@@ -56,7 +56,7 @@ describe("view registry import graph", () => {
     .filter((file) => existsSync(resolve(REPO_ROOT, file)));
 
   it("finds a view.ts for every object directory", () => {
-    expect(viewFiles).toHaveLength(3);
+    expect(viewFiles).toHaveLength(4);
   });
 
   it("reaches nothing that can edit a document", () => {

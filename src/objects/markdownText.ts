@@ -3,7 +3,7 @@
  *
  * Deliberately React-free and dependency-free, so the PDF export can strip syntax without
  * pulling `react-markdown` into the export chunk — `src/objects/ui.tsx` imports React, and
- * `src/persistence/pdf/describe.ts` must not.
+ * `src/export/pdf/describe.ts` must not.
  *
  * It is a file rather than a folder because the plugin registry globs
  * `/src/objects/*​/index.ts`; a `markdown/` directory with an `index.ts` would be registered
@@ -42,11 +42,17 @@ export function richTextToPlainText(value: string): string {
 export interface RichTextBlock {
   text: string;
   list: boolean;
+  /** The block was a Markdown heading. Callers that have a heading style may use it; the ones
+   *  that don't get the text with the `#` already removed, as before. */
+  heading?: boolean;
 }
 
 const BULLET = /^\s*[-*+]\s+/;
 const ORDERED = /^\s*(\d+)([.)])\s+/;
 const HEADING = /^\s*#{1,6}\s+/;
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+/** `|---|:--:|` — the rule under a table's header row, which carries no content. */
+const TABLE_RULE = /^\s*\|[\s:|-]+\|\s*$/;
 
 /**
  * Markdown to printable blocks, preserving the structure a page has room for.
@@ -64,6 +70,27 @@ export function richTextToBlocks(value: string): RichTextBlock[] {
     .flatMap((block) => {
       const lines = block.split("\n").filter((line) => line.trim().length > 0);
       if (lines.length === 0) return [];
+
+      // A table cannot be drawn in a text line, so it prints as one indented row per line with
+      // the cells separated. Losing the grid is better than printing the pipes.
+      if (lines.length > 1 && lines.every((line) => TABLE_ROW.test(line))) {
+        return lines.flatMap((line) => {
+          if (TABLE_RULE.test(line)) return [];
+          const cells = line
+            .trim()
+            .slice(1, -1)
+            .split("|")
+            .map((cell) => stripInline(cell).trim())
+            .filter((cell) => cell.length > 0);
+          return cells.length ? [{ text: cells.join(" · "), list: true }] : [];
+        });
+      }
+
+      // A heading is its own block and keeps its identity, so a printed document can style it.
+      if (lines.length === 1 && HEADING.test(lines[0])) {
+        const text = stripInline(lines[0].replace(HEADING, "")).trim();
+        return text ? [{ text, list: false, heading: true }] : [];
+      }
 
       // A block counts as a list only if every line is an item; one stray bullet inside a
       // paragraph is prose that happens to start with a dash.

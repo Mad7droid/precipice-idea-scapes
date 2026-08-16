@@ -85,7 +85,8 @@ ${
     ? `- Create only these types: ${allowedTypes.join(", ")}. The user asked for nothing else.
   If something would have been a different type, say it in one of the types you have.`
     : `- Use journeys when the order of steps carries the meaning, wireframes when the answer is a
-  specific screen, and notes for everything else.`
+  specific screen, scape blocks when the answer is a document — something with headings, a
+  table or several paragraphs — and notes for everything else.`
 }
 - Add relationships when they clarify a real dependency, sequence or trade-off. Do not invent
   a connection merely to make the canvas look like a map.

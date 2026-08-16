@@ -11,6 +11,12 @@ milestone is published.
 
 ### Changed
 
+- Added the Scape block object type: a long-form Markdown document — headings, tables, fenced
+  code — that renders on the canvas and becomes an editable Markdown source field when you click
+  a selected block (or press Enter), committing on Escape or deselect. Available everywhere Note,
+  Journey, and Wireframe are: the add palette, block rail, AI generation, starters, and export.
+- Exports moved from `src/persistence/pdf/**` to `src/export/pdf/**` alongside the new
+  `.scape` and viewer download helpers; no user-visible change.
 - Added invite-only publishing with Google sign-in, Turnstile verification, administrator-managed
   invitations, 50 retained publication slots, a 100 MiB per-account snapshot cap, and a 20-write
   daily publishing budget.

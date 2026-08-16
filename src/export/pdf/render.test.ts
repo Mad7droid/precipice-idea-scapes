@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fixtureScape } from "@/core/fixtures";
+import { allPlugins } from "@/core/registry";
 import { buildPdfDocument } from "./document";
 import { printTypes } from "./index";
 import { describeObject } from "./describe";
@@ -29,7 +30,7 @@ describe("renderPdf", () => {
     const doc = buildPdfDocument(
       {
         scape,
-        types: printTypes(),
+        types: printTypes(allPlugins()),
         describe: describeObject,
         generatedAt: Date.UTC(2026, 7, 11),
       },

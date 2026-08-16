@@ -34,8 +34,11 @@ shared key behind a public endpoint is a shared key anyone can spend.
 ## What is included
 
 - A React Flow canvas with selection, relationships, pan/zoom, layout, and undo.
-- Note, Journey, and Wireframe object types with editable inspectors. Note bodies and journey
-  details support Markdown for readable, portable formatting.
+- Note, Journey, Wireframe, and Scape block object types with editable inspectors. Note bodies
+  and journey details support Markdown for readable, portable formatting.
+- Scape blocks are a long-form Markdown document type — headings, tables, and fenced code —
+  editable directly on the canvas: select a block, click (or press Enter) to drop into the
+  Markdown source, Escape or click away to render it again.
 - Wireframe grids with sections, labelled elements, spans, alignment, sizing, and presets.
 - Local persistence with autosave, single-writer multi-tab protection, offline app-shell support,
   and versioned `.scape` export/import.

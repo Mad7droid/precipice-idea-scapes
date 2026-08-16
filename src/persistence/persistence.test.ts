@@ -534,9 +534,9 @@ describe("autosave", () => {
 describe("scape summaries", () => {
   it("counts objects by type and reports the relationship count", () => {
     const summary = summarize(fixtureScape());
-    expect(summary.objectCount).toBe(12);
-    expect(summary.relationshipCount).toBe(12);
-    expect(summary.typeCounts).toEqual({ note: 5, journey: 3, wireframe: 4 });
+    expect(summary.objectCount).toBe(13);
+    expect(summary.relationshipCount).toBe(13);
+    expect(summary.typeCounts).toEqual({ note: 5, journey: 3, wireframe: 4, scape: 1 });
   });
 
   it("carries the starter through, and omits it when there is none", () => {
@@ -546,7 +546,7 @@ describe("scape summaries", () => {
 
   it("normalises preview positions into a unit box", () => {
     const preview = previewOf(fixtureScape())!;
-    expect(preview.nodes).toHaveLength(12);
+    expect(preview.nodes).toHaveLength(13);
     for (const node of preview.nodes) {
       expect(node.x).toBeGreaterThanOrEqual(0);
       expect(node.x).toBeLessThanOrEqual(1);

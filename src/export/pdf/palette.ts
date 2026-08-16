@@ -16,6 +16,7 @@ export const PRINT_PALETTE: Record<string, string> = {
   "--obj-note": "#8a6a3d",
   "--obj-journey": "#4e8c86",
   "--obj-wireframe": "#5b6bae",
+  "--obj-scape": "#a85f5a",
 };
 
 /** Text. Never pure black, matching the design language. */

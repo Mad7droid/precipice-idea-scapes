@@ -37,6 +37,7 @@ const FALLBACK_HEIGHT: Record<string, number> = {
   note: 116,
   journey: 168,
   wireframe: 190,
+  scape: 220,
 };
 const DEFAULT_HEIGHT = 130;
 

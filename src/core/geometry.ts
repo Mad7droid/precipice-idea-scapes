@@ -17,10 +17,13 @@ export const NODE_WIDTH = 220;
  *
  * 220px suits a note or a journey — a title and a short list. It is far too narrow for a
  * wireframe, which is a twelve-column screen layout: at 220px a column is 15px wide, so
- * every label truncates to nothing and the mockup stops being readable as a screen.
+ * every label truncates to nothing and the mockup stops being readable as a screen. A scape
+ * block has the same problem for a different reason: it is a document, and a document with a
+ * table in it needs a measure you can actually read a sentence across.
  */
 const NODE_WIDTHS: Record<string, number> = {
   wireframe: 380,
+  scape: 380,
 };
 
 export function widthFor(type: string): number {

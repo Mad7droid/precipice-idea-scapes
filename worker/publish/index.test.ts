@@ -553,7 +553,7 @@ describe("public reads", () => {
     const response = await fetch(new Request(`https://publish.example/p/${id}/v1/scape.json`));
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("immutable");
-    expect(((await response.json()) as { objects: unknown[] }).objects).toHaveLength(12);
+    expect(((await response.json()) as { objects: unknown[] }).objects).toHaveLength(13);
   });
 
   it("returns 404 for an id that never existed", async () => {

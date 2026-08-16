@@ -3,7 +3,7 @@ import { allPlugins, getPlugin, pluginTypes } from "./registry";
 
 describe("object registry", () => {
   it("self-registers every plugin under src/objects, with no barrel file", () => {
-    expect(pluginTypes()).toEqual(["journey", "note", "wireframe"]);
+    expect(pluginTypes()).toEqual(["journey", "note", "scape", "wireframe"]);
   });
 
   it("returns undefined for an unregistered type rather than throwing", () => {

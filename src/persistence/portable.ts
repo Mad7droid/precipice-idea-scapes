@@ -5,26 +5,17 @@ import { notify } from "@/core/notify";
 import {
   describeParseError,
   scapeFileSchema,
-  toPlainScape,
   SCAPE_FILE_VERSION,
   type ScapeFile,
 } from "@/core/serialize";
 import type { Scape, ScapeRepository } from "@/core/types";
-import { downloadBlob, filenameFor } from "./download";
+import { downloadScapeFile } from "@/export/scapeFile";
 import { migrateDocument } from "./migrate";
 
-/** A `.scape` is plain JSON, indented, readable in a text editor on purpose. */
-export function toScapeFile(scape: Scape, actionLog: Action[] = []): ScapeFile {
-  return { version: SCAPE_FILE_VERSION, scape: toPlainScape(scape), actionLog };
-}
-
-export function serializeScape(scape: Scape, actionLog: Action[] = []): string {
-  return JSON.stringify(toScapeFile(scape, actionLog), null, 2);
-}
+export { serializeScape, toScapeFile } from "@/export/scapeFile";
 
 export function downloadScape(scape: Scape, actionLog: Action[] = []): void {
-  const blob = new Blob([serializeScape(scape, actionLog)], { type: "application/json" });
-  downloadBlob(blob, `${filenameFor(scape.name)}.scape`);
+  downloadScapeFile(scape, actionLog);
   notify.success("Exported.");
 }
 

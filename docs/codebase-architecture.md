@@ -1,7 +1,7 @@
 # Precipice codebase architecture
 
 This is the implementation guide for Precipice: a local-first visual workspace for turning a
-product brief into connected, editable notes, journeys, and wireframes.
+product brief into connected, editable notes, journeys, wireframes, and scape blocks.
 
 It describes the code as it exists in this repository. The strongest sources of truth are the
 TypeScript contracts, reducer, persistence repository, Worker handlers, and tests. Older
@@ -67,8 +67,9 @@ secret.
 | `src/app` | Application shell, routing, home, editor composition, settings, overlays | `App.tsx`, `Home.tsx`, `Editor.tsx` |
 | `src/core` | Domain types, action protocol, pure reducer, store, serialization, registries | `types.ts`, `actions.ts`, `reducer.ts`, `store.ts` |
 | `src/canvas` | React Flow adapter, node/edge derivation, gestures, layout, camera | `Canvas.tsx`, `edges.ts`, `layout.ts` |
-| `src/objects` | Extensible object plugins and read-only viewer variants | `note/`, `journey/`, `wireframe/` |
-| `src/persistence` | Dexie repository, autosave, multi-tab lease, migration, import/export, PDF | `scapeRepository.ts`, `autosave.ts`, `lease.ts` |
+| `src/objects` | Extensible object plugins and read-only viewer variants | `note/`, `journey/`, `wireframe/`, `scape/` |
+| `src/persistence` | Dexie repository, autosave, multi-tab lease, migration, import/export | `scapeRepository.ts`, `autosave.ts`, `lease.ts` |
+| `src/export` | Portable `.scape` and PDF export | `scapeFile.ts`, `pdf/document.ts`, `pdf/describe.ts` |
 | `src/ai` | Provider adapter, context projection, prompts, tools, streaming apply, ribbon | `provider.ts`, `context.ts`, `generate.ts` |
 | `src/publish` | Publication projection, contract, auth/session client, publish state/UI | `contract.ts`, `project.ts`, `session.ts` |
 | `src/viewer` | Read-only public rendering and hostile-input handling | `App.tsx`, `api.ts`, `publication.ts` |

@@ -23,6 +23,8 @@ function objectColour(type: string): string {
       return "bg-obj-journey";
     case "wireframe":
       return "bg-obj-wireframe";
+    case "scape":
+      return "bg-obj-scape";
     default:
       return "bg-fg-tertiary";
   }

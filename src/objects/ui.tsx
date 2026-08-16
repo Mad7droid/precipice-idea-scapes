@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { continueList, insertLink, toggleWrap, type TextSelection } from "./markdownText";
 
 /**
@@ -122,6 +123,21 @@ function safeHref(value: string | undefined): string | undefined {
   }
 }
 
+const MARKDOWN_COMPONENTS = {
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+    const safe = safeHref(href);
+    return safe ? (
+      <a href={safe} target="_blank" rel="noopener noreferrer nofollow">
+        {children}
+      </a>
+    ) : (
+      <>{children}</>
+    );
+  },
+};
+
+const INLINE_ELEMENTS = ["p", "strong", "em", "code", "a", "ul", "ol", "li", "blockquote", "del"];
+
 export function RichText({
   value,
   className = "",
@@ -130,20 +146,54 @@ export function RichText({
   return (
     <div {...props} className={`rich-text ${className}`}>
       <ReactMarkdown
-        allowedElements={["p", "strong", "em", "code", "a", "ul", "ol", "li", "blockquote", "del"]}
+        allowedElements={INLINE_ELEMENTS}
         unwrapDisallowed
-        components={{
-          a: ({ href, children }) => {
-            const safe = safeHref(href);
-            return safe ? (
-              <a href={safe} target="_blank" rel="noopener noreferrer nofollow">
-                {children}
-              </a>
-            ) : (
-              <>{children}</>
-            );
-          },
-        }}
+        components={MARKDOWN_COMPONENTS}
+      >
+        {value}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+/**
+ * The document-grade renderer: everything `RichText` allows, plus the structural elements a
+ * written document needs — headings, tables, fenced code, rules.
+ *
+ * Kept separate rather than widening `RichText`, because a note and a journey step are short
+ * captures: an `<h1>` inside a 220px card is a layout bug, not an expressive choice. Only the
+ * scape block opts into this vocabulary.
+ *
+ * Images stay out on purpose. A published scape is served to strangers, and an `<img src>` is a
+ * beacon that reports every reader to whoever authored the URL. Raw HTML never renders either —
+ * react-markdown ignores it unless `rehype-raw` is installed, and it deliberately is not.
+ */
+export function DocumentText({
+  value,
+  className = "",
+  ...props
+}: { value: string } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} className={`rich-text doc-text ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        allowedElements={[
+          ...INLINE_ELEMENTS,
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "hr",
+          "pre",
+          "table",
+          "thead",
+          "tbody",
+          "tr",
+          "th",
+          "td",
+        ]}
+        unwrapDisallowed
+        components={MARKDOWN_COMPONENTS}
       >
         {value}
       </ReactMarkdown>
@@ -166,12 +216,22 @@ export function RichTextEditor({
   placeholder,
   compact = false,
   onBlur,
+  onEscape,
+  autoFocus,
+  className = "",
+  rows,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   compact?: boolean;
   onBlur?: () => void;
+  /** Escape while editing. Given here rather than left to the caller's `onKeyDown` so the
+   *  key is also stopped from reaching the canvas, which reads Escape as "clear selection". */
+  onEscape?: () => void;
+  autoFocus?: boolean;
+  className?: string;
+  rows?: number;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   // Where the caret has to land once React has re-rendered with the new value. Setting it
@@ -184,6 +244,16 @@ export function RichTextEditor({
     pending.current = null;
     ref.current.setSelectionRange(target.start, target.end);
   }, [value]);
+
+  // An autofocused textarea puts the caret at character zero, which for a document means you
+  // start typing above the title you were reading. Land at the end instead.
+  useLayoutEffect(() => {
+    if (!autoFocus || !ref.current) return;
+    const end = ref.current.value.length;
+    ref.current.setSelectionRange(end, end);
+    // Mount only: after this the caret belongs to the user and to `pending`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus]);
 
   function apply(
     event: React.KeyboardEvent<HTMLTextAreaElement>,
@@ -221,6 +291,13 @@ export function RichTextEditor({
       return;
     }
 
+    if (event.key === "Escape" && onEscape) {
+      event.preventDefault();
+      event.stopPropagation();
+      onEscape();
+      return;
+    }
+
     // Shift+Enter stays a plain newline, so there is always a way to break a line without
     // starting another list item.
     if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
@@ -232,12 +309,14 @@ export function RichTextEditor({
     <textarea
       ref={ref}
       value={value}
+      autoFocus={autoFocus}
+      rows={rows}
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       placeholder={placeholder}
       aria-label={placeholder ?? "Markdown"}
-      className={`${FIELD_CLASS} resize-y font-mono ${compact ? "min-h-12 text-xs" : "min-h-20 text-sm"}`}
+      className={`${FIELD_CLASS} resize-y font-mono ${compact ? "min-h-12 text-xs" : "min-h-20 text-sm"} ${className}`}
     />
   );
 }

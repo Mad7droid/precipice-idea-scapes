@@ -582,7 +582,9 @@ function CanvasSurface({
         return;
       }
 
-      const quickType = { n: "note", j: "journey", w: "wireframe" }[event.key.toLowerCase()];
+      const quickType = { n: "note", j: "journey", w: "wireframe", s: "scape" }[
+        event.key.toLowerCase()
+      ];
       if (
         !readOnly &&
         !meta &&

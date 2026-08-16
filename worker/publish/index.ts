@@ -59,7 +59,7 @@ const STATE_MS = 10 * 60 * 1000;
 const EXCHANGE_MS = 60 * 1000;
 const RETAINED_VERSION_MS = 7 * 24 * 60 * 60 * 1000;
 const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
-const ALLOWED_TYPES = new Set(["note", "journey", "wireframe"]);
+const ALLOWED_TYPES = new Set(["note", "journey", "wireframe", "scape"]);
 
 function randomBase64Url(bytes = 32): string {
   const value = new Uint8Array(bytes);

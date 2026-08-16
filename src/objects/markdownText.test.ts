@@ -134,8 +134,21 @@ describe("richTextToBlocks", () => {
     ]);
   });
 
-  it("drops heading markers but keeps the heading text", () => {
-    expect(richTextToBlocks("## Overview")).toEqual([{ text: "Overview", list: false }]);
+  it("drops heading markers but keeps the heading text, and says it was a heading", () => {
+    expect(richTextToBlocks("## Overview")).toEqual([
+      { text: "Overview", list: false, heading: true },
+    ]);
+  });
+
+  it("prints a table one row per line, without the pipes or the rule", () => {
+    expect(richTextToBlocks("| Check | Blocking |\n| --- | --- |\n| Glare | Yes |")).toEqual([
+      { text: "Check · Blocking", list: true },
+      { text: "Glare · Yes", list: true },
+    ]);
+  });
+
+  it("leaves a single line that merely starts with a pipe as prose", () => {
+    expect(richTextToBlocks("| not a table")).toEqual([{ text: "| not a table", list: false }]);
   });
 
   it("returns nothing for empty or whitespace-only input", () => {

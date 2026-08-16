@@ -189,7 +189,7 @@ describe("outline entries", () => {
   it("groups by type in registry order and keeps objectOrder within a group", () => {
     const groups = outlineEntries(inputFor(fixtureScape()));
     const types = [...new Set(groups.map((entry) => entry.type))];
-    expect(types).toEqual(["note", "journey", "wireframe"]);
+    expect(types).toEqual(["note", "journey", "wireframe", "scape"]);
   });
 
   it("lists both directions of every relationship, with its label", () => {
@@ -288,7 +288,7 @@ describe("the document", () => {
     const doc = buildPdfDocument(inputFor(fixtureScape()), measure);
     expect(doc.pages[0]?.kind).toBe("diagram");
     expect(doc.pages.slice(1).every((page) => page.kind === "outline")).toBe(true);
-    expect(doc.meta.objectCount).toBe(12);
+    expect(doc.meta.objectCount).toBe(13);
   });
 
   it("numbers every page against the final total", () => {
@@ -334,6 +334,6 @@ describe("outline pages", () => {
     const doc = buildPdfDocument(inputFor(fixtureScape()), measure);
     const outline = doc.pages.filter((page): page is OutlinePage => page.kind === "outline");
     const ids = outline.flatMap((page) => page.entryIds);
-    expect(new Set(ids).size).toBe(12);
+    expect(new Set(ids).size).toBe(13);
   });
 });

@@ -45,6 +45,7 @@ export default {
           note: "var(--obj-note)",
           journey: "var(--obj-journey)",
           wireframe: "var(--obj-wireframe)",
+          scape: "var(--obj-scape)",
           persona: "var(--obj-persona)",
           metric: "var(--obj-metric)",
           risk: "var(--obj-risk)",

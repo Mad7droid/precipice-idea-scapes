@@ -9,7 +9,7 @@ import { render, type as typeInto } from "@/test/react";
 import { RichText, RichTextEditor, richTextToPlainText } from "./ui";
 import { wireframeSchema } from "./wireframe/schema";
 
-const EXPECTED_TYPES = ["journey", "note", "wireframe"];
+const EXPECTED_TYPES = ["journey", "note", "scape", "wireframe"];
 
 describe("registry", () => {
   it("discovers every plugin by glob, with no manual registration anywhere", () => {

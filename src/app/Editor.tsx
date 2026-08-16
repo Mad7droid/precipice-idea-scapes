@@ -330,8 +330,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
     setExporting(true);
     await new Promise((resolve) => window.requestAnimationFrame(resolve));
     try {
-      const { exportScapePdf } = await import("@/persistence/pdf");
+      const { exportScapePdf } = await import("@/export/pdf");
       const result = await exportScapePdf(scape, {
+        plugins: allPlugins(),
         ...(commands.current ? { measured: commands.current.measuredSizes() } : {}),
       });
       notify.success(
@@ -369,14 +370,20 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const editCommands: CommandItem[] = readOnly
     ? [{ id: "take-over", label: "Edit here", hint: "Move editing to this tab", run: takeOver }]
     : [
-        ...(["note", "journey", "wireframe"] as const)
-          .filter((type) => starter.types.length === 0 || starter.types.includes(type))
-          .map((type) => ({
-            id: `add-${type}`,
-            label: `Add ${type}`,
+        // Registry-driven, so a new object type reaches the palette by existing rather than by
+        // being remembered here.
+        ...allPlugins()
+          .filter(
+            (candidate) => starter.types.length === 0 || starter.types.includes(candidate.type),
+          )
+          .map((candidate) => ({
+            id: `add-${candidate.type}`,
+            label: `Add ${candidate.label.toLowerCase()}`,
             hint: "Create at canvas centre",
-            shortcut: type === "note" ? "N" : type === "journey" ? "J" : "W",
-            run: () => commands.current?.addObject(type),
+            ...(BLOCK_SHORTCUTS[candidate.type]
+              ? { shortcut: BLOCK_SHORTCUTS[candidate.type] }
+              : {}),
+            run: () => commands.current?.addObject(candidate.type),
           })),
         {
           id: "tidy",
@@ -795,7 +802,12 @@ function QuickAction({ onClick, children }: { onClick: () => void; children: Rea
   );
 }
 
-const BLOCK_SHORTCUTS: Record<string, string> = { note: "N", journey: "J", wireframe: "W" };
+const BLOCK_SHORTCUTS: Record<string, string> = {
+  note: "N",
+  journey: "J",
+  wireframe: "W",
+  scape: "S",
+};
 
 /** A compact creation rail: it expands naturally as the object registry grows. */
 function BlockNav({
@@ -864,7 +876,16 @@ function BlockIcon({ type, color }: { type: string; color: string }) {
           strokeLinejoin="round"
         />
       )}
-      {!["note", "journey", "wireframe"].includes(type) && (
+      {type === "scape" && (
+        <path
+          d="M3.5 2.5h10v12h-10zM6 5.5h5M6 8h5M6 10.5h3"
+          stroke={stroke}
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {!["note", "journey", "wireframe", "scape"].includes(type) && (
         <circle cx="8.5" cy="8.5" r="4.5" fill={stroke} />
       )}
     </svg>

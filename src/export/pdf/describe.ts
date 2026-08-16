@@ -14,16 +14,23 @@
  * its own schema, still prints: a generic walk is a worse read than a tailored one, and much
  * better than a blank space where a block should be.
  */
+import type { ZodType } from "zod";
 import { richTextToBlocks, richTextToPlainText } from "@/objects/markdownText";
-import { getPlugin } from "@/core/registry";
 import type { ScapeObject } from "@/core/types";
 import type { DocumentLine, DocumentSection } from "./document";
 
 const MAX_LINE = 200;
 const MAX_GENERIC_ROWS = 8;
 
-export function describeObject(object: ScapeObject): DocumentSection[] {
-  const plugin = getPlugin(object.type);
+/**
+ * All this needs of a plugin is its schema. The caller looks it up, because the editor and the
+ * public viewer read from two different registries and this file must reach neither.
+ */
+export interface DescribePlugin {
+  schema: ZodType<unknown>;
+}
+
+export function describeObject(object: ScapeObject, plugin?: DescribePlugin): DocumentSection[] {
   const parsed = plugin ? plugin.schema.safeParse(object.data) : null;
   const data: unknown = parsed?.success ? parsed.data : object.data;
 
@@ -35,6 +42,8 @@ export function describeObject(object: ScapeObject): DocumentSection[] {
         return describeJourney(data);
       case "wireframe":
         return describeWireframe(data);
+      case "scape":
+        return describeScapeBlock(data);
     }
   }
   return describeGenerically(object.data);
@@ -66,6 +75,27 @@ function describeNote(data: unknown): DocumentSection[] {
     {
       lines: blocks.map((block) => ({
         text: clamp(block.text, 1200),
+        ...(block.list ? { indent: 1 as const } : {}),
+      })),
+    },
+  ];
+}
+
+/**
+ * A scape block is the same `{ body }` as a note, but written as a document — so headings stay
+ * headings on the page and table rows print one per line, indented, rather than as a paragraph
+ * full of pipes.
+ */
+function describeScapeBlock(data: unknown): DocumentSection[] {
+  const body =
+    typeof (data as { body?: unknown }).body === "string" ? (data as { body: string }).body : "";
+  const blocks = richTextToBlocks(body);
+  if (blocks.length === 0) return [{ lines: [{ text: "Empty.", role: "muted" }] }];
+  return [
+    {
+      lines: blocks.map((block) => ({
+        text: clamp(block.text, 1200),
+        ...(block.heading ? { role: "heading" as const } : {}),
         ...(block.list ? { indent: 1 as const } : {}),
       })),
     },

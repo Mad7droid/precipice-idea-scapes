@@ -3,6 +3,7 @@ import { Background, BackgroundVariant, Controls, ReactFlow } from "@xyflow/reac
 import type { PublishedScape } from "@/publish/contract";
 import { stagePublicCopy } from "@/shared/publicCopy";
 import { prepare } from "./publication";
+import { ViewerExportMenu } from "./ViewerExportMenu";
 import { ViewerNode, VIEWER_NODE_TYPE } from "./ViewerNode";
 
 const nodeTypes = { [VIEWER_NODE_TYPE]: ViewerNode };
@@ -46,7 +47,11 @@ export function PublicationCanvas({ scape, embed }: { scape: PublishedScape; emb
           host's scrolling, so they stay in the embed. Fit-view is the one that matters at a
           Notion embed's default height.
         */}
-        <Controls className="publication-controls" showInteractive={false} position="bottom-right" />
+        <Controls
+          className="publication-controls"
+          showInteractive={false}
+          position="bottom-right"
+        />
       </ReactFlow>
 
       {dropped > 0 && (
@@ -71,10 +76,13 @@ function ViewerHeader({ scape }: { scape: PublishedScape }) {
       <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border-default bg-surface px-3 py-2 shadow-md">
         <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
         <div className="min-w-0">
-          <h1 className="truncate text-sm font-medium leading-none text-fg">{scape.name || "Untitled"}</h1>
+          <h1 className="truncate text-sm font-medium leading-none text-fg">
+            {scape.name || "Untitled"}
+          </h1>
           <p className="mono mt-1 text-fg-tertiary">Published scape</p>
         </div>
       </div>
+      <ViewerExportMenu scape={scape} />
       <button
         type="button"
         onClick={copyAndEdit}

@@ -192,6 +192,28 @@ const OBJECTS: ScapeObject[] = [
     1060,
     360,
   ),
+  obj(
+    "verification-spec",
+    "scape",
+    "Verification spec",
+    {
+      body:
+        "## Document scan\n\n" +
+        "The scan runs on-device and uploads a single frame. A retry never re-asks for the " +
+        "document type — that answer is kept from the first attempt.\n\n" +
+        "| Check | Blocking | Retry |\n" +
+        "| --- | --- | --- |\n" +
+        "| Glare | Yes | Immediate |\n" +
+        "| Liveness | Yes | Once |\n" +
+        "| Address match | No | Manual review |\n\n" +
+        "### Failure copy\n\n" +
+        "- Name the problem, not the person\n" +
+        "- Say what to change before retrying\n" +
+        "- Offer manual review after the second failure",
+    },
+    1060,
+    540,
+  ),
 ];
 
 const RELATIONSHIPS: Relationship[] = [
@@ -207,6 +229,7 @@ const RELATIONSHIPS: Relationship[] = [
   rel("r-dropoff-verify", "drop-off", "wf-verify", "evidence"),
   rel("r-question-fund", "open-question", "wf-fund"),
   rel("r-copy-verify", "copy-rules", "wf-verify"),
+  rel("r-spec-verify", "verification-spec", "wf-verify", "specifies"),
 ];
 
 function assemble(
@@ -227,18 +250,18 @@ function assemble(
   };
 }
 
-/** The 12-object sample. Returns a fresh deep copy every call — tests mutate it freely. */
+/** The 13-object sample. Returns a fresh deep copy every call — tests mutate it freely. */
 export function fixtureScape(): Scape {
   return structuredClone(assemble("scp_fixture", "Fintech onboarding", OBJECTS, RELATIONSHIPS));
 }
 
 /**
  * A large synthetic Scape. Workstream C's context projection must be written against this,
- * not against the 12-object fixture — the fixture fits in a prompt whole and so hides every
+ * not against the 13-object fixture — the fixture fits in a prompt whole and so hides every
  * truncation bug the projection exists to solve.
  */
 export function syntheticScape(count = 200): Scape {
-  const types = ["note", "journey", "wireframe"];
+  const types = ["note", "journey", "wireframe", "scape"];
   const objects: ScapeObject[] = [];
   const relationships: Relationship[] = [];
 
@@ -246,7 +269,7 @@ export function syntheticScape(count = 200): Scape {
     const type = types[i % types.length];
     const id = `syn-${String(i).padStart(3, "0")}`;
     const data: Record<string, unknown> =
-      type === "note"
+      type === "note" || type === "scape"
         ? { body: `Synthetic body ${i}. ${"Filler sentence about the domain. ".repeat(6)}` }
         : type === "journey"
           ? {

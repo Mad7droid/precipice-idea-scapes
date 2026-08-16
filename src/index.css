@@ -41,6 +41,85 @@
   list-style: decimal;
 }
 
+/* The scape block's document vocabulary. Sizes are relative to the card's own font size, so
+   the same markup reads correctly at 1x on the canvas and at 0.4x in a thumbnail. */
+.doc-text h1,
+.doc-text h2,
+.doc-text h3,
+.doc-text h4 {
+  margin: 0.8em 0 0.3em;
+  font-weight: var(--weight-ui);
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.doc-text h1:first-child,
+.doc-text h2:first-child,
+.doc-text h3:first-child,
+.doc-text h4:first-child {
+  margin-top: 0;
+}
+
+.doc-text h1 {
+  font-size: 1.4em;
+}
+
+.doc-text h2 {
+  font-size: 1.2em;
+}
+
+.doc-text h3 {
+  font-size: 1.05em;
+}
+
+.doc-text h4 {
+  font-size: 1em;
+  color: var(--text-secondary);
+}
+
+.doc-text hr {
+  margin: 0.8em 0;
+  border: 0;
+  border-top: 1px solid var(--border-default);
+}
+
+.doc-text blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.75em;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.doc-text pre {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  padding: 0.6em 0.75em;
+  border-radius: var(--r-md);
+  background: var(--bg-inset);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.doc-text table {
+  width: 100%;
+  margin: 0.6em 0;
+  border-collapse: collapse;
+}
+
+.doc-text th,
+.doc-text td {
+  padding: 0.3em 0.5em;
+  border: 1px solid var(--border-default);
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc-text th {
+  background: var(--bg-inset);
+  font-weight: var(--weight-ui);
+  color: var(--text-primary);
+}
+
 /* Public-view chrome stays compact and quiet so the scape, rather than the viewer, is the
    page. React Flow's stock controls are intentionally generic (bright rectangular buttons),
    which reads as debug UI against Precipice's dark canvas. */
