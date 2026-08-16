@@ -17,6 +17,13 @@ export type AnswerFormat =
   | "research"
   | "direct";
 
+/**
+ * Adaptive thinking requires this much room in the Messages API `max_tokens` setting, even
+ * when the visible reply is deliberately brief. The prompt remains the length control users
+ * see; this prevents the request from being rejected before it can begin streaming.
+ */
+export const MIN_THINKING_OUTPUT_TOKENS = 1024;
+
 export function inferAnswerFormat(question: string): AnswerFormat {
   const text = question.toLowerCase();
   if (/\b(summari[sz]e|summary|tldr|shorten|brief)\b/.test(text)) return "summarise";
@@ -95,19 +102,24 @@ export function responseGuidance(question: string): string {
 
 /** A ceiling backs up the writing brief so an ordinary question cannot turn into an essay. */
 export function responseTokenBudget(question: string): number {
+  let preferred: number;
   switch (inferAnswerFormat(question)) {
     case "summarise":
     case "direct":
     case "locate":
     case "simplify":
-      return 220;
+      preferred = 220;
+      break;
     case "compare":
     case "suggest":
     case "howto":
-      return 320;
+      preferred = 320;
+      break;
     case "troubleshoot":
     case "research":
     case "expand":
-      return 520;
+      preferred = 520;
+      break;
   }
+  return Math.max(preferred, MIN_THINKING_OUTPUT_TOKENS);
 }

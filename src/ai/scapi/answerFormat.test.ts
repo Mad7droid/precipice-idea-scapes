@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   answerFormatLabel,
   inferAnswerFormat,
+  MIN_THINKING_OUTPUT_TOKENS,
   responseGuidance,
   responseTokenBudget,
 } from "./answerFormat";
@@ -31,9 +32,9 @@ describe("answer format hints", () => {
     expect(responseGuidance("Compare these wireframes")).toMatch(/two-column/i);
   });
 
-  it("caps ordinary replies more tightly than deliberate deep dives", () => {
-    expect(responseTokenBudget("Summarise this scape")).toBeLessThan(
-      responseTokenBudget("Expand on the decision flow"),
-    );
+  it("leaves the minimum API allowance required by adaptive thinking", () => {
+    for (const question of ["Summarise this scape", "Expand on the decision flow"]) {
+      expect(responseTokenBudget(question)).toBeGreaterThanOrEqual(MIN_THINKING_OUTPUT_TOKENS);
+    }
   });
 });
