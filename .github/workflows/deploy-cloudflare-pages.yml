@@ -52,7 +52,13 @@ jobs:
           WRANGLER_PUBLISH_CONFIG: ${{ secrets.WRANGLER_PUBLISH_CONFIG }}
         run: |
           umask 077
-          config_path="$RUNNER_TEMP/wrangler.publish.toml"
+          # `migrations_dir` in the TOML is a path relative to the TOML file itself, not to the
+          # working directory wrangler is invoked from. Writing the secret to $RUNNER_TEMP put it
+          # outside the checkout, so wrangler resolved `worker/publish/migrations` against an
+          # empty temp directory and found nothing. Writing it into the repo root — as
+          # `wrangler.publish.toml`, the exact filename `.gitignore` already excludes — resolves
+          # the same way a local `wrangler d1 migrations apply` run does.
+          config_path="$GITHUB_WORKSPACE/wrangler.publish.toml"
           printf '%s\n' "$WRANGLER_PUBLISH_CONFIG" > "$config_path"
           echo "WRANGLER_PUBLISH_CONFIG_PATH=$config_path" >> "$GITHUB_ENV"
 
