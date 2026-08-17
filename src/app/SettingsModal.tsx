@@ -33,7 +33,7 @@ export function SettingsModal({
       role="presentation"
     >
       <div
-        className="w-[420px] rounded-xl border border-subtle bg-surface p-5 shadow-lg"
+        className="w-[calc(100vw-32px)] max-w-[420px] rounded-xl border border-subtle bg-surface p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal

@@ -66,8 +66,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [exporting, setExporting] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() => window.innerWidth < 768);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => window.innerWidth < 768);
   const [scapiOpen, setScapiOpen] = useState(false);
   const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
@@ -450,7 +450,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
       <div className="flex min-h-0 flex-1">
         <div
           className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
-          style={{ width: leftPanelCollapsed ? 32 : leftPanelWidth }}
+          style={{ width: leftPanelCollapsed ? 32 : `min(${leftPanelWidth}px, 78vw)` }}
         >
           <div className="flex h-full">
             <Outline
@@ -602,12 +602,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
           style={{
             width: scapiOpen
               ? scapiWide
-                ? 720
-                : 560
+                ? "min(720px, 92vw)"
+                : "min(560px, 92vw)"
               : rightPanelCollapsed
                 ? 32
                 : selectedEdge || (selectedObject && plugin)
-                  ? rightPanelWidth
+                  ? `min(${rightPanelWidth}px, 78vw)`
                   : 0,
           }}
         >

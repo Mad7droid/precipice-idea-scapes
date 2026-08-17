@@ -55,7 +55,7 @@ export function TopBar({
   };
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-subtle bg-surface px-3">
+    <header className="flex h-11 shrink-0 items-center gap-1 border-b border-subtle bg-surface px-3 sm:gap-2">
       <button
         type="button"
         onClick={onBack}
@@ -100,19 +100,19 @@ export function TopBar({
           type="button"
           onClick={() => setEditing(true)}
           title="Rename"
-          className="min-w-0 max-w-[420px] truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover"
+          className="min-w-0 max-w-[140px] truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover sm:max-w-[420px]"
         >
           {scape.name}
         </button>
       )}
 
       {starter.id !== "blank" && (
-        <span className="mono shrink-0 rounded-full border border-subtle px-2 py-0.5">
+        <span className="mono hidden shrink-0 rounded-full border border-subtle px-2 py-0.5 sm:inline-flex">
           {starter.label}
         </span>
       )}
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
         <ExportMenu onExport={onExport} busy={exporting ?? false} />
         <ThemeControl value={theme} onChange={onThemeChange} />
@@ -164,7 +164,7 @@ function PublishControl({ state, onClick }: { state?: PublicationState; onClick:
       className="flex items-center gap-1.5 rounded-md border border-default px-2.5 py-1.5 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PUBLICATION_DOT[kind]}`} aria-hidden />
-      {kind === "unpublished" ? "Publish" : label}
+      <span className="hidden sm:inline">{kind === "unpublished" ? "Publish" : label}</span>
     </button>
   );
 }
