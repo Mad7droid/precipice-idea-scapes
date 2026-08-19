@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionPayload } from "@/core/actions";
 import { notify } from "@/core/notify";
 import { allPlugins, getPlugin } from "@/core/registry";
@@ -8,8 +8,10 @@ import { Composer } from "@/ai/Composer";
 import type { Scope } from "@/ai/prompt";
 import { Ribbon } from "@/ai/Ribbon";
 import { useGeneration } from "@/ai/useGeneration";
+import { createApplier } from "@/ai/generate";
 import { useScapi } from "@/ai/scapi/useScapi";
 import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
+import { isToolName } from "@/ai/tools";
 import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
 import { starterFor } from "@/starters";
 import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
@@ -36,6 +38,7 @@ import { SettingsModal } from "./SettingsModal";
 import { TopBar, type ExportFormat } from "./TopBar";
 import { useAppSettings } from "./useAppSettings";
 import { useTheme } from "./theme";
+import { useMcpBridge } from "@/mcp/bridge";
 
 // Markdown is sizeable and Scapi is optional. Keep it out of the editor's first paint.
 const ScapiPanel = lazy(() =>
@@ -316,6 +319,45 @@ export function Editor({ scapeId }: { scapeId: string }) {
     if (!requireKey()) return;
     await generation.connect(apiKey.trim(), modelId, ids);
   };
+
+  /**
+   * The local agent bridge is intentionally routed through the same model-facing action applier
+   * as a normal generation. That keeps the schema, plugin validation, reducer, autosave and one
+   * transaction/undo behaviour identical instead of creating a second back door into the store.
+   */
+  const applyMcpActions = useCallback(
+    (payloads: ActionPayload[]) => {
+      if (readOnly) {
+        notify.error("This tab is read-only", "Take over editing before applying agent changes.");
+        return { applied: 0, skipped: payloads.length };
+      }
+      const applier = createApplier({
+        dispatch: (action) => useScapeStore.getState().dispatch(action),
+        onEvent: () => undefined,
+        requestLayout: () => commands.current?.relayout(),
+        allowedTypes,
+      });
+      for (const payload of payloads) {
+        if (isToolName(payload.type)) applier.apply(payload.type, payload);
+      }
+      applier.finish();
+      const result = { applied: applier.applied(), skipped: applier.skipped() };
+      if (result.applied > 0) {
+        notify.success(
+          "Agent changes applied.",
+          `${result.applied} ${result.applied === 1 ? "change" : "changes"} added to this scape.`,
+        );
+      }
+      return result;
+    },
+    [allowedTypes, readOnly],
+  );
+
+  const mcpBridge = useMcpBridge({
+    scape,
+    apply: applyMcpActions,
+    currentScape: () => useScapeStore.getState().scape,
+  });
 
   /**
    * A `.scape` is a serialisation and lands instantly. A PDF is a render — big scapes take a
@@ -758,6 +800,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
             setSettingsOpen(false);
             setShortcutsOpen(true);
           }}
+          mcpBridge={mcpBridge}
         />
       )}
       {publishOpen && (

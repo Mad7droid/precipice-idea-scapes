@@ -11,6 +11,10 @@ milestone is published.
 
 ### Changed
 
+- Added a local MCP bridge for Codex and Claude Desktop. A paired, open scape can be read and
+  updated through validated Precipice actions; changes are reviewable by default and optionally
+  apply immediately as one undoable transaction. The local bridge keeps its short-lived session
+  only on the user's machine and never receives an AI-provider key.
 - Added the Scape block object type: a long-form Markdown document — headings, tables, fenced
   code — that renders on the canvas and becomes an editable Markdown source field when you click
   a selected block (or press Enter), committing on Escape or deselect. Available everywhere Note,

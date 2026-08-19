@@ -4,6 +4,8 @@ import { settingsRepository } from "@/persistence/settings";
 import { DEFAULT_MODEL, MODELS } from "@/ai/models";
 import { Select } from "@/design/Select";
 import { ThemeControl } from "./ThemeControl";
+import { McpBridgePanel } from "./McpBridgePanel";
+import type { McpBridge } from "@/mcp/bridge";
 
 export function SettingsModal({
   onClose,
@@ -12,6 +14,7 @@ export function SettingsModal({
   onApiKeyChange,
   onThemeChange,
   onOpenHelp,
+  mcpBridge,
 }: {
   onClose: () => void;
   theme: ThemePreference;
@@ -19,6 +22,7 @@ export function SettingsModal({
   onApiKeyChange: (apiKey: string) => void;
   onThemeChange: (next: ThemePreference) => void;
   onOpenHelp?: () => void;
+  mcpBridge?: McpBridge;
 }) {
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
 
@@ -91,6 +95,8 @@ export function SettingsModal({
             className="mono w-full"
           />
         </div>
+
+        {mcpBridge && <McpBridgePanel bridge={mcpBridge} />}
 
         <button
           type="button"

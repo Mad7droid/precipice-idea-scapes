@@ -108,6 +108,12 @@ pnpm install
 pnpm dev
 ```
 
+### Local MCP bridge
+
+Precipice can pair an open scape with a local Codex or Claude Desktop MCP connection. The bridge
+is loopback-only, shares no API key, and lets an agent propose or directly apply validated flow
+changes to the paired scape. See [Local MCP bridge](docs/mcp.md) for setup and the pairing flow.
+
 Useful checks:
 
 ```sh
