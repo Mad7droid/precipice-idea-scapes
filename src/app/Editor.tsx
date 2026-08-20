@@ -20,7 +20,7 @@ import { downloadScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
 import { PublishSheet } from "@/publish/PublishSheet";
-import { logout } from "@/publish/client";
+import { PublishClientError, logout } from "@/publish/client";
 import {
   clearSession,
   readSession,
@@ -816,9 +816,28 @@ export function Editor({ scapeId }: { scapeId: string }) {
             await startSignIn(scapeRoute(scape.id), turnstileToken);
           }}
           onSignOut={async () => {
-            if (session) await logout(requestOptions);
+            // Revoking on the server is best effort; forgetting the token locally is not. A
+            // session the server has already dropped answers 401 to its own logout, and if that
+            // aborted the local clear the user would be sealed into a signed-in UI that can
+            // neither publish nor sign out. The worst case of clearing anyway is a server-side
+            // session nobody holds a token for, which expires on its own.
+            const revoked = session
+              ? await logout(requestOptions).then(
+                  () => true,
+                  (error: unknown) =>
+                    // A rejected token is already dead on the server; anything else means the
+                    // request never landed, and the user should know the session may still be live.
+                    error instanceof PublishClientError && error.code === "unauthorized",
+                )
+              : true;
             clearSession();
             publication.refresh();
+            if (!revoked) {
+              notify.info(
+                "Signed out on this device.",
+                "The publishing service could not be reached, so the session may still be active elsewhere.",
+              );
+            }
           }}
           isAdmin={session?.isAdmin}
         />

@@ -16,6 +16,7 @@ import {
   type RequestOptions,
 } from "./client";
 import { projectScape } from "./project";
+import { clearSession } from "./session";
 import { describeState, type PublicationView } from "./usePublication";
 
 /**
@@ -67,7 +68,15 @@ export function PublishSheet({
         error instanceof PublishClientError ? error.message : "Something went wrong.";
       notify.error(message);
       // A fresh Turnstile token is required before OAuth can begin, so an expired session is
-      // surfaced here instead of silently launching a redirect the user cannot complete.
+      // surfaced here instead of silently launching a redirect the user cannot complete. But the
+      // stale token is dropped: the local copy only records when the server *said* the session
+      // would expire, and the server can end one sooner — signing in elsewhere does exactly that.
+      // Keeping it would leave the sheet insisting the user is signed in while every call 401s,
+      // with no way back to the sign-in button.
+      if (error instanceof PublishClientError && error.code === "unauthorized") {
+        clearSession();
+        publication.refresh();
+      }
     } finally {
       setBusy(null);
     }

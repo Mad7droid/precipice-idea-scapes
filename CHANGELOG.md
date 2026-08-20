@@ -81,6 +81,9 @@ milestone is published.
 
 ### Fixed
 
+- Publishing now recovers from a server-expired session: signing out always clears the local
+  credential, and an unauthorized publish attempt returns to the Google sign-in option instead
+  of leaving the Publish sheet stuck in a signed-in state.
 - Local development now works on any Vite/Conductor port, not only `5173`, so AI requests no
   longer fail with a misleading connection error when another local service occupies that port.
 - Added an offline app shell, proactive browser-storage persistence, quota-pressure guidance,
