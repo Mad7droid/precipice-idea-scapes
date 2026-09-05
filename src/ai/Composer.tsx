@@ -12,6 +12,9 @@ export type { Scope } from "./prompt";
 
 export interface ComposerProps {
   onSend: (request: string) => void;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  sendLabel?: string;
   onCancel: () => void;
   busy: boolean;
   modelId: string;
@@ -49,6 +52,9 @@ export interface ComposerProps {
  */
 export function Composer({
   onSend,
+  value: controlledValue,
+  onValueChange,
+  sendLabel,
   onCancel,
   busy,
   modelId,
@@ -67,7 +73,9 @@ export function Composer({
 }: ComposerProps) {
   const showScope = controls?.scope ?? true;
   const showTypes = controls?.types ?? true;
-  const [value, setValue] = useState("");
+  const [localValue, setLocalValue] = useState("");
+  const value = controlledValue ?? localValue;
+  const setValue = onValueChange ?? setLocalValue;
   const [focused, setFocused] = useState(false);
   const localTextarea = useRef<HTMLTextAreaElement>(null);
   const textarea = inputRef ?? localTextarea;
@@ -85,7 +93,7 @@ export function Composer({
   const send = () => {
     if (!canSend) return;
     onSend(value.trim());
-    setValue("");
+    if (controlledValue === undefined) setValue("");
   };
 
   return (
@@ -179,15 +187,19 @@ export function Composer({
             type="button"
             onClick={send}
             disabled={!canSend}
-            aria-label="Send"
+            aria-label={sendLabel ?? "Send"}
             className={
-              "grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors " +
+              (sendLabel
+                ? "flex h-8 shrink-0 items-center gap-2 px-3 "
+                : "grid h-8 w-8 shrink-0 place-items-center ") +
+              "rounded-full transition-colors " +
               "duration-instant ease-out " +
               (canSend
                 ? "bg-accent text-on-accent hover:bg-accent-hover"
                 : "bg-inset text-fg-tertiary")
             }
           >
+            {sendLabel}
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
               <path
                 d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5l4 4"

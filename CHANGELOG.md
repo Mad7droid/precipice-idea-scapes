@@ -11,6 +11,15 @@ milestone is published.
 
 ### Changed
 
+- Redesigned Home with adaptive onboarding, a compact creator, visual scape previews, gallery/list
+  views, persistent pins, search, filtering, and sorting. Added a Product brief starter.
+- Home now exposes PDF and scape exports, publication links, and contextual entry points for
+  publishing, Scapi, and local agents. Added focused capability help and accessible action dialogs.
+- Creation preserves drafts through API-key setup and failed saves, blocks repeated submissions,
+  and verifies persistence before navigation. Home rename/delete respects active editor leases.
+- Home page and section headings now use the Geist Pixel display face. The design language
+  documents the reservation as applying to the `.mono` treatment rather than the typeface.
+
 - Added a local MCP bridge for Codex and Claude Desktop. A paired, open scape can be read and
   updated through validated Precipice actions; changes are reviewable by default and optionally
   apply immediately as one undoable transaction. The local bridge keeps its short-lived session

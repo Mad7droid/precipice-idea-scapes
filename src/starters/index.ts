@@ -133,8 +133,31 @@ const SCREEN_FLOW: Starter = {
   ],
 };
 
+const PRODUCT_BRIEF: Starter = {
+  id: "product-brief",
+  label: "Product brief",
+  blurb: "A structured document for the problem, goals, and requirements.",
+  types: ["scape", "note"],
+  layout: "TB",
+  edgeMode: "selected",
+  promptHint:
+    "Create a product brief as a Scape block with Markdown sections for Problem, Audience, Goals, Requirements, and Open questions. Distinguish assumptions from known requirements.",
+  placeholder: "Write a product brief for a tool that helps small teams plan their week…",
+  seed: (title) => [
+    {
+      type: "CreateObject",
+      id: newObjectId(),
+      objectType: "scape",
+      title: title || "Product brief",
+      data: {
+        body: "## Problem\n\nWhat problem are we solving?\n\n## Audience\n\nWho is this for?\n\n## Goals\n\nWhat does success look like?\n\n## Requirements\n\nWhat must the product do?\n\n## Open questions\n\nWhat do we still need to learn?",
+      },
+    },
+  ],
+};
+
 /** Order is the order they appear on the home page. Blank first: it is the safe default. */
-export const STARTERS: Starter[] = [BLANK, JOURNEY_MAP, MIND_MAP, SCREEN_FLOW];
+export const STARTERS: Starter[] = [BLANK, JOURNEY_MAP, MIND_MAP, SCREEN_FLOW, PRODUCT_BRIEF];
 
 export function getStarter(id: string | undefined): Starter {
   return STARTERS.find((s) => s.id === id) ?? BLANK;

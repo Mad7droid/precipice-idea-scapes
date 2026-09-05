@@ -52,9 +52,16 @@ builder's canvas and not a chat window.
 
 ### Monospace as a semantic tier
 
-Mono is reserved, strictly, for **machine truth**: object ids, action names, model and
-provider names, timestamps, type labels, keybindings. Never prose, never headings, never
+The `.mono` **treatment** is reserved, strictly, for **machine truth**: object ids, action
+names, model and provider names, timestamps, type labels, keybindings. Never prose, never
 decoration.
+
+The reservation is on the treatment, not the typeface. Uppercase, 11px, `+0.04em`, tertiary
+colour — that combination means "this is a real, nameable thing the system knows about," and
+it must never appear on anything else. Geist Pixel set in normal case at heading size is a
+different signal entirely, and is allowed on the wordmark and on page and section headings
+via `.font-pixel`. A reader is never asked to tell an id from a headline; size and case do
+that work long before the family does.
 
 The payoff is that the interface becomes self-documenting. When a user sees
 `CreateObject` in mono next to a node, they learn that actions are real, nameable,
@@ -140,9 +147,17 @@ probably warning too much.
 ## Type
 
 - **UI and prose:** Inter Variable. Enable `cv05`, `cv11`, `ss03`, and optical sizing.
-- **Machine truth:** JetBrains Mono, 500 weight, uppercase with `+0.04em` tracking for
-  labels.
-- No third face. The restraint is the point.
+- **Machine truth:** Geist Pixel, 500 weight, uppercase with `+0.04em` tracking for
+  labels. Use the `.mono` class, which applies all of it.
+- **Display:** Geist Pixel again, via `.font-pixel` — normal case, 400, `-0.015em`. The
+  wordmark and page/section headings.
+- Two faces, not three. Geist Pixel does double duty; the treatment is what separates the
+  two jobs. The restraint is the point.
+
+Geist Pixel ships a single weight (400) and is loaded from Google Fonts in `index.html`.
+`.font-pixel` therefore owns weight and tracking: pair it with a `text-*` size utility and
+nothing else. Tailwind's utility layer loads after `tokens.css`, so a `font-medium` or
+`tracking-tight` sitting beside it silently wins and breaks the face.
 
 | Token | Size / line | Tracking | Use |
 |---|---|---|---|

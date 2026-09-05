@@ -18,7 +18,7 @@ export function StarterPicker({
   return (
     <div>
       <p className="mono px-1 pb-2">Start with</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {STARTERS.map((starter) => (
           <button
             key={starter.id}
@@ -28,7 +28,7 @@ export function StarterPicker({
             title={starter.blurb}
             className={
               "flex min-h-[142px] flex-col items-start gap-2 rounded-xl border p-4 text-left shadow-sm " +
-              "transition-all duration-fast ease-out motion-reduce:transform-none " +
+              "transition-colors duration-fast ease-out motion-reduce:transform-none " +
               (value === starter.id
                 ? "border-focus bg-selected shadow-md"
                 : "border-subtle bg-surface hover:-translate-y-0.5 hover:border-strong hover:bg-raised hover:shadow-md")
@@ -83,6 +83,9 @@ function StarterMark({ starter, active }: { starter: Starter; active: boolean })
           <rect x="1.5" y="11" width="11" height="7.5" rx="1.5" {...common} />
           <rect x="15.5" y="11" width="11" height="7.5" rx="1.5" {...common} />
         </>
+      )}
+      {starter.id === "product-brief" && (
+        <path d="M7 2h14v16H7ZM10 6h8M10 10h8M10 14h5" {...common} />
       )}
       {starter.id === "blank" && (
         <rect x="4" y="2" width="20" height="16" rx="2" {...common} strokeDasharray="3 2.5" />

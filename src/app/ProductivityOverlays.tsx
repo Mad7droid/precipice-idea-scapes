@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "./home/Dialog";
 
 export interface CommandItem {
   id: string;
@@ -144,13 +145,30 @@ const HOW_TO = [
   },
 ];
 
-export function HelpPanel({ onClose }: { onClose: () => void }) {
-  const [section, setSection] = useState<"how-to" | "shortcuts">("how-to");
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose]);
+export type HelpTopic = "how-to" | "shortcuts" | "scapi" | "agent" | "publishing";
+const CAPABILITY_HELP = {
+  scapi: {
+    title: "Think with Scapi",
+    body: "Open a scape and choose Ask Scapi from its home action menu, or press Command/Control + J on the canvas. Ask about the whole scape or selected artifacts. Add your Anthropic API key in Settings before sending a question.",
+  },
+  agent: {
+    title: "Connect a local agent",
+    body: "Open a scape and choose Connect an agent from its home action menu. In Settings, use Agent MCP to connect to your configured local bridge, then give the pairing code to your agent. Pairing only shares the open scape. Review proposed changes before applying them; immediate application is optional.",
+  },
+  publishing: {
+    title: "Publish a read-only snapshot",
+    body: "Open a scape and choose Publish. Sign in with an invited account to publish a read-only snapshot. Public links are unlisted, not access-controlled. Local edits do not update the snapshot until you publish again. Publishing does not sync your browser library. Use Manage publication to update or unpublish the snapshot.",
+  },
+};
+export function HelpPanel({
+  onClose,
+  initialSection = "how-to",
+}: {
+  onClose: () => void;
+  initialSection?: HelpTopic;
+}) {
+  const [section, setSection] = useState<HelpTopic>(initialSection);
+  const root = useDialogFocus(onClose);
 
   return (
     <div
@@ -158,6 +176,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
       onMouseDown={onClose}
     >
       <div
+        ref={root}
         role="dialog"
         aria-modal
         aria-label="Help and keyboard shortcuts"
@@ -180,17 +199,23 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
-        <div className="flex border-b border-subtle px-5" role="tablist" aria-label="Help sections">
+        <div
+          className="flex flex-wrap border-b border-subtle px-5"
+          role="group"
+          aria-label="Help sections"
+        >
           {[
             ["how-to", "Getting started"],
             ["shortcuts", "Keyboard shortcuts"],
+            ["scapi", "Scapi"],
+            ["agent", "Agents"],
+            ["publishing", "Publishing"],
           ].map(([id, label]) => (
             <button
               key={id}
               type="button"
-              role="tab"
-              aria-selected={section === id}
-              onClick={() => setSection(id as "how-to" | "shortcuts")}
+              aria-pressed={section === id}
+              onClick={() => setSection(id as HelpTopic)}
               className={
                 "border-b-2 px-3 py-2 text-sm transition-colors duration-instant ease-out " +
                 (section === id
@@ -217,6 +242,13 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 </li>
               ))}
             </ol>
+          ) : section !== "shortcuts" ? (
+            <section>
+              <h3 className="text-base text-fg">{CAPABILITY_HELP[section].title}</h3>
+              <p className="mt-3 text-sm leading-6 text-fg-secondary">
+                {CAPABILITY_HELP[section].body}
+              </p>
+            </section>
           ) : (
             <div className="space-y-5">
               <p className="text-xs text-fg-tertiary">

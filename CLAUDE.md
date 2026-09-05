@@ -133,8 +133,12 @@ Full rationale and component specs: `docs/design-language.md`. The short version
 - Borders are always alpha, never solid hex, so they composite over any surface.
 - Text is never pure black or pure white. `#1E1B17` and `#EDE9E1`.
 - Default UI text size is **13px**. This app runs tighter than most.
-- Monospace is reserved for machine truth — object ids, action names, model names,
-  timestamps, keybindings. Never for prose. This is a rule, not a preference.
+- The `.mono` treatment (uppercase, 11px, `+0.04em`, tertiary) is reserved for machine
+  truth — object ids, action names, model names, timestamps, keybindings. Never for prose.
+  This is a rule, not a preference. The reservation is on that treatment, not on the Geist
+  Pixel face: `.font-pixel` sets the same family in normal case for the wordmark and for
+  page and section headings. Pair `.font-pixel` with a `text-*` size and nothing else —
+  it owns weight and tracking, and Tailwind utilities load after `tokens.css`.
 - Motion is quiet: 130–190ms, `--ease-out`, no bounce, no spring in chrome.
   Exactly one spring is allowed, on node entry during generation.
 - `prefers-reduced-motion` is respected everywhere. Not optional.

@@ -32,3 +32,15 @@ export function takePendingWork(): PendingWork | null {
   pending = null;
   return work;
 }
+
+/** Panel navigation is scoped to its document and never performs the panel's action. */
+export type EditorIntent = "publish" | "scapi" | "agent";
+let editorIntent: { scapeId: string; panel: EditorIntent } | null = null;
+export function setEditorIntent(scapeId: string, panel: EditorIntent): void {
+  editorIntent = { scapeId, panel };
+}
+export function takeEditorIntent(scapeId: string): EditorIntent | null {
+  const intent = editorIntent;
+  editorIntent = null;
+  return intent?.scapeId === scapeId ? intent.panel : null;
+}

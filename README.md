@@ -16,7 +16,8 @@ Open the hosted app at **[precipice.pages.dev](https://precipice.pages.dev)**.
 For a first look:
 
 1. Open the link in a modern browser.
-2. Choose a starter such as **All-in-one**, **Journey map**, **Mind map**, or **Screens**, or open an existing scape from the home page.
+2. Choose a starter such as **All-in-one**, **Journey map**, **Mind map**, **Screens**, or
+   **Product brief**, or reopen existing work from the scape library on the home page.
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
 4. Select an object to edit it in the inspector; resize any card from its lower-right handle.
 5. Switch between Light, Dark, and System themes from the top-right theme control.
@@ -43,6 +44,9 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - Local persistence with autosave, single-writer multi-tab protection, offline app-shell support,
   and versioned `.scape` export/import.
 - Export scapes as a portable `.scape` file or a readable PDF with a diagram and full object outline.
+- A home workspace that adapts to your library: inline prompt-or-manual creation, schematic
+  previews, gallery and list views, search, pinning, published/pinned filters, and per-scape
+  actions for rename, duplicate, export, publish, and delete.
 - Theme controls, object-type filters, and relationship-line visibility controls.
 - AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
 - Invite-only publishing: read-only public and embeddable scape snapshots, Google sign-in,
@@ -53,7 +57,7 @@ shared key behind a public endpoint is a shared key anyone can spend.
 ### Home and generation
 
 The home surface combines prompt-driven creation, starter scapes, imports, theme
-selection, settings, and locally saved scapes.
+selection, settings, and a searchable library of locally saved scapes.
 
 ![Precipice home with the All-in-one starter](docs/screenshots/home-all-in-one-dark.png)
 
@@ -156,7 +160,10 @@ For the full data-flow and Claude/Anthropic API-key model, see
   automatic eviction where the browser supports that capability. This is best effort, not a
   substitute for exporting important work.
 - A Scape has one writable browser tab at a time. Other tabs remain read-only and can take over
-  with one click; Precipice does not merge simultaneous edits.
+  with one click; Precipice does not merge simultaneous edits. Renaming or deleting from the
+  home library takes that same lease, so it cannot write behind a tab that has the Scape open.
+- Pins, filters, sort, and view choices are browser-local preferences. They are not part of a
+  Scape's content and do not travel with a `.scape` export or a publication.
 - The deployed app can reopen offline after its shell has been loaded once. AI generation still
   needs a network connection to Anthropic.
 - AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.

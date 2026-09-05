@@ -256,12 +256,19 @@ export function relativeTime(ts: number, now = Date.now()): string {
 }
 
 /** A file input styled as a button. Import lives beside the list it adds to. */
-export function ImportButton({ onFile }: { onFile: (file: File) => void }) {
+export function ImportButton({
+  onFile,
+  disabled = false,
+}: {
+  onFile: (file: File) => void;
+  disabled?: boolean;
+}) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => input.current?.click()}
         className="rounded-full border border-subtle px-3 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
       >

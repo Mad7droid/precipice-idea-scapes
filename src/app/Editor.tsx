@@ -30,7 +30,7 @@ import {
 } from "@/publish/session";
 import { usePublication } from "@/publish/usePublication";
 import { Outline } from "./Outline";
-import { takePendingWork } from "./pending";
+import { takeEditorIntent, takePendingWork } from "./pending";
 import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverlays";
 import { RelationshipInspector } from "./RelationshipInspector";
 import { navigate, scapeRoute } from "./router";
@@ -214,6 +214,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
   // canvas they deliberately emptied.
   useEffect(() => {
     if (!booted || !ready) return;
+    const intent = takeEditorIntent(scapeId);
+    if (intent === "publish") setPublishOpen(true);
+    if (intent === "scapi") setScapiOpen(true);
+    if (intent === "agent") setSettingsOpen(true);
     const pending = takePendingWork();
     if (!pending) return;
     if (pending.seed?.length) {

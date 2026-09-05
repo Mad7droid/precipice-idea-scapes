@@ -64,7 +64,7 @@ secret.
 
 | Area | Responsibility | Important files |
 | --- | --- | --- |
-| `src/app` | Application shell, routing, home, editor composition, settings, overlays | `App.tsx`, `Home.tsx`, `Editor.tsx` |
+| `src/app` | Application shell, routing, home, editor composition, settings, overlays | `App.tsx`, `Home.tsx`, `home/`, `Editor.tsx` |
 | `src/core` | Domain types, action protocol, pure reducer, store, serialization, registries | `types.ts`, `actions.ts`, `reducer.ts`, `store.ts` |
 | `src/canvas` | React Flow adapter, node/edge derivation, gestures, layout, camera | `Canvas.tsx`, `edges.ts`, `layout.ts` |
 | `src/objects` | Extensible object plugins and read-only viewer variants | `note/`, `journey/`, `wireframe/`, `scape/` |
@@ -251,9 +251,29 @@ the user between both surfaces without being part of the document repository.
 ### Home
 
 `src/app/Home.tsx` is the creation/library surface. It loads scape summaries, shows starters and
-recent scapes, accepts `.scape` imports, and places a pending seed or AI request into
+the scape library, accepts `.scape` imports, and places a pending seed or AI request into
 `src/app/pending.ts` before navigating to the editor. The editor consumes that work exactly once,
 so a refresh does not duplicate a generation or starter seed.
+
+It orchestrates; the pieces live in `src/app/home/`:
+
+| File | Responsibility |
+|---|---|
+| `library.ts` | `LibraryPreferences`, the `HOME_KEYS` settings keys, `selectScapes` filter/search/sort, and `withHomeLease` |
+| `LibraryControls.tsx` | Filter, search, sort, and gallery/list controls |
+| `ScapeCard.tsx` | One scape: preview, metadata, publication badge, pin, action menu |
+| `CreationPanel.tsx` | The inline prompt, starter and model selection, and manual creation |
+| `Dialog.tsx` | `useDialogFocus` — focus containment and restoration, shared with the settings and help modals |
+
+Home adapts to the library: a first-use layout leads with creation, a returning layout leads with
+the workspace. Filter, sort, view, pins, and the dismissed state of the explore section are
+browser-local preferences written through the settings repository; search is deliberately
+transient. Document mutations made from home (rename, delete) go through `withHomeLease`, which
+takes the same single-writer lease the editor uses, so home can never write behind an open tab.
+
+`src/app/pending.ts` also carries a scape-scoped `EditorIntent`. Choosing Publish, Ask Scapi, or
+Connect an agent from a card navigates to the editor and opens that panel once. It never performs
+the action — no generation, pairing, or publish is ever initiated by the handoff itself.
 
 ### Editor composition
 

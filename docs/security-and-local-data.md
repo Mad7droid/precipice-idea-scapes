@@ -17,11 +17,18 @@ own Anthropic (Claude) API key.
 - Browser storage is subject to the browser profile, extensions, operating
   system account, backups, and device security. “Local” does not mean encrypted
   or immune to malware.
+- Home library preferences — the filter, sort, gallery/list view, pinned Scapes,
+  and whether the explore section was dismissed — are stored with local settings
+  in IndexedDB. They describe how you view your library, not what a Scape
+  contains, so they are not written into a `.scape` export or a publication.
+  Pinning a Scape does not change its content or its edited time.
 
 ## Durability and offline behavior
 
 - Autosave writes locally without a Save button. When a Scape is open in more
   than one tab, only one tab holds the write lease; the others are read-only.
+  Renaming or deleting a Scape from the home library acquires the same lease and
+  fails with a clear message rather than writing behind a tab that holds it.
   Use **Edit here** to take over editing. Precipice does not merge simultaneous
   changes between tabs.
 - After the first Scape is created, Precipice asks browsers that support it to

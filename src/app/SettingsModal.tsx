@@ -4,6 +4,7 @@ import { settingsRepository } from "@/persistence/settings";
 import { DEFAULT_MODEL, MODELS } from "@/ai/models";
 import { Select } from "@/design/Select";
 import { ThemeControl } from "./ThemeControl";
+import { useDialogFocus } from "./home/Dialog";
 import { McpBridgePanel } from "./McpBridgePanel";
 import type { McpBridge } from "@/mcp/bridge";
 
@@ -24,6 +25,7 @@ export function SettingsModal({
   onOpenHelp?: () => void;
   mcpBridge?: McpBridge;
 }) {
+  const dialogRef = useDialogFocus(onClose);
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export function SettingsModal({
       <div
         className="w-[calc(100vw-32px)] max-w-[420px] rounded-xl border border-subtle bg-surface p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
         aria-modal
         aria-label="Settings"

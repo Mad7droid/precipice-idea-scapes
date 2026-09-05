@@ -307,7 +307,11 @@ body {
   color: var(--text-tertiary);
 }
 
-/* Brand moments use the same pixel face without the metadata treatment above. */
+/* The display tier. Same pixel face as .mono, without the metadata treatment above:
+   normal case, inherited size, tightened tracking. For the wordmark and for page and
+   section headings — voice, not machine truth. Set size with a text-* utility; do not
+   add font-* or tracking-* alongside it, as Tailwind utilities load after this file
+   and would override the weight and tracking the face depends on. */
 .font-pixel {
   font-family: var(--font-mono);
   font-weight: 400;
