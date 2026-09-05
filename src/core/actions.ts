@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_TAG_LENGTH, MAX_TAGS } from "./marks";
 
 /**
  * The Action Protocol.
@@ -14,8 +15,9 @@ import { z } from "zod";
  *    each a single action — one entry in the log, one step of undo. They are constructed by
  *    the engine only and are never exposed as AI tools (see src/ai/tools.ts).
  *
- * This module deliberately imports nothing but Zod: the reducer must stay pure and cheap to
- * test, with no React and no plugin registry in its dependency graph.
+ * This module imports nothing but Zod and `./marks`, which is itself dependency-free: the
+ * reducer must stay pure and cheap to test, with no React and no plugin registry in its
+ * dependency graph.
  */
 
 export const viewStateSchema = z.object({
@@ -36,6 +38,16 @@ export const relationshipSchema = z.object({
   label: z.string().optional(),
 });
 
+/**
+ * Markers are deliberately lenient here and normalised by the reducer instead.
+ *
+ * A tag list one item too long, or an accent name this build has never heard of, is a
+ * cosmetic problem. Rejecting the whole action over one would cost the user the object the
+ * marker was attached to, which is a far worse trade than a card that arrives uncoloured.
+ */
+const tagsSchema = z.array(z.string()).max(MAX_TAGS * 4);
+const accentSchema = z.string().max(32);
+
 export const scapeObjectSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
@@ -45,6 +57,8 @@ export const scapeObjectSchema = z.object({
   y: z.number(),
   /** Absent means "the type's default width". See ScapeObject.width. */
   width: z.number().min(200).max(900).optional(),
+  accent: accentSchema.optional(),
+  tags: z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -65,6 +79,9 @@ export const createObjectSchema = z.object({
   title: z.string(),
   /** Plugin-owned shape. Validated against the plugin schema at the AI boundary, not here. */
   data: z.record(z.string(), z.unknown()).optional(),
+  /** Marker colour name. Anything the palette does not know is dropped by the reducer. */
+  accent: accentSchema.optional(),
+  tags: tagsSchema.optional(),
 });
 
 export const updateObjectSchema = z.object({
@@ -74,6 +91,10 @@ export const updateObjectSchema = z.object({
   patch: z.object({
     title: z.string().optional(),
     data: z.record(z.string(), z.unknown()).optional(),
+    /** An empty string clears the accent; there is no null in this protocol. */
+    accent: accentSchema.optional(),
+    /** An empty array clears every tag. */
+    tags: tagsSchema.optional(),
   }),
 });
 
@@ -107,7 +128,9 @@ export const renameScapeSchema = z.object({
 export const setInstructionsSchema = z.object({
   ...envelope,
   type: z.literal("SetInstructions"),
-  instructions: z.object({ body: z.string().max(32000), version: z.number().int().min(1) }).optional(),
+  instructions: z
+    .object({ body: z.string().max(32000), version: z.number().int().min(1) })
+    .optional(),
 });
 
 // --- Engine-only actions --------------------------------------------------------------

@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { markColor } from "@/core/marks";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import type { ObjectId, Scape } from "@/core/types";
+import { scapeTags } from "./BlockMarkers";
 
 /**
  * What is on this canvas, as a list.
@@ -19,6 +21,7 @@ export function Outline({
   selection,
   onSelect,
   onConnectLoose,
+  onSelectMany,
   busy,
   readOnly = false,
   isCollapsed = false,
@@ -29,6 +32,8 @@ export function Outline({
   /** Selects the object and flies the camera to it. */
   onSelect: (id: ObjectId) => void;
   onConnectLoose: (ids: ObjectId[]) => void;
+  /** Selects a whole tag's worth of blocks at once, so the canvas rings all of them. */
+  onSelectMany?: (ids: ObjectId[]) => void;
   busy: boolean;
   /** Another tab holds the scape. Search, navigation and the counts stay; the edits go. */
   readOnly?: boolean;
@@ -37,7 +42,13 @@ export function Outline({
 }) {
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
   const [query, setQuery] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [sectionCollapsed, setSectionCollapsed] = useState<Set<string>>(new Set());
+
+  const tags = useMemo(() => scapeTags(scape.objects), [scape.objects]);
+  // A filter pinned to a tag that has just been renamed away would silently hide everything.
+  const activeTag =
+    tagFilter && tags.some((t) => t.tag.toLowerCase() === tagFilter) ? tagFilter : null;
 
   const { groups, loose, degree } = useMemo(() => {
     const degree = new Map<ObjectId, number>();
@@ -69,8 +80,23 @@ export function Outline({
   const queryText = query.trim().toLowerCase();
   const matches = (id: ObjectId) => {
     const object = scape.objects[id];
-    return !queryText || !!object?.title.toLowerCase().includes(queryText);
+    if (!object) return false;
+    if (activeTag && !(object.tags ?? []).some((tag) => tag.toLowerCase() === activeTag)) {
+      return false;
+    }
+    if (!queryText) return true;
+    // Tags are searchable too. Someone typing "risk" means the blocks about risk, whether the
+    // word is in the title or on the label they attached to it.
+    return (
+      object.title.toLowerCase().includes(queryText) ||
+      (object.tags ?? []).some((tag) => tag.toLowerCase().includes(queryText))
+    );
   };
+
+  const taggedIds = (tag: string) =>
+    scape.objectOrder.filter((id) =>
+      (scape.objects[id]?.tags ?? []).some((t) => t.toLowerCase() === tag),
+    );
   const toggle = (section: string) =>
     setSectionCollapsed((current) => {
       const next = new Set(current);
@@ -110,6 +136,40 @@ export function Outline({
               placeholder="Search canvas"
               className="focus-self mb-2 w-full rounded-sm border border-subtle bg-inset px-2 py-1 text-xs text-fg placeholder:text-fg-tertiary"
             />
+            {tags.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-1">
+                {tags.map(({ tag, count }) => {
+                  const key = tag.toLowerCase();
+                  const on = activeTag === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setTagFilter(on ? null : key)}
+                      className={
+                        "rounded-full border px-2 py-0.5 text-xs transition-colors " +
+                        "duration-instant ease-out " +
+                        (on
+                          ? "border-transparent bg-selected text-fg"
+                          : "border-subtle text-fg-secondary hover:bg-hover hover:text-fg")
+                      }
+                    >
+                      {tag} <span className="text-fg-tertiary">{count}</span>
+                    </button>
+                  );
+                })}
+                {activeTag && onSelectMany && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectMany(taggedIds(activeTag))}
+                    className="rounded-full px-2 py-0.5 text-xs text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                  >
+                    Select on canvas
+                  </button>
+                )}
+              </div>
+            )}
             {scape.objectOrder.length === 0 ? (
               <p className="px-2 py-3 text-xs text-fg-tertiary">
                 Nothing on the canvas yet. Add a block below, or describe what you want.
@@ -256,6 +316,7 @@ function Row({
   const object = scape.objects[id];
   if (!object) return null;
   const plugin = getPlugin(object.type);
+  const accent = markColor(object.accent);
 
   return (
     <div
@@ -278,6 +339,16 @@ function Row({
           style={{ background: `var(${plugin?.color ?? "--border-strong"})` }}
         />
         <span className="min-w-0 flex-1 truncate text-fg">{object.title || "Untitled"}</span>
+        {/* The accent, on the far side of the title, so the type dot and the group dot are
+            never mistaken for each other. */}
+        {accent && (
+          <span
+            aria-hidden
+            title={`Marked ${object.accent}`}
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ background: accent }}
+          />
+        )}
         {links > 0 && <span className="mono shrink-0">{links}</span>}
       </button>
       {onDelete && (
