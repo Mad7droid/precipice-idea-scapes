@@ -280,6 +280,13 @@ function reduce(state: Scape, action: Action): ApplyResult {
       };
     }
 
+    case "SetInstructions": {
+      if (JSON.stringify(state.instructions) === JSON.stringify(action.instructions)) return { state, inverse: null };
+      const next = { ...state };
+      if (action.instructions) next.instructions = action.instructions;
+      else delete next.instructions;
+      return { state: next, inverse: inv(action, { type: "SetInstructions", instructions: state.instructions }) };
+    }
     case "RenameScape": {
       if (state.name === action.name) return { state, inverse: null };
       return {

@@ -27,6 +27,7 @@ interface StoreState {
   redoStack: Transaction[];
   /** Set while a generation is streaming, so the canvas can defer expensive work. */
   generating: boolean;
+  committing: boolean;
 
   loadScape: (scape: Scape | null) => void;
   /** Returns false if the action was a no-op and nothing was recorded. */
@@ -48,12 +49,13 @@ export const useScapeStore = create<StoreState>((set, get) => ({
   undoStack: [],
   redoStack: [],
   generating: false,
+  committing: false,
 
   loadScape: (scape) => set({ scape, selection: [], actionLog: [], undoStack: [], redoStack: [] }),
 
   dispatch: (action) => {
     const { scape, undoStack } = get();
-    if (!scape) return false;
+    if (!scape || get().committing) return false;
 
     const { state, inverse } = applyAction(scape, action);
     if (!inverse) return false;
@@ -95,7 +97,7 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
   undo: () => {
     const { scape, undoStack } = get();
-    if (!scape || undoStack.length === 0) return false;
+    if (get().committing || !scape || undoStack.length === 0) return false;
     const tx = undoStack[undoStack.length - 1];
 
     let next = scape;
@@ -120,7 +122,7 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
   redo: () => {
     const { scape, redoStack } = get();
-    if (!scape || redoStack.length === 0) return false;
+    if (get().committing || !scape || redoStack.length === 0) return false;
     const tx = redoStack[redoStack.length - 1];
 
     let next = scape;

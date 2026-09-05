@@ -67,6 +67,7 @@ export interface ScapeMeta {
  * carries the stable ordering that layout and keyboard navigation depend on.
  */
 export interface Scape {
+  instructions?: { body: string; version: number };
   id: ScapeId;
   name: string;
   objects: Record<ObjectId, ScapeObject>;

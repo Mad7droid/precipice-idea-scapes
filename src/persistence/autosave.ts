@@ -5,7 +5,7 @@ const DEBOUNCE_MS = 300;
 
 export interface AutosaveHandle {
   /** Writes immediately, bypassing the debounce. */
-  flush: () => void;
+  flush: () => Promise<void>;
   /** Number of snapshot writes performed. Exposed for the dev route and the tests. */
   writes: () => number;
   lastSavedAt: () => number | null;
@@ -39,7 +39,8 @@ export function startAutosave(
   let lastSavedAt: number | null = null;
   let stopped = false;
 
-  const write = () => {
+  let inflight: Promise<void> = Promise.resolve();
+  const write = (): Promise<void> => {
     if (timer) {
       clearTimeout(timer);
       timer = undefined;
@@ -51,18 +52,24 @@ export function startAutosave(
     // Drain regardless of whether there is a snapshot to write, so the queue cannot grow
     // unboundedly while no scape is loaded.
     const actions = useScapeStore.getState().drainActionLog();
-    if (!scape) return;
+    if (!scape) return inflight;
 
     // A follower tab drains and discards. Its edits are not persisted anywhere, which is why
     // the UI is read-only while it follows; on promotion it reloads from the repository, so
     // there is nothing here worth keeping.
-    if (canWrite && !canWrite()) return;
+    if (canWrite && !canWrite()) return inflight;
 
     writes += 1;
     lastSavedAt = Date.now();
-    // Sequence numbers make out-of-order completion harmless: a stale write is dropped.
-    void repository.saveSnapshot(scape, ++seq);
-    if (actions.length) void repository.appendActions(scape.id, actions);
+    // Both calls are issued synchronously rather than chained behind the previous write. On
+    // `pagehide` a queued microtask may never run, and losing that write is the bug this path
+    // exists to prevent. Sequence numbers make out-of-order completion harmless: a stale write
+    // is dropped. `inflight` only exists so `flush` can be awaited.
+    const nextSeq = ++seq;
+    const pendingWrites = [repository.saveSnapshot(scape, nextSeq)];
+    if (actions.length) pendingWrites.push(repository.appendActions(scape.id, actions));
+    inflight = Promise.all([inflight, ...pendingWrites]).then(() => undefined);
+    return inflight;
   };
 
   const unsubscribe = useScapeStore.subscribe((state, previous) => {

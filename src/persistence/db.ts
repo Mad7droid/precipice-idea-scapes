@@ -1,3 +1,4 @@
+import type { McpOperation } from "../mcp/operations";
 import Dexie, { type EntityTable } from "dexie";
 import type { Action } from "@/core/actions";
 import type { PublicationRecord, Scape, ScapeId } from "@/core/types";
@@ -48,6 +49,7 @@ export interface SettingRow {
 export type PublicationRow = PublicationRecord;
 
 export class PrecipiceDb extends Dexie {
+  mcpOperations!: EntityTable<McpOperation, "key">;
   scapes!: EntityTable<ScapeRow, "id">;
   actions!: EntityTable<ActionRow, "id">;
   settings!: EntityTable<SettingRow, "key">;
@@ -74,6 +76,11 @@ export class PrecipiceDb extends Dexie {
     this.version(2).stores({
       publications: "scapeId, publicationId, status",
     });
+    // Version 3 adds the MCP idempotency receipts. Additive in the same way version 2 was: no
+    // upgrade function, and every existing store carries forward untouched. `dbUpgrade.test.ts`
+    // opens a real version 2 database and asserts exactly that, because the failure mode here
+    // is only visible on a disk that already has data on it.
+    this.version(3).stores({ mcpOperations: "key, scapeId, expiresAt" });
   }
 }
 

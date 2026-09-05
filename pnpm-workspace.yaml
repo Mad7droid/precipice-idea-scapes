@@ -1,6 +1,8 @@
 allowBuilds:
   # Transitive via jspdf. Its install script only prints a funding notice — nothing to run.
   core-js: false
+  # Transitive via a polyfill dep. Same funding-notice-only install script as core-js.
+  core-js-pure: false
   esbuild: true
   # Wrangler's locally bundled Cloudflare runtime.
   workerd: true

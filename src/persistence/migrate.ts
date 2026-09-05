@@ -42,6 +42,7 @@ export type MigrationSteps = Record<number, MigrationStep>;
  * only shipped schema where that key meant card width.
  */
 export const STEPS: MigrationSteps = {
+  2: (document) => document, // v3 adds optional instructions and their action vocabulary.
   1: (document) => {
     const objects = document.objects;
     if (!objects || typeof objects !== "object" || Array.isArray(objects)) return document;

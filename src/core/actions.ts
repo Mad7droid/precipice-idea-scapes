@@ -104,6 +104,12 @@ export const renameScapeSchema = z.object({
   name: z.string().min(1),
 });
 
+export const setInstructionsSchema = z.object({
+  ...envelope,
+  type: z.literal("SetInstructions"),
+  instructions: z.object({ body: z.string().max(32000), version: z.number().int().min(1) }).optional(),
+});
+
 // --- Engine-only actions --------------------------------------------------------------
 
 export const moveObjectSchema = z.object({
@@ -186,6 +192,7 @@ export const actionSchema = z.discriminatedUnion("type", [
   connectObjectsSchema,
   disconnectObjectsSchema,
   renameScapeSchema,
+  setInstructionsSchema,
   mergeObjectDataSchema,
   resizeObjectSchema,
   moveObjectSchema,
@@ -254,6 +261,8 @@ export function describeAction(action: Action): string {
       return `${action.from} → ${action.to}${action.label ? ` · "${action.label}"` : ""}`;
     case "DisconnectObjects":
       return action.id;
+    case "SetInstructions":
+      return "Scape instructions";
     case "RenameScape":
       return `"${action.name}"`;
     case "MergeObjectData":
