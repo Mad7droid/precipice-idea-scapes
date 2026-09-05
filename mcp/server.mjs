@@ -149,8 +149,9 @@ function objectText(object) {
 /**
  * Extracted from process startup so the loopback protocol can be tested without stdio.
  */
-export function createBridge({ port = DEFAULT_PORT } = {}) {
+export function createBridge({ port = DEFAULT_PORT, onRelinquish = () => {} } = {}) {
   const sessions = new Map();
+  let bound = false;
 
   const requireSession = (req, res, sessionId, origin) => {
     const session = sessions.get(sessionId);
@@ -195,6 +196,18 @@ export function createBridge({ port = DEFAULT_PORT } = {}) {
     try {
       if (req.method === "GET" && url.pathname === "/bridge/health") {
         return response(res, 200, { ok: true }, origin);
+      }
+
+      // An orphaned instance is worse than no instance: it holds the port while the MCP host
+      // talks to a process that already died. A newer instance asks the incumbent to stand
+      // down here. Browsers always send `Origin` on a cross-origin fetch, and every fetch to
+      // this port is cross-origin, so requiring its absence keeps this off the web.
+      if (req.method === "DELETE" && url.pathname === "/bridge/instance") {
+        if (origin || req.headers["x-precipice-bridge-takeover"] !== "1") {
+          return response(res, 403, { error: "forbidden" }, origin);
+        }
+        response(res, 204, undefined, origin);
+        return setTimeout(onRelinquish, 20);
       }
 
       if (req.method === "POST" && url.pathname === "/bridge/sessions") {
@@ -269,17 +282,44 @@ export function createBridge({ port = DEFAULT_PORT } = {}) {
   });
 
   return {
-    async listen() {
-      await new Promise((resolve, reject) => {
-        http.once("error", reject);
-        http.listen(port, "127.0.0.1", () => {
-          http.off("error", reject);
-          resolve();
-        });
-      });
-      const address = http.address();
-      return typeof address === "object" && address ? address.port : port;
+    /**
+     * Binding is best-effort, never fatal.
+     *
+     * Claude Desktop starts this command more than once, so losing the race for the port is
+     * routine rather than exceptional. Exiting on `EADDRINUSE` is what made the whole server
+     * vanish from the host: the instance the host kept talking to was one of the losers.
+     *
+     * So: retry while the incumbent shuts down, then ask it to stand down, and if the port is
+     * still not ours, return null and let the tools say so in words.
+     */
+    async listen({ attempts = 8, delayMs = 250 } = {}) {
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          await new Promise((resolve, reject) => {
+            const onError = (error) => reject(error);
+            http.once("error", onError);
+            http.listen(port, "127.0.0.1", () => {
+              http.off("error", onError);
+              resolve();
+            });
+          });
+          bound = true;
+          const address = http.address();
+          return typeof address === "object" && address ? address.port : port;
+        } catch (error) {
+          if (error?.code !== "EADDRINUSE") throw error;
+          if (attempt === Math.ceil(attempts / 2)) {
+            await fetch(`http://127.0.0.1:${port}/bridge/instance`, {
+              method: "DELETE",
+              headers: { "X-Precipice-Bridge-Takeover": "1" },
+            }).catch(() => {});
+          }
+          if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+      return null;
     },
+    isBound: () => bound,
     close: () => new Promise((resolve, reject) => http.close((error) => (error ? reject(error) : resolve()))),
     sessions,
     enqueue,
@@ -298,7 +338,12 @@ function buildMcpServer(bridge) {
   let activeSessionId = null;
 
   const active = () => (activeSessionId ? bridge.sessions.get(activeSessionId) : null);
-  const noActive = () => text("No Precipice scape is paired. In Precipice Settings → Claude MCP, connect the open scape and use the displayed eight-character pairing code.");
+  const noActive = () =>
+    bridge.isBound()
+      ? text("No Precipice scape is paired. In Precipice Settings → Agent MCP, connect the open scape and use the displayed eight-character pairing code.")
+      : text(
+          "The Precipice bridge could not claim port 38383, so no browser tab can reach it. Another copy of the bridge is already running — quit it, then restart Claude Desktop.",
+        );
 
   server.registerTool(
     "list_paired_scapes",
@@ -408,11 +453,17 @@ function buildMcpServer(bridge) {
 }
 
 export async function start({ port = DEFAULT_PORT } = {}) {
-  const bridge = createBridge({ port });
-  const boundPort = await bridge.listen();
+  const bridge = createBridge({ port, onRelinquish: () => process.exit(0) });
   const server = buildMcpServer(bridge);
+  // stdio is connected before the port is claimed, so the host registers the tools even when
+  // this instance loses the race. A server that reports the problem beats one that disappears.
   await server.connect(new StdioServerTransport());
-  console.error(`Precipice MCP bridge listening on http://127.0.0.1:${boundPort}`);
+  const boundPort = await bridge.listen();
+  console.error(
+    boundPort
+      ? `Precipice MCP bridge listening on http://127.0.0.1:${boundPort}`
+      : `Precipice MCP tools are available, but port ${port} is held by another bridge, so no browser tab can pair with this one.`,
+  );
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
