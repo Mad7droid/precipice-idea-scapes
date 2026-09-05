@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
+import { markColor } from "@/core/marks";
 import { getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
@@ -34,6 +35,8 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
   const { object, justGenerated } = data as unknown as ObjectNodeData;
   const plugin = getPlugin(object.type);
   const colour = plugin ? `var(${plugin.color})` : "var(--border-strong)";
+  const accent = markColor(object.accent);
+  const tags = object.tags ?? [];
   const { width, grip } = useResizeGrip(object);
 
   return (
@@ -49,6 +52,19 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         (selected ? "ring-2 ring-accent" : "")
       }
     >
+      {/*
+        The accent is a full-height edge stripe rather than a recolour of the type band. Type
+        and group are two different questions — "what is this" and "which of these go
+        together" — and answering the second by overwriting the answer to the first would
+        trade one kind of blindness for another. The stripe reads at any zoom.
+      */}
+      {accent && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ background: accent }}
+        />
+      )}
       <Handle
         type="target"
         position={Position.Left}
@@ -76,6 +92,26 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         <span className="text-2xs font-medium text-fg-secondary">
           {plugin?.label ?? object.type}
         </span>
+        {tags.length > 0 && (
+          // Two, then a count. A third chip pushes the type label out of a narrow card, and
+          // the whole point of the band is that the type stays readable.
+          <span className="ml-auto flex min-w-0 items-center gap-1">
+            {tags.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                title={tags.join(", ")}
+                className="max-w-24 truncate rounded-full bg-surface px-1.5 py-px text-2xs text-fg-secondary"
+              >
+                {tag}
+              </span>
+            ))}
+            {tags.length > 2 && (
+              <span title={tags.join(", ")} className="text-2xs text-fg-tertiary">
+                +{tags.length - 2}
+              </span>
+            )}
+          </span>
+        )}
       </div>
 
       <div className="px-3 pb-2.5 pt-2">

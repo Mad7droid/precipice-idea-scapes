@@ -489,3 +489,58 @@ continuity in later turns.
   every turn — but it is the first knob to expose if answer quality disappoints.
 - **No `src/core` change was needed.** Turn ids use a local counter because `core/ids.ts` is
   frozen and has no generic helper; they are React keys only, never persisted or displayed.
+
+---
+
+## Custom instructions and block markers
+
+### Custom instructions
+
+Two optional layers, both plain prose, both empty by default:
+
+- **Global** — `SETTING_KEYS.instructions` in the settings repository (IndexedDB), edited in
+  Settings → "Generation instructions". Applies to every scape in this browser.
+- **Per-scape** — `Scape.instructions`, which already existed in `core/types.ts` and the reducer
+  (`SetInstructions`) for the MCP work but had no UI and reached no prompt. Now edited from the
+  "Instructions" pill in the composer and dispatched as `SetInstructions`, so it is undoable,
+  autosaved, and travels with an export.
+
+Both are rendered into the **system** prompt (`## Custom instructions`, global first, scape
+second) rather than the user turn, so they are not diluted by `<canvas-data>`. They reach both
+the build and connect prompts.
+
+Flagged:
+
+- **`prompt.ts` truncates each set to 4000 characters** and the two editable fields cap at the
+  same number (`MAX_INSTRUCTIONS`). The wire schema still allows 32000, because a connected
+  agent may write instructions this app did not author — those are truncated at prompt time,
+  silently. If MCP `set_instructions` ships a UI, it should surface that.
+- **Scapi does not read either set.** Answering a question is not generating, and the two want
+  different guidance. Easy to add if that turns out to be wrong.
+- The pill commits on close, not per keystroke, so writing instructions is one undo step.
+
+### Block markers — accent and tags
+
+`ScapeObject` gains two optional fields: `accent` (a name from `core/marks.ts`, never a hex) and
+`tags` (up to six, each ≤ 24 chars). Both are additive and optional, so **no document version
+bump and no migration** — a file written before them opens unchanged, and one written with them
+opens in an older build with the fields dropped by the schema.
+
+- Set by hand from the inspector (`app/BlockMarkers.tsx`, host chrome above the plugin's own
+  inspector, exactly like the resize grip), or by the model via `CreateObject` / `UpdateObject`.
+- Rendered as a left edge stripe plus up to two chips on the card, and as a dot plus a tag
+  filter row in the outline. The type colour is untouched: type and group are two questions.
+- **Markers are normalised, not rejected.** An unknown accent or a seventh tag is dropped by the
+  reducer rather than failing the action — losing a whole object over a colour name is a worse
+  trade than an uncoloured card. This is the one deliberate exception to "invalid actions are
+  dropped".
+
+Flagged:
+
+- **Markers are not published.** `publish/contract.ts` is frozen and `publish/project.ts` picks
+  fields explicitly, so a published scape shows neither stripe nor chips. Adding them means a
+  contract change plus a Worker deploy.
+- **Markers are not in the PDF export** (`src/export/pdf/`) for the same reason of scope.
+- The projection in `ai/context.ts` carries markers on each object's index line, so a second
+  generation reuses the vocabulary the first established rather than inventing a parallel one.
+  It costs a few tokens per marked object and nothing at all for unmarked ones.

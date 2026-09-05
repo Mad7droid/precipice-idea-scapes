@@ -9,6 +9,11 @@ import type { Relationship, Scape, ScapeMeta, ScapeObject } from "./types";
 
 const T0 = 1735689600000; // 2025-01-01T00:00:00Z — fixed so snapshots are stable
 
+/**
+ * `marks` is optional and most objects have none — a fixture where every card is tagged would
+ * demonstrate the wrong thing. The few that are tagged share a vocabulary, because that is how
+ * markers are meant to be used: a small set reused across types, not a label per card.
+ */
 function obj(
   id: string,
   type: string,
@@ -16,8 +21,20 @@ function obj(
   data: Record<string, unknown>,
   x: number,
   y: number,
+  marks?: { accent?: string; tags?: string[] },
 ): ScapeObject {
-  return { id, type, title, data, x, y, createdAt: T0, updatedAt: T0 };
+  return {
+    id,
+    type,
+    title,
+    data,
+    x,
+    y,
+    ...(marks?.accent ? { accent: marks.accent } : {}),
+    ...(marks?.tags?.length ? { tags: marks.tags } : {}),
+    createdAt: T0,
+    updatedAt: T0,
+  };
 }
 
 function rel(id: string, from: string, to: string, label?: string): Relationship {
@@ -64,6 +81,7 @@ const OBJECTS: ScapeObject[] = [
     },
     340,
     0,
+    { accent: "teal", tags: ["happy path"] },
   ),
   obj(
     "recovery",
@@ -79,6 +97,7 @@ const OBJECTS: ScapeObject[] = [
     },
     340,
     260,
+    { accent: "rose", tags: ["recovery", "risk"] },
   ),
   obj(
     "returning",
@@ -140,6 +159,7 @@ const OBJECTS: ScapeObject[] = [
     },
     700,
     520,
+    { accent: "rose", tags: ["recovery"] },
   ),
   obj(
     "wf-fund",
@@ -167,6 +187,7 @@ const OBJECTS: ScapeObject[] = [
     },
     1060,
     0,
+    { accent: "rose", tags: ["risk"] },
   ),
   obj(
     "open-question",

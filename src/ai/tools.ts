@@ -8,6 +8,7 @@ import {
   updateObjectSchema,
   type AiActionType,
 } from "@/core/actions";
+import { MARK_NAMES, MAX_TAGS } from "@/core/marks";
 import { pluginTypes } from "@/core/registry";
 
 /**
@@ -58,10 +59,12 @@ export function toolDescriptions(allowedTypes: string[] = []): Record<ToolName, 
     CreateObject:
       `Add an object to the scape. Choose objectType from: ${types}. ` +
       "Pick a short, readable, kebab-case id — it is shown to the user on the card. " +
-      "Do not include coordinates; the engine lays the canvas out.",
+      "Do not include coordinates; the engine lays the canvas out. " +
+      `Optionally group the card: up to ${MAX_TAGS} short tags, and one accent colour from ` +
+      `${MARK_NAMES.join(", ")}. Objects sharing a tag should share an accent.`,
     UpdateObject:
-      "Change the title or data of an object that already exists. Send only the fields you " +
-      "are changing.",
+      "Change the title, data, tags or accent of an object that already exists. Send only " +
+      "the fields you are changing. An empty accent string or an empty tag array clears them.",
     DeleteObject: "Remove an object and every relationship attached to it.",
     ConnectObjects:
       "Draw a directed relationship between two objects that already exist. Create both " +

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { actionSchema } from "./actions";
+import { MAX_TAG_LENGTH, MAX_TAGS } from "./marks";
 import type { Scape } from "./types";
 
 /**
@@ -23,12 +24,17 @@ const scapeObject = z.object({
   x: z.number(),
   y: z.number(),
   width: z.number().min(200).max(900).optional(),
+  /** Markers. Both optional and both additive, so a v3 file written before them still opens. */
+  accent: z.string().max(32).optional(),
+  tags: z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
 
 export const scapeSchema = z.object({
-  instructions: z.object({ body: z.string().max(32000), version: z.number().int().min(1) }).optional(),
+  instructions: z
+    .object({ body: z.string().max(32000), version: z.number().int().min(1) })
+    .optional(),
   id: z.string().min(1),
   name: z.string(),
   objects: z.record(z.string(), scapeObject),

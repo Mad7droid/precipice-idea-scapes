@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Action } from "@/core/actions";
 import { emptyScape, fixtureScape, syntheticScape } from "@/core/fixtures";
+import { MARK_NAMES } from "@/core/marks";
 import { applyAction } from "@/core/reducer";
 import { useScapeStore } from "@/core/store";
 import type { Scape } from "@/core/types";
@@ -529,5 +530,101 @@ describe("the starter steers the prompt", () => {
     expect(withHint).toContain("## What this scape is");
     expect(withHint).toContain("This scape is a mind map.");
     expect(systemPrompt()).not.toContain("## What this scape is");
+  });
+});
+
+describe("custom instructions steer the prompt", () => {
+  it("adds nothing at all when there are none", () => {
+    expect(systemPrompt()).not.toContain("## Custom instructions");
+    expect(systemPrompt({ instructions: { global: "  ", scape: "" } })).toBe(systemPrompt());
+  });
+
+  it("carries both sets, scape last, so the specific one wins a conflict", () => {
+    const prompt = systemPrompt({
+      instructions: { global: "Write in British English.", scape: "Lead with the risk." },
+    });
+    expect(prompt).toContain("## Custom instructions");
+    expect(prompt.indexOf("Write in British English.")).toBeLessThan(
+      prompt.indexOf("Lead with the risk."),
+    );
+    expect(prompt).toContain("the scape's own instructions win");
+  });
+
+  it("carries either one alone", () => {
+    const globalOnly = systemPrompt({ instructions: { global: "Be terse." } });
+    expect(globalOnly).toContain("Be terse.");
+    expect(globalOnly).not.toContain("### This scape");
+
+    const scapeOnly = systemPrompt({ instructions: { scape: "Cover mobile only." } });
+    expect(scapeOnly).toContain("Cover mobile only.");
+    expect(scapeOnly).not.toContain("### Everywhere");
+  });
+
+  it("reaches the connect prompt too", () => {
+    const prompt = systemPrompt({ mode: "connect", instructions: { scape: "Label every edge." } });
+    expect(prompt).toContain("Label every edge.");
+    expect(prompt).toContain("## Your task");
+  });
+
+  it("keeps the engine's invariants above the user's preferences", () => {
+    const prompt = systemPrompt({
+      instructions: { global: "Always place the first card at x 40, y 90." },
+    });
+    expect(prompt).toContain("they cannot grant coordinates");
+    expect(prompt).toContain("Never send coordinates.");
+  });
+
+  it("truncates an instruction long enough to crowd out the request", () => {
+    const prompt = systemPrompt({ instructions: { global: "z".repeat(6000) } });
+    expect(prompt).toContain("z".repeat(4000));
+    expect(prompt).not.toContain("z".repeat(4001));
+  });
+});
+
+describe("block markers", () => {
+  it("offers tags and an accent on the create tool, from the palette", () => {
+    const description = toolDescriptions().CreateObject;
+    for (const name of MARK_NAMES) expect(description).toContain(name);
+  });
+
+  it("asks the model to reuse a small tag vocabulary rather than invent one per card", () => {
+    expect(systemPrompt()).toContain("not a fresh label per card");
+  });
+
+  it("shows the model the markers already in play, so a second run reuses them", () => {
+    const text = projectScape(fixtureScape()).text;
+    expect(text).toContain("tags: recovery, risk");
+    expect(text).toContain("| rose]");
+    // Objects with no markers gain nothing — the suffix is absent, not empty.
+    expect(text).toContain("copy-rules · note ·");
+  });
+
+  it("applies markers a generation sends, and survives ones it invents", () => {
+    const store = localDispatch(emptyScape("s1"));
+    const { events, onEvent } = collector();
+    const applier = createApplier({ dispatch: store.dispatch, onEvent });
+
+    applier.apply("CreateObject", {
+      id: "discovery",
+      objectType: "note",
+      title: "Discovery",
+      data: { body: "x" },
+      accent: "teal",
+      tags: ["phase 1", "phase 1"],
+    });
+    applier.apply("CreateObject", {
+      id: "build",
+      objectType: "note",
+      title: "Build",
+      data: { body: "x" },
+      accent: "chartreuse",
+    });
+
+    expect(store.get().objects["discovery"].accent).toBe("teal");
+    expect(store.get().objects["discovery"].tags).toEqual(["phase 1"]);
+    // An invented colour is dropped, not the card that carried it.
+    expect(store.get().objects["build"].title).toBe("Build");
+    expect(store.get().objects["build"].accent).toBeUndefined();
+    expect(events.filter((event) => event.kind === "skipped")).toHaveLength(0);
   });
 });

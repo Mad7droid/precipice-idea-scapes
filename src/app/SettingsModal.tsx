@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { SETTING_KEYS, type ThemePreference } from "@/core/types";
+import { MAX_INSTRUCTIONS, SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
 import { DEFAULT_MODEL, MODELS } from "@/ai/models";
 import { Select } from "@/design/Select";
+import { InstructionsField } from "@/ai/Instructions";
 import { ThemeControl } from "./ThemeControl";
 import { useDialogFocus } from "./home/Dialog";
 import { McpBridgePanel } from "./McpBridgePanel";
@@ -13,6 +14,8 @@ export function SettingsModal({
   theme,
   apiKey,
   onApiKeyChange,
+  instructions,
+  onInstructionsChange,
   onThemeChange,
   onOpenHelp,
   mcpBridge,
@@ -21,6 +24,9 @@ export function SettingsModal({
   theme: ThemePreference;
   apiKey: string;
   onApiKeyChange: (apiKey: string) => void;
+  /** Standing instructions for every scape in this browser. Optional, and usually empty. */
+  instructions?: string;
+  onInstructionsChange?: (next: string) => void;
   onThemeChange: (next: ThemePreference) => void;
   onOpenHelp?: () => void;
   mcpBridge?: McpBridge;
@@ -98,6 +104,24 @@ export function SettingsModal({
             className="mono w-full"
           />
         </div>
+
+        {onInstructionsChange && (
+          <div className="mt-4">
+            <label htmlFor="global-instructions" className="mb-1 block text-xs text-fg-secondary">
+              Generation instructions
+            </label>
+            <InstructionsField
+              id="global-instructions"
+              value={instructions ?? ""}
+              onChange={onInstructionsChange}
+              maxLength={MAX_INSTRUCTIONS}
+            />
+            <p className="mt-2 text-xs text-fg-tertiary">
+              Optional. Applied to every generation in this browser. Each scape can add its own on
+              top, from the composer.
+            </p>
+          </div>
+        )}
 
         {mcpBridge && <McpBridgePanel bridge={mcpBridge} />}
 

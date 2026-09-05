@@ -29,6 +29,13 @@ export interface ScapeObject {
    * per plugin has to be re-implemented (and re-tested) once per plugin.
    */
   width?: number;
+  /**
+   * A marker colour name from `core/marks.ts`, or absent for none. A second axis of identity
+   * alongside the type colour: type says what a card is, accent says which group it is in.
+   */
+  accent?: string;
+  /** Short freeform labels, normalised by the reducer. Absent and `[]` mean the same thing. */
+  tags?: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -67,6 +74,13 @@ export interface ScapeMeta {
  * carries the stable ordering that layout and keyboard navigation depend on.
  */
 export interface Scape {
+  /**
+   * Standing instructions for this document: how to format, what to focus on, what to avoid.
+   * Prepended to every generation run against this scape, under the browser-wide instructions
+   * in `SETTING_KEYS.instructions`. Part of the document, so it survives an export.
+   *
+   * `version` counts edits. It is what a connected agent holds to detect a concurrent rewrite.
+   */
   instructions?: { body: string; version: number };
   id: ScapeId;
   name: string;
@@ -179,4 +193,18 @@ export const SETTING_KEYS = {
   lastScapeId: "ui.lastScapeId",
   /** Which object types a generation may create, when the scape's starter does not decide. */
   generateTypes: "ui.generateTypes",
+  /**
+   * Standing generation instructions that apply to every scape in this browser. A scape's own
+   * `instructions` are layered on top of these, never instead of them.
+   */
+  instructions: "ai.instructions",
 } as const;
+
+/**
+ * The editable length of a set of standing instructions, global or per-scape.
+ *
+ * The wire schema tolerates far more, because a connected agent may write instructions this
+ * app did not author. The prompt truncates to the same number either way — so the field stops
+ * where the effect stops, rather than accepting text that is silently discarded later.
+ */
+export const MAX_INSTRUCTIONS = 4000;

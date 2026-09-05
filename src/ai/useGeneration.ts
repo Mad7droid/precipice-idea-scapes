@@ -82,6 +82,12 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
       allowedTools?: typeof CONNECT_TOOL_NAMES;
       scope?: Scope;
       mode?: "build" | "connect";
+      /**
+       * Browser-wide instructions. The scape's own are read from the store below rather than
+       * passed in, so every caller — composer, quick action, outline — gets them for free and
+       * none can forget to.
+       */
+      globalInstructions?: string;
     }) => {
       const scape = useScapeStore.getState().scape;
       if (!scape || !options.request.trim()) return;
@@ -108,6 +114,13 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
       // than passed in so every caller — composer, quick action, outline — gets it for free.
       const starter = starterFor(scape);
 
+      const instructions = {
+        ...(options.globalInstructions?.trim()
+          ? { global: options.globalInstructions.trim() }
+          : {}),
+        ...(scape.instructions?.body.trim() ? { scape: scape.instructions.body.trim() } : {}),
+      };
+
       useScapeStore.getState().setGenerating(true);
       try {
         // The provider SDK is large. It stays out of the initial canvas bundle and loads only
@@ -125,6 +138,7 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
           ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
           ...(options.mode ? { mode: options.mode } : {}),
           ...(starter.promptHint ? { starterHint: starter.promptHint } : {}),
+          ...(Object.keys(instructions).length > 0 ? { instructions } : {}),
           dispatch: (action) => useScapeStore.getState().dispatch(action),
           onEvent: handleEvent,
           ...(requestLayout ? { requestLayout } : {}),
@@ -147,7 +161,7 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
    * suggestions you do not like is one press of undo.
    */
   const connect = useCallback(
-    async (apiKey: string, modelId: string, ids?: string[]) => {
+    async (apiKey: string, modelId: string, ids?: string[], globalInstructions?: string) => {
       const scape = useScapeStore.getState().scape;
       if (!scape) return;
       if (Object.keys(scape.objects).length < 2) {
@@ -164,6 +178,7 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
         allowedTools: CONNECT_TOOL_NAMES,
         mode: "connect",
         scope: "scape",
+        ...(globalInstructions ? { globalInstructions } : {}),
       });
     },
     [run],
