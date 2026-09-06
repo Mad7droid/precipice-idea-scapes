@@ -45,7 +45,7 @@ testing the bridge outside Claude.
 ## Pair an open scape
 
 1. Open the scape you want to work on in Precipice.
-2. Open **Settings → Claude MCP** and select **Connect**.
+2. Open **Settings → Agent** and select **Connect**.
 3. In Codex or Claude, call `pair_with_precipice` with the eight-character code shown in Precipice.
 4. The agent can now call `read_active_scape`, `search_active_scape`, and `read_active_objects`.
 

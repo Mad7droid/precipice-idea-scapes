@@ -359,7 +359,7 @@ function buildMcpServer(bridge) {
     "pair_with_precipice",
     {
       title: "Pair with an open Precipice scape",
-      description: "Select an open Precipice scape using the eight-character code shown in its Settings → Claude MCP panel.",
+      description: "Select an open Precipice scape using the eight-character code shown in its Settings → Agent panel.",
       inputSchema: { code: z.string().regex(PAIRING_CODE) },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
