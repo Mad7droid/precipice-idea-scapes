@@ -16,9 +16,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.35",
-    "@cloudflare/workers-oauth-provider": "^0.10.3",
     "@xyflow/react": "^12.8.0",
-    "agents": "^0.22.0",
     "ai": "^7.0.57",
     "dagre": "^0.8.5",
     "dexie": "^4.0.11",
