@@ -11,3 +11,9 @@ allowBuilds:
 # pinning it forward costs nothing. pnpm 11 reads overrides here, not from package.json.
 overrides:
   undici: ">=6.27.0"
+  # Dev-only, all three: they reach the tree through @modelcontextprotocol/sdk's express and
+  # ajv trees and a build-time vite chain, and none of them is in `pnpm audit --prod`. Pinned
+  # forward anyway — each patch is inside the major the parent already asks for.
+  fast-uri: ">=3.1.6"
+  nanoid: ">=3.3.18"
+  qs: ">=6.16.0"
