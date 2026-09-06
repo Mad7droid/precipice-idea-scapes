@@ -11,6 +11,29 @@ milestone is published.
 
 ### Changed
 
+- The composer now lives on the canvas *and* in the Scapi panel, over one shared draft and one
+  shared transcript. Whichever surface you send from is where the answer appears; an edit sent
+  from the canvas opens no panel, leaving the blocks arriving on the canvas as the result.
+  Closing Scapi with `⌘J` (or Escape) hides the panel without stopping work in flight.
+- Asking now shows only the controls asking can use — the block-type picker and generation
+  instructions are hidden, and web search takes their place. Both apply again in Edit.
+- Settings is now sectioned — General (theme, model, API key), AI (generation instructions),
+  and Agent (MCP) — with Help and Done always visible, so the dialog no longer runs past the
+  bottom of the screen.
+- Scapi's activity trail now reads in sequence with the answers instead of being pinned above
+  them, and skipped-action details fit the panel instead of overflowing it.
+
+### Fixed
+
+- "Jump to latest" no longer sits inside the composer.
+- The Ribbon and the composer no longer render twice when the Scapi panel is open.
+
+### Security
+
+- Removed the unused `agents` and `@cloudflare/workers-oauth-provider` dependencies, which
+  between them accounted for all seven reported advisories (`fast-uri`, `nanoid`, `qs`).
+  Neither was imported anywhere; `pnpm audit --prod` is now clean.
+
 - Scapi now brings Ask and Edit into one panel, preserving drafts across mode switches.
   Proposed edits keep their progress, results, and Undo beside the conversation; edit scope
   names the affected blocks and composer controls wrap in the narrow panel.

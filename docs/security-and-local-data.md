@@ -43,7 +43,7 @@ own Anthropic (Claude) API key.
 
 ## How the Claude/Anthropic key is handled
 
-1. You enter your own Anthropic API key in Settings.
+1. You enter your own Anthropic API key in **Settings → General**.
 2. The app keeps it in `sessionStorage`, not IndexedDB or the repository. It is
    available to the current browser tab session and is cleared when that tab
    session ends.

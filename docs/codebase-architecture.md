@@ -245,6 +245,11 @@ Unknown starter ids fall back to the blank/all-in-one recipe, so newer documents
 1. It exchanges a publication OAuth fragment code for a session and restores the prior hash route.
 2. It consumes a staged public snapshot when creating a private local copy.
 
+The settings dialog (`src/app/SettingsModal.tsx`) is sectioned rather than one column:
+**General** (theme, default model, Anthropic API key), **AI** (generation instructions), and
+**Agent** (the MCP bridge panel). Help and Done sit in a footer that stays visible, so the
+dialog never scrolls its primary action off-screen as sections are added.
+
 `AppSettingsProvider` is mounted above Home and Editor so the current-tab Anthropic key follows
 the user between both surfaces without being part of the document repository.
 
@@ -282,14 +287,30 @@ the action — no generation, pairing, or publish is ever initiated by the hando
 ```text
 TopBar
 ├── left rail: Outline + block navigation
-├── center: Canvas + read-only banner + AI composer/ribbon
-└── right rail: object/relationship inspector
+├── center: Canvas + read-only banner + composer + ribbon
+└── right rail: Scapi transcript *or* object/relationship inspector
 ```
 
 It also owns settings, publishing, command palette, help, export, theme, lease/read-only state,
-and the publication badge. Panels are resizable and collapsible. A selected object collapses the
-large composer so the inspector has room; the user can reopen it with the command palette or
-quick action.
+and the publication badge. Panels are resizable and collapsible.
+
+**The composer has two homes and one draft.** The same `src/ai/Composer.tsx` renders on the
+canvas and inside the Scapi panel, over shared `draft` state and a shared transcript. The
+surface you send from is where the result appears (`lastOrigin`): a question sent from the
+canvas bar answers above the canvas bar, and one sent from the panel joins the thread there.
+An edit sent from the canvas opens no panel at all — the blocks arriving on the canvas are the
+result, and the Ribbon carries progress and Undo. The canvas bar yields while the panel is
+open, since the panel is rendering the same composer over the same draft.
+
+The composer is mode-aware. Asking hides the controls that only shape a generation — the type
+picker and the instructions pill — and offers web search in their place; scope and model apply
+to both modes.
+
+`⌘J` toggles the Scapi panel. `useScapi` is held here in `Editor`, above the panel, so closing
+the transcript never cancels a request in flight.
+
+**Known limitation:** Scapi and the inspector share the right rail, so opening Scapi replaces
+the inspector. Splitting them is deferred.
 
 ### Canvas
 

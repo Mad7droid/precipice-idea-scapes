@@ -20,6 +20,8 @@ For a first look:
    **Product brief**, or reopen existing work from the scape library on the home page.
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
 4. Select an object to edit it in the inspector; resize any card from its lower-right handle.
+5. Ask or edit with Scapi from the composer at the bottom of the canvas, or press `⌘J` for the
+   full conversation panel.
 5. Switch between Light, Dark, and System themes from the top-right theme control.
 6. Use **Export** in the top bar to download either a `.scape` file for reopening in Precipice or
    a PDF for sharing and printing.
@@ -47,6 +49,10 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - A home workspace that adapts to your library: inline prompt-or-manual creation, schematic
   previews, gallery and list views, search, pinning, published/pinned filters, and per-scape
   actions for rename, duplicate, export, publish, and delete.
+- Scapi, the in-app assistant: **Ask** it about the scape without changing anything, or
+  **Edit** to have it work on the canvas. One composer serves both, on the canvas and in the
+  Scapi panel, over a shared draft and a shared transcript — the surface you send from is the
+  one that answers. `⌘J` opens or closes the panel without interrupting work in flight.
 - Theme controls, object-type filters, and relationship-line visibility controls.
 - AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
 - Invite-only publishing: read-only public and embeddable scape snapshots, Google sign-in,

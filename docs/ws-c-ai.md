@@ -66,7 +66,8 @@ place, undoable as one transaction.
 **5. Generation ribbon** — `src/ai/Ribbon.tsx`
 
 The signature element. See `docs/design-language.md` for the full spec. Short version: a
-thin strip above the composer, one mono line per action as it lands
+thin strip above the composer on the canvas, and in sequence at the end of the Scapi
+transcript when the panel is open — one mono line per action as it lands
 (`CreateObject · journey · "Verify identity"`), `animate-ribbon-line` on entry. On
 completion it collapses to `18 actions · claude-sonnet-4-6 · undo`, and that undo reverses
 the whole `txId`.
