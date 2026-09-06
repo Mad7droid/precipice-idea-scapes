@@ -614,3 +614,10 @@ live inputs for one draft is a worse answer than one.
   panel printing a serialised action — one long unbroken string. It now spans its container and
   shows the tool, a short subject drawn from the payload, and the reason. The raw JSON is gone;
   it was for a log, not for this.
+
+### "Jump to latest" position
+
+It was offset from the *panel's* bottom edge (`bottom-24`, 96px). The composer is now 151px
+tall once the mode row and controls wrap, so the button landed inside it. It now hangs off the
+bottom of the scroll wrapper instead, which by construction abuts the composer's top — measured
+live: wrapper bottom 557, composer top 557, button at 545. No magic number to keep in sync.

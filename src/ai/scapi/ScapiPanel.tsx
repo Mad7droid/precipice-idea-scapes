@@ -183,48 +183,56 @@ export function ScapiPanel({
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveStatus}
       </p>
-      <div
-        ref={scroller}
-        onScroll={onScroll}
-        // The browser's own scroll anchoring fights an imperative `scrollTop`, and the two
-        // together produce exactly the jitter this panel is trying to avoid.
-        style={{ overflowAnchor: "none" }}
-        className="min-h-0 flex-1 overflow-auto p-4"
-      >
-        {restored && (
-          <p className="mb-3 rounded-md bg-inset px-3 py-2 text-xs text-fg-secondary">
-            Earlier answers are shown for reference. This conversation starts fresh from here.
-          </p>
-        )}
-        {turns.length === 0 && !activity ? (
-          <EmptyState suggestions={suggestions} onSend={onSend} />
-        ) : (
-          <ol className="space-y-5">
-            {turns.map((turn, index) => (
-              <li key={turn.id}>
-                <TurnView
-                  turn={turn}
-                  objects={objects}
-                  onObjectClick={onObjectClick}
-                  {...(onTurnIntoEdit ? { onTurnIntoEdit } : {})}
-                  {...(index === turns.length - 1 && !streaming && onRetry ? { onRetry } : {})}
-                />
-              </li>
-            ))}
-          </ol>
-        )}
-        {activity && <div className="mt-5">{activity}</div>}
-      </div>
-
-      {!atLatest && turns.length > 0 && (
-        <button
-          type="button"
-          onClick={jumpToLatest}
-          className="absolute bottom-24 right-4 rounded-full border border-subtle bg-raised px-3 py-1.5 text-xs text-fg shadow-sm transition-colors duration-instant ease-out hover:bg-hover active:scale-[0.98]"
+      {/*
+        The scroller and its overlay share a wrapper so that "jump to latest" can hang off the
+        bottom of the *transcript* rather than off the panel. It used to be offset from the
+        panel's own bottom edge, which put it inside the composer as soon as the composer grew
+        a second row of controls.
+      */}
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scroller}
+          onScroll={onScroll}
+          // The browser's own scroll anchoring fights an imperative `scrollTop`, and the two
+          // together produce exactly the jitter this panel is trying to avoid.
+          style={{ overflowAnchor: "none" }}
+          className="h-full overflow-auto p-4"
         >
-          Jump to latest
-        </button>
-      )}
+          {restored && (
+            <p className="mb-3 rounded-md bg-inset px-3 py-2 text-xs text-fg-secondary">
+              Earlier answers are shown for reference. This conversation starts fresh from here.
+            </p>
+          )}
+          {turns.length === 0 && !activity ? (
+            <EmptyState suggestions={suggestions} onSend={onSend} />
+          ) : (
+            <ol className="space-y-5">
+              {turns.map((turn, index) => (
+                <li key={turn.id}>
+                  <TurnView
+                    turn={turn}
+                    objects={objects}
+                    onObjectClick={onObjectClick}
+                    {...(onTurnIntoEdit ? { onTurnIntoEdit } : {})}
+                    {...(index === turns.length - 1 && !streaming && onRetry ? { onRetry } : {})}
+                  />
+                </li>
+              ))}
+            </ol>
+          )}
+          {activity && <div className="mt-5">{activity}</div>}
+        </div>
+
+        {!atLatest && turns.length > 0 && (
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            className="absolute bottom-3 right-4 rounded-full border border-subtle bg-raised px-3 py-1.5 text-xs text-fg shadow-md transition-colors duration-instant ease-out hover:bg-hover active:scale-[0.98]"
+          >
+            Jump to latest
+          </button>
+        )}
+      </div>
 
       {composer ?? (
         <ScapiComposer
