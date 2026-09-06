@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { SETTING_KEYS } from "@/core/types";
+import { MAX_INSTRUCTIONS, SETTING_KEYS } from "@/core/types";
 import { DEFAULT_MODEL } from "@/ai/models";
 import { settingsRepository } from "@/persistence/settings";
 
@@ -26,6 +26,12 @@ interface AppSettings {
   setModelId: (next: string) => void;
   types: string[];
   setTypes: (next: string[]) => void;
+  /**
+   * Standing generation instructions for every scape in this browser. A browser preference,
+   * not document content — a scape's own instructions live on the scape and travel with it.
+   */
+  instructions: string;
+  setInstructions: (next: string) => void;
   ready: boolean;
 }
 
@@ -46,16 +52,19 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKeyState] = useState(readSessionApiKey);
   const [modelId, setModelIdState] = useState(DEFAULT_MODEL);
   const [types, setTypesState] = useState<string[]>([]);
+  const [instructions, setInstructionsState] = useState("");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     void (async () => {
-      const [model, savedTypes] = await Promise.all([
+      const [model, savedTypes, savedInstructions] = await Promise.all([
         settingsRepository.get<string>(SETTING_KEYS.model),
         settingsRepository.get<string[]>(SETTING_KEYS.generateTypes),
+        settingsRepository.get<string>(SETTING_KEYS.instructions),
       ]);
       if (model) setModelIdState(model);
       if (Array.isArray(savedTypes)) setTypesState(savedTypes);
+      if (typeof savedInstructions === "string") setInstructionsState(savedInstructions);
       setReady(true);
     })();
   }, []);
@@ -80,9 +89,25 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     void settingsRepository.set(SETTING_KEYS.generateTypes, next);
   };
 
+  const setInstructions = (next: string) => {
+    const trimmed = next.slice(0, MAX_INSTRUCTIONS);
+    setInstructionsState(trimmed);
+    void settingsRepository.set(SETTING_KEYS.instructions, trimmed);
+  };
+
   const value = useMemo(
-    () => ({ apiKey, setApiKey, modelId, setModelId, types, setTypes, ready }),
-    [apiKey, modelId, types, ready],
+    () => ({
+      apiKey,
+      setApiKey,
+      modelId,
+      setModelId,
+      types,
+      setTypes,
+      instructions,
+      setInstructions,
+      ready,
+    }),
+    [apiKey, modelId, types, instructions, ready],
   );
 
   return createElement(AppSettingsContext.Provider, { value }, children);

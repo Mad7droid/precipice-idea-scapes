@@ -243,6 +243,8 @@ export interface GenerateOptions extends ApplyOptions {
   starterHint?: string;
   /** `connect` swaps in a prompt that only rewires the existing graph. */
   mode?: GenerationMode;
+  /** The user's standing instructions: browser-wide, and this scape's own. Both optional. */
+  instructions?: { global?: string; scape?: string };
   apiKey: string;
   modelId: string;
   signal?: AbortSignal;
@@ -293,6 +295,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
         ...(options.allowedTypes ? { allowedTypes: options.allowedTypes } : {}),
         ...(options.starterHint ? { starterHint: options.starterHint } : {}),
         ...(options.mode ? { mode: options.mode } : {}),
+        ...(options.instructions ? { instructions: options.instructions } : {}),
       }),
       prompt: prompt.text,
       tools,

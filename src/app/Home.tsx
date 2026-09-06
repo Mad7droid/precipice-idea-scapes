@@ -53,7 +53,7 @@ export function Home() {
   const [name, setName] = useState("");
   const [copied, setCopied] = useState<{ id: string; name: string } | null>(null);
   const [theme, setTheme] = useTheme();
-  const { apiKey, setApiKey, ready } = useAppSettings();
+  const { apiKey, setApiKey, instructions, setInstructions, ready } = useAppSettings();
   const refreshId = useRef(0);
   const mounted = useRef(true);
   const refresh = useCallback(async () => {
@@ -453,6 +453,8 @@ export function Home() {
           theme={theme}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
+          instructions={instructions}
+          onInstructionsChange={setInstructions}
           onThemeChange={setTheme}
           onOpenHelp={() => {
             setSettingsOpen(false);

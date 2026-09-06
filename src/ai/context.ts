@@ -60,7 +60,9 @@ export function projectScape(scape: Scape, options: ProjectionOptions = {}): Pro
   // Reserve a little headroom for the separators and the truncation markers themselves.
   const remaining = Math.max(0, budget - estimateTokens(`${header}\n\n${detail}`) - 48);
 
-  const indexLines = objects.map((o) => `${o.id} · ${o.type} · ${summarize(o)}`);
+  // Tags ride the index line so a follow-up generation can reuse the vocabulary a previous one
+  // established, rather than inventing a second set of labels for the same groups.
+  const indexLines = objects.map((o) => `${o.id} · ${o.type}${markerSuffix(o)} · ${summarize(o)}`);
   const relLines = relationships.map(
     (r) => `${r.from} -> ${r.to}${r.label ? ` (${r.label})` : ""}`,
   );
@@ -111,6 +113,16 @@ function truncateMiddle(
   return { text: [title, ...render()].join("\n"), omitted: lines.length - head - tail };
 }
 
+/** ` [tags: a, b | teal]`, or nothing at all for the great majority of objects. */
+function markerSuffix(object: ScapeObject): string {
+  const tags = object.tags ?? [];
+  if (tags.length === 0 && !object.accent) return "";
+  const parts = [tags.length ? `tags: ${tags.join(", ")}` : "", object.accent ?? ""].filter(
+    Boolean,
+  );
+  return ` [${parts.join(" | ")}]`;
+}
+
 function pickDetailed(scape: Scape, options: ProjectionOptions): Set<ObjectId> {
   const detailed = new Set<ObjectId>();
 
@@ -154,7 +166,7 @@ function renderDetail(scape: Scape, ids: Set<ObjectId>, budgetTokens: number): s
   for (const object of chosen) {
     const body = JSON.stringify(object.data);
     const truncated = body.length > charsEach ? `${body.slice(0, charsEach)}…(truncated)` : body;
-    const block = `### ${object.id} · ${object.type} · "${object.title}"\n${truncated}`;
+    const block = `### ${object.id} · ${object.type}${markerSuffix(object)} · "${object.title}"\n${truncated}`;
 
     const cost = estimateTokens(block);
     if (blocks.length > 0 && used + cost > budgetTokens) break;
@@ -193,7 +205,7 @@ export function renderObjectBlock(object: ScapeObject): string {
     body.length > MAX_CHAT_OBJECT_CHARS
       ? `${body.slice(0, MAX_CHAT_OBJECT_CHARS)}…(truncated)`
       : body;
-  return `### ${object.id} · ${object.type} · "${object.title}"\n${truncated}`;
+  return `### ${object.id} · ${object.type}${markerSuffix(object)} · "${object.title}"\n${truncated}`;
 }
 
 export function projectScapeForChat(

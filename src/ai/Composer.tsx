@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { allPlugins } from "@/core/registry";
+import { MAX_INSTRUCTIONS } from "@/core/types";
 import { Select } from "@/design/Select";
 import { DotMatrix } from "./DotMatrix";
+import { InstructionsPill } from "./Instructions";
 import type { Scope } from "./prompt";
 import { MODELS } from "./models";
 
@@ -29,6 +31,16 @@ export interface ComposerProps {
    * every registered type. A mind map does not offer to create a wireframe.
    */
   availableTypes?: string[];
+  /**
+   * This scape's standing instructions, and how to change them. Absent on the home page,
+   * where there is no document yet to attach them to.
+   */
+  instructions?: string;
+  onInstructionsChange?: (next: string) => void;
+  maxInstructions?: number;
+  /** Shown, not edited, in the popover — so the user can see what else is already in play. */
+  globalInstructions?: string;
+  onEditGlobalInstructions?: () => void;
   selectionCount: number;
   disabled?: boolean;
   placeholder?: string;
@@ -43,7 +55,7 @@ export interface ComposerProps {
    * directly below already decide the types. A control that cannot change anything is worse
    * than no control — it is a promise the app does not keep.
    */
-  controls?: { scope?: boolean; types?: boolean };
+  controls?: { scope?: boolean; types?: boolean; instructions?: boolean };
 }
 
 /**
@@ -64,6 +76,11 @@ export function Composer({
   types,
   onTypesChange,
   availableTypes,
+  instructions,
+  onInstructionsChange,
+  maxInstructions = MAX_INSTRUCTIONS,
+  globalInstructions,
+  onEditGlobalInstructions,
   selectionCount,
   disabled,
   placeholder = "Describe what you want on the canvas.",
@@ -73,6 +90,8 @@ export function Composer({
 }: ComposerProps) {
   const showScope = controls?.scope ?? true;
   const showTypes = controls?.types ?? true;
+  // Opt-in, unlike the other two: without a scape to attach them to there is nothing to edit.
+  const showInstructions = (controls?.instructions ?? false) && !!onInstructionsChange;
   const [localValue, setLocalValue] = useState("");
   const value = controlledValue ?? localValue;
   const setValue = onValueChange ?? setLocalValue;
@@ -148,6 +167,16 @@ export function Composer({
             onChange={onTypesChange}
             disabled={busy}
             {...(availableTypes ? { availableTypes } : {})}
+          />
+        )}
+        {showInstructions && onInstructionsChange && (
+          <InstructionsPill
+            value={instructions ?? ""}
+            onChange={onInstructionsChange}
+            maxLength={maxInstructions}
+            disabled={busy}
+            {...(globalInstructions ? { globalInstructions } : {})}
+            {...(onEditGlobalInstructions ? { onEditGlobal: onEditGlobalInstructions } : {})}
           />
         )}
         <Select

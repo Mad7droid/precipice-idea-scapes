@@ -3,7 +3,7 @@ import type { ActionPayload } from "@/core/actions";
 import { notify } from "@/core/notify";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
-import { SETTING_KEYS, type ObjectId, type RelationshipId } from "@/core/types";
+import { MAX_INSTRUCTIONS, SETTING_KEYS, type ObjectId, type RelationshipId } from "@/core/types";
 import { Composer } from "@/ai/Composer";
 import type { Scope } from "@/ai/prompt";
 import { Ribbon } from "@/ai/Ribbon";
@@ -29,6 +29,7 @@ import {
   takePendingPublish,
 } from "@/publish/session";
 import { usePublication } from "@/publish/usePublication";
+import { BlockMarkers, scapeTags } from "./BlockMarkers";
 import { Outline } from "./Outline";
 import { takeEditorIntent, takePendingWork } from "./pending";
 import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverlays";
@@ -92,7 +93,17 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [editDraft, setEditDraft] = useState("");
   const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
-  const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
+  const {
+    apiKey,
+    setApiKey,
+    modelId,
+    setModelId,
+    types,
+    setTypes,
+    instructions,
+    setInstructions,
+    ready,
+  } = useAppSettings();
 
   const [readOnly, setReadOnly] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
@@ -352,18 +363,49 @@ export function Editor({ scapeId }: { scapeId: string }) {
     return false;
   };
 
+  /**
+   * The scape's own standing instructions.
+   *
+   * `version` counts edits rather than tracking content, because it is what a connected agent
+   * holds between reading the instructions and replacing them. Clearing the field removes the
+   * field entirely — an empty body and no body are the same thing, and only one of them should
+   * ever reach a prompt or a file.
+   */
+  const setScapeInstructions = (body: string) => {
+    if (!requireLease()) return;
+    const trimmed = body.trim().slice(0, MAX_INSTRUCTIONS);
+    const current = scape?.instructions;
+    if ((current?.body ?? "") === trimmed) return;
+    dispatchTx([
+      trimmed
+        ? {
+            type: "SetInstructions",
+            instructions: { body: trimmed, version: (current?.version ?? 0) + 1 },
+          }
+        : { type: "SetInstructions" },
+    ]);
+    notify.success(trimmed ? "Instructions saved." : "Instructions cleared.");
+  };
+
   const handleSend = async (request: string) => {
     if (busy || scapi.streaming || !requireLease()) return;
     if (!requireKey()) return;
     setScapiOpen(true);
     setScapiMode("edit");
-    await generation.start({ request, apiKey: apiKey.trim(), modelId, allowedTypes, scope });
+    await generation.start({
+      request,
+      apiKey: apiKey.trim(),
+      modelId,
+      allowedTypes,
+      scope,
+      globalInstructions: instructions,
+    });
   };
 
   const handleConnect = async (ids?: ObjectId[]) => {
     if (!requireLease()) return;
     if (!requireKey()) return;
-    await generation.connect(apiKey.trim(), modelId, ids);
+    await generation.connect(apiKey.trim(), modelId, ids, instructions);
   };
 
   /**
@@ -453,6 +495,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const selectedObject = selection.length === 1 && scape ? scape.objects[selection[0]] : undefined;
+  /** Tags already in play, offered when marking a block so a shared vocabulary forms. */
+  const tagSuggestions = useMemo(
+    () => (scape ? scapeTags(scape.objects).map((entry) => entry.tag) : []),
+    [scape],
+  );
   const plugin = selectedObject ? getPlugin(selectedObject.type) : undefined;
   const selectedEdge = selectedEdgeId && scape ? scape.relationships[selectedEdgeId] : undefined;
   // A palette that lists what you cannot do is a palette you stop trusting. In a follower tab
@@ -553,6 +600,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
               selection={selection}
               onSelect={selectFromOutline}
               onConnectLoose={(ids) => void handleConnect(ids)}
+              onSelectMany={(ids) => {
+                setSelectedEdgeId(null);
+                useScapeStore.getState().setSelection(ids);
+                if (ids[0]) commands.current?.focus(ids[0]);
+              }}
               busy={busy}
               readOnly={readOnly}
               isCollapsed={leftPanelCollapsed}
@@ -800,7 +852,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
                       if (!busy && requireKey()) void scapi.send(question);
                     }}
                     onCancel={scapi.cancel}
-                    onRetry={scapi.retry}
+                    onRetry={() => {
+                      if (!busy && requireKey()) scapi.retry();
+                    }}
                     onObjectClick={(id) => {
                       setSelectedEdgeId(null);
                       useScapeStore.getState().setSelection([id]);
@@ -841,6 +895,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 </p>
                 <div className="mt-auto">
                   <Composer
+                    instructions={scape.instructions?.body ?? ""}
+                    onInstructionsChange={setScapeInstructions}
+                    globalInstructions={instructions}
+                    onEditGlobalInstructions={() => setSettingsOpen(true)}
+                    controls={{ instructions: true }}
                     value={editDraft}
                     onValueChange={setEditDraft}
                     onSend={(text) => void handleSend(text)}
@@ -910,6 +969,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
                         </button>
                       </div>
                       <fieldset disabled={readOnly} className="contents">
+                        <BlockMarkers
+                          object={selectedObject}
+                          dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+                          suggestions={tagSuggestions}
+                        />
                         <plugin.Inspector
                           object={selectedObject}
                           dispatch={(payload: ActionPayload) => dispatchTx([payload])}
@@ -949,6 +1013,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
           theme={theme}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
+          instructions={instructions}
+          onInstructionsChange={setInstructions}
           onThemeChange={setTheme}
           onOpenHelp={() => {
             setSettingsOpen(false);

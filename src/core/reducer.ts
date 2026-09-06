@@ -1,4 +1,5 @@
 import type { Action, ActionPayload } from "./actions";
+import { normalizeAccent, normalizeTags, sameTags } from "./marks";
 import { newTxId } from "./ids";
 import type { Relationship, Scape, ScapeObject } from "./types";
 
@@ -53,6 +54,10 @@ function reduce(state: Scape, action: Action): ApplyResult {
         createdAt: action.ts,
         updatedAt: action.ts,
       };
+      const accent = normalizeAccent(action.accent);
+      const tags = normalizeTags(action.tags);
+      if (accent) object.accent = accent;
+      if (tags.length > 0) object.tags = tags;
       return {
         state: {
           ...state,
@@ -118,7 +123,12 @@ function reduce(state: Scape, action: Action): ApplyResult {
 
       // The inverse patch carries exactly the keys the forward patch touched, with the
       // values they had. Patching only `title` must not clobber `data` on undo.
-      const before: { title?: string; data?: Record<string, unknown> } = {};
+      const before: {
+        title?: string;
+        data?: Record<string, unknown>;
+        accent?: string;
+        tags?: string[];
+      } = {};
       const next = { ...existing };
       if (action.patch.title !== undefined) {
         before.title = existing.title;
@@ -127,6 +137,27 @@ function reduce(state: Scape, action: Action): ApplyResult {
       if (action.patch.data !== undefined) {
         before.data = existing.data;
         next.data = action.patch.data;
+      }
+      // Markers are normalised here rather than at the schema, and compared before they are
+      // written: a swatch row and a tag field are controlled inputs, and re-committing the
+      // colour a card already has must not become an undo step that appears to do nothing.
+      if (action.patch.accent !== undefined) {
+        const accent = normalizeAccent(action.patch.accent);
+        if (accent !== (existing.accent ?? "")) {
+          // "" rather than undefined: the inverse has to be able to say "back to no colour",
+          // and an omitted key in a patch means "leave this alone".
+          before.accent = existing.accent ?? "";
+          if (accent) next.accent = accent;
+          else delete next.accent;
+        }
+      }
+      if (action.patch.tags !== undefined) {
+        const tags = normalizeTags(action.patch.tags);
+        if (!sameTags(existing.tags ?? [], tags)) {
+          before.tags = existing.tags ?? [];
+          if (tags.length > 0) next.tags = tags;
+          else delete next.tags;
+        }
       }
       if (Object.keys(before).length === 0) return { state, inverse: null };
 
@@ -281,11 +312,15 @@ function reduce(state: Scape, action: Action): ApplyResult {
     }
 
     case "SetInstructions": {
-      if (JSON.stringify(state.instructions) === JSON.stringify(action.instructions)) return { state, inverse: null };
+      if (JSON.stringify(state.instructions) === JSON.stringify(action.instructions))
+        return { state, inverse: null };
       const next = { ...state };
       if (action.instructions) next.instructions = action.instructions;
       else delete next.instructions;
-      return { state: next, inverse: inv(action, { type: "SetInstructions", instructions: state.instructions }) };
+      return {
+        state: next,
+        inverse: inv(action, { type: "SetInstructions", instructions: state.instructions }),
+      };
     }
     case "RenameScape": {
       if (state.name === action.name) return { state, inverse: null };

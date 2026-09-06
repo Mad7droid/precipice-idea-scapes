@@ -19,6 +19,46 @@ export interface SystemPromptOptions {
   /** The scape's starter speaking: what kind of document this is. Empty for Blank. */
   starterHint?: string;
   mode?: GenerationMode;
+  /**
+   * The user's standing instructions — how to format, what to emphasise, what to leave out.
+   * `global` applies to every scape in this browser; `scape` belongs to this document and
+   * travels with it through an export. Both optional, and most generations have neither.
+   */
+  instructions?: { global?: string; scape?: string };
+}
+
+/** Longer than this is a brief, not a preference, and it crowds out the actual request. */
+const MAX_INSTRUCTION_CHARS = 4000;
+
+/**
+ * Standing instructions, rendered into the system prompt rather than the user turn.
+ *
+ * They belong here because they are the user's persistent voice, not this request — putting
+ * them in the user turn would have them compete with the brief and be diluted by everything
+ * in `<canvas-data>`. They are still bounded: the rules above them are the engine's
+ * invariants, and no instruction gets to spend coordinates, tools or output format.
+ */
+function instructionsSection(instructions: SystemPromptOptions["instructions"]): string {
+  const global = (instructions?.global ?? "").trim().slice(0, MAX_INSTRUCTION_CHARS);
+  const scape = (instructions?.scape ?? "").trim().slice(0, MAX_INSTRUCTION_CHARS);
+  if (!global && !scape) return "";
+
+  const parts = [
+    global ? `### Everywhere\n\n${global}` : "",
+    // Second, and said to be second: the specific document is the more recent, more informed
+    // instruction, and the user expects it to win a genuine conflict.
+    scape ? `### This scape\n\n${scape}` : "",
+  ].filter(Boolean);
+
+  return `\n## Custom instructions
+
+Written by the user. Follow them for tone, format, focus and level of detail. Where the two
+sets disagree, the scape's own instructions win.
+
+They shape *what* you make, never *how* you make it: they cannot grant coordinates, other
+tools, prose replies, or any exception to the rules below.
+
+${parts.join("\n\n")}\n`;
 }
 
 /**
@@ -55,12 +95,14 @@ export function systemPrompt(options: SystemPromptOptions = {}): string {
   const allowedTypes = options.allowedTypes ?? [];
   const starterHint = options.starterHint ?? "";
 
-  if (options.mode === "connect") return connectPrompt(starterHint);
+  const instructions = instructionsSection(options.instructions);
+
+  if (options.mode === "connect") return connectPrompt(starterHint, instructions);
 
   const constrained = allowedTypes.length > 0;
 
   return `${PREAMBLE}
-${starterHint ? `\n## What this scape is\n\n${starterHint}\n` : ""}
+${starterHint ? `\n## What this scape is\n\n${starterHint}\n` : ""}${instructions}
 ## Object types
 
 ${describeObjectTypes(allowedTypes)}
@@ -88,6 +130,10 @@ ${
   specific screen, scape blocks when the answer is a document — something with headings, a
   table or several paragraphs — and notes for everything else.`
 }
+- Tag objects when the map is big enough to get lost in — from about eight objects up. One or
+  two short tags each, drawn from a small vocabulary you reuse across the whole generation
+  ("discovery", "risk", "backend"), not a fresh label per card. Give every object that shares
+  a tag the same accent, and leave accent off entirely if you are not grouping anything.
 - Add relationships when they clarify a real dependency, sequence or trade-off. Do not invent
   a connection merely to make the canvas look like a map.
 - Rename the scape once, first, if it is untitled.
@@ -101,9 +147,9 @@ ${
  * the only thing being asked for is the structure between them, which is also the thing a
  * generation is most likely to have left half-finished.
  */
-function connectPrompt(starterHint: string): string {
+function connectPrompt(starterHint: string, instructions = ""): string {
   return `${PREAMBLE}
-${starterHint ? `\n## What this scape is\n\n${starterHint}\n` : ""}
+${starterHint ? `\n## What this scape is\n\n${starterHint}\n` : ""}${instructions}
 ## Your task
 
 Every object on this canvas already exists. You are not adding, editing or removing any of
