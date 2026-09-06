@@ -1,16 +1,26 @@
 import type { McpBridge } from "@/mcp/bridge";
 
-export function McpBridgePanel({ bridge }: { bridge: McpBridge }) {
+export function McpBridgePanel({
+  bridge,
+  /** Inside the settings dialog the section already has a heading and a divider of its own. */
+  embedded = false,
+}: {
+  bridge: McpBridge;
+  embedded?: boolean;
+}) {
   const connected = bridge.status === "connected";
 
   return (
-    <section className="mt-5 border-t border-subtle pt-4" aria-labelledby="claude-mcp-heading">
+    <section
+      className={embedded ? "" : "mt-5 border-t border-subtle pt-4"}
+      aria-labelledby="claude-mcp-heading"
+    >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 id="claude-mcp-heading" className="text-sm text-fg">
+          <h3 id="claude-mcp-heading" className={embedded ? "sr-only" : "text-sm text-fg"}>
             Agent MCP
           </h3>
-          <p className="mt-1 text-xs text-fg-tertiary">
+          <p className={embedded ? "text-xs text-fg-secondary" : "mt-1 text-xs text-fg-tertiary"}>
             Share this open scape with a local Codex or Claude connection. Nothing is uploaded or retained.
           </p>
         </div>

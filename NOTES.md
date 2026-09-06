@@ -572,3 +572,25 @@ so the streaming blocks are what you watch.
   only controls the bar's own size. The bar itself is never hidden.
 - **Not verified: a live AI round trip.** The flows above were checked in Chrome without an
   API key in `sessionStorage`, so send paths past the composer are still untested end to end.
+
+## Settings dialog — sectioned
+
+The single column had outgrown the viewport; capping it and scrolling only moved the problem
+(the theme control slid under the title). It is now a 620×440 dialog with a 150px sidebar and
+three panes — **General** (theme, default model), **AI** (API key, generation instructions),
+**Agent** (the MCP bridge). Help and Done live in a footer that is always visible.
+
+- Three sections because there are three concerns, not to fill a sidebar. Each pane is short
+  enough that nothing scrolls at the default size.
+- `McpBridgePanel` gained an `embedded` prop that drops its own divider and hides its heading
+  (the sidebar already names the pane). Its standalone form is unchanged.
+- With no `mcpBridge` — the home page — the Agent pane says so rather than vanishing.
+
+## Scapi — duplication removed
+
+Both composers being live at once put two textareas over one draft on screen, and the Ribbon
+rendered twice ("1 skipped · undo" in the panel *and* on the canvas). The canvas bar now yields
+while the Scapi panel is open, since the panel renders the same composer over the same draft.
+
+**This softens "the bar is never hidden" to "a composer is always on screen."** Deliberate: two
+live inputs for one draft is a worse answer than one.

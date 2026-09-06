@@ -684,11 +684,17 @@ export function Editor({ scapeId }: { scapeId: string }) {
           )}
 
           {/*
-            The canvas composer. Permanently present — it is the real input, not a button that
-            opens one somewhere else. It never hides for the Scapi panel: the two are the same
-            composer over the same draft, and whichever one you type in answers you back.
+            The canvas composer. It is the real input, not a button that opens one elsewhere.
+            It yields only to the Scapi panel, which renders the *same* composer over the same
+            draft — two live textareas for one draft is a worse answer than one, and a
+            duplicated Ribbon underneath them is worse still.
           */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4">
+          <div
+            className={
+              "pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4" +
+              (scapiOpen ? " hidden" : "")
+            }
+          >
             <div className="pointer-events-auto w-full max-w-[720px]">
               <Ribbon
                 state={generation.state}
