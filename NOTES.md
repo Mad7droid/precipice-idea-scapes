@@ -544,3 +544,31 @@ Flagged:
 - The projection in `ai/context.ts` carries markers on each object's index line, so a second
   generation reuses the vocabulary the first established rather than inventing a parallel one.
   It costs a few tokens per marked object and nothing at all for unmarked ones.
+
+---
+
+## Composer in two places (editor UX)
+
+The canvas bar and the Scapi panel now render the **same** `Composer` over a **shared draft**
+and a **shared transcript**. Whichever one you sent from is where the answer surfaces —
+`lastOrigin` in `Editor.tsx` carries that, and a canvas-origin edit deliberately opens no panel
+so the streaming blocks are what you watch.
+
+### Flags
+
+- **The right rail still contends.** Scapi and the block inspector remain mutually exclusive
+  (`Editor.tsx`, the `scapiOpen ? … : …` width ternary). Deferred on purpose — agreed with the
+  user to fix separately. The composer collision is what this change addresses.
+- **The Ask/Edit toggle moved into `Composer`** as optional `mode`/`onModeChange` props. The
+  panel's own toggle row and its "Context: …" line are gone; scope is stated once, by the
+  scope pill.
+- **`ScapiPanel` gained `value`/`onValueChange`/`composer` props.** Its built-in `ScapiComposer`
+  is still there and still uncontrolled by default, so `/dev/ai` and the tests that mount the
+  panel bare keep working.
+- **Quick actions ("Connect this" / "Expand") moved inline** beside the collapsed bar. They
+  were a separate floating row that landed on top of whichever block sat at the bottom of the
+  canvas. Putting them **on** the node is the better answer and belongs in `src/canvas/`.
+- **`composerCollapsed` and its two effects are gone**, replaced by `canvasComposerOpen`, which
+  only controls the bar's own size. The bar itself is never hidden.
+- **Not verified: a live AI round trip.** The flows above were checked in Chrome without an
+  API key in `sessionStorage`, so send paths past the composer are still untested end to end.

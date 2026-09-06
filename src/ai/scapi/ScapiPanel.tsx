@@ -31,6 +31,14 @@ export interface ScapiPanelProps {
   suggestions?: string[];
   disabled?: boolean;
   placeholder?: string;
+  /**
+   * The shared draft. Both composers — this one and the canvas bar — read and write the same
+   * text, so opening or closing the panel never loses a half-written question.
+   */
+  value?: string;
+  onValueChange?: (value: string) => void;
+  /** Rendered inside the composer, in place of this panel's own plain textarea. */
+  composer?: React.ReactNode;
 }
 
 /**
@@ -123,6 +131,9 @@ export function ScapiPanel({
   searchAvailability = "unknown",
   restored = false,
   suggestions = [],
+  value,
+  onValueChange,
+  composer,
 }: ScapiPanelProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -207,16 +218,20 @@ export function ScapiPanel({
         </button>
       )}
 
-      <ScapiComposer
-        streaming={streaming}
-        onSend={onSend}
-        onCancel={onCancel}
-        webSearch={webSearch}
-        onWebSearchChange={onWebSearchChange}
-        searchAvailability={searchAvailability}
-        {...(disabled === undefined ? {} : { disabled })}
-        {...(placeholder === undefined ? {} : { placeholder })}
-      />
+      {composer ?? (
+        <ScapiComposer
+          streaming={streaming}
+          onSend={onSend}
+          onCancel={onCancel}
+          webSearch={webSearch}
+          onWebSearchChange={onWebSearchChange}
+          searchAvailability={searchAvailability}
+          {...(value === undefined ? {} : { value })}
+          {...(onValueChange === undefined ? {} : { onValueChange })}
+          {...(disabled === undefined ? {} : { disabled })}
+          {...(placeholder === undefined ? {} : { placeholder })}
+        />
+      )}
     </div>
   );
 }
@@ -679,6 +694,8 @@ function ScapiComposer({
   webSearch,
   onWebSearchChange,
   searchAvailability,
+  value,
+  onValueChange,
 }: {
   streaming: boolean;
   onSend: (question: string) => void;
@@ -688,8 +705,12 @@ function ScapiComposer({
   webSearch: boolean;
   onWebSearchChange?: (enabled: boolean) => void;
   searchAvailability: SearchAvailability;
+  value?: string;
+  onValueChange?: (value: string) => void;
 }) {
-  const [draft, setDraft] = useState("");
+  const [localDraft, setLocalDraft] = useState("");
+  const draft = value ?? localDraft;
+  const setDraft = onValueChange ?? setLocalDraft;
   const canSend = draft.trim().length > 0 && !disabled && !streaming;
 
   const submit = () => {

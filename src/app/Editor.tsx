@@ -82,7 +82,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [booted, setBooted] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [composerCollapsed, setComposerCollapsed] = useState(false);
+  /** Whether the canvas bar is showing its full controls. The bar itself is always present. */
+  const [canvasComposerOpen, setCanvasComposerOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
@@ -90,7 +91,16 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => window.innerWidth < 768);
   const [scapiOpen, setScapiOpen] = useState(false);
   const [scapiMode, setScapiMode] = useState<"ask" | "edit">("ask");
-  const [editDraft, setEditDraft] = useState("");
+  /**
+   * One draft behind both composers, and one record of which of them last sent.
+   *
+   * The draft is shared so that switching surfaces mid-sentence keeps the sentence. The origin
+   * decides where the answer surfaces: whichever composer you typed in is the one that shows
+   * the result, because that is where you are already looking.
+   */
+  const [draft, setDraft] = useState("");
+  const [lastOrigin, setLastOrigin] = useState<"canvas" | "panel">("canvas");
+  const [dismissedTurnId, setDismissedTurnId] = useState<string | null>(null);
   const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
   const {
@@ -279,19 +289,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booted, ready]);
 
-  // A finished generation has left its compact action summary behind; reclaim the canvas for
-  // the work itself while keeping the next prompt one click away.
+  // A finished generation is read on the canvas, not in a control panel. Shrink the bar back
+  // to its resting size so the work has the screen; the next prompt is still one click away.
   useEffect(() => {
-    if (busy) setComposerCollapsed(false);
-    else if (generation.state.status === "done") setComposerCollapsed(true);
-  }, [busy, generation.state.status]);
-
-  // A selected block is the thing the user is working on. Keep the full composer out of its
-  // way; the compact actions still make the selection-aware AI path immediately available.
-  // This only reacts when the selection changes, so choosing “Ask AI” keeps the composer open.
-  useEffect(() => {
-    if (selection.length > 0 && !busy) setComposerCollapsed(true);
-  }, [selection.length, busy]);
+    if (generation.state.status === "done") setCanvasComposerOpen(false);
+  }, [generation.state.status]);
 
   // Global Cmd+Z / Cmd+Shift+Z — not just canvas-scoped, since the inspector and outline sit
   // right next to it and a drag's undo shouldn't depend on which panel last had focus.
@@ -306,7 +308,6 @@ export function Editor({ scapeId }: { scapeId: string }) {
       if (meta && event.key.toLowerCase() === "j") {
         event.preventDefault();
         setScapiOpen(true);
-        setComposerCollapsed(true);
         return;
       }
       if (meta && event.key === "/") {
@@ -387,11 +388,19 @@ export function Editor({ scapeId }: { scapeId: string }) {
     notify.success(trimmed ? "Instructions saved." : "Instructions cleared.");
   };
 
-  const handleSend = async (request: string) => {
+  /**
+   * An edit, from whichever composer asked for it.
+   *
+   * A canvas-bar edit deliberately opens nothing: the blocks arriving one by one *are* the
+   * result, and a panel narrating that over the top of them is chrome in front of the thing
+   * worth watching. The Ribbon carries progress and Undo.
+   */
+  const handleSend = async (request: string, origin: "canvas" | "panel" = "canvas") => {
     if (busy || scapi.streaming || !requireLease()) return;
     if (!requireKey()) return;
-    setScapiOpen(true);
+    setLastOrigin(origin);
     setScapiMode("edit");
+    if (origin === "panel") setScapiOpen(true);
     await generation.start({
       request,
       apiKey: apiKey.trim(),
@@ -400,6 +409,14 @@ export function Editor({ scapeId }: { scapeId: string }) {
       scope,
       globalInstructions: instructions,
     });
+  };
+
+  /** A question, from whichever composer asked it. One transcript underneath both. */
+  const handleAsk = (question: string, origin: "canvas" | "panel" = "canvas") => {
+    if (busy || !requireLease() || !requireKey()) return;
+    setLastOrigin(origin);
+    setScapiMode("ask");
+    void scapi.send(question);
   };
 
   const handleConnect = async (ids?: ObjectId[]) => {
@@ -487,12 +504,30 @@ export function Editor({ scapeId }: { scapeId: string }) {
     commands.current?.focus(id);
   };
 
+  /** Opens the canvas bar in place. It is the composer now, not a button that summons one. */
   const focusComposer = () => {
-    setScapiOpen(true);
-    setScapiMode("edit");
-    setComposerCollapsed(true);
+    setCanvasComposerOpen(true);
     window.requestAnimationFrame(() => composerInput.current?.focus());
   };
+
+  /**
+   * The answer the canvas bar shows: only the latest, only when this bar is what asked, and
+   * only while the panel is not already showing the same thing in full.
+   */
+  const latestTurn = scapi.turns[scapi.turns.length - 1];
+  const canvasAnswer =
+    !scapiOpen && lastOrigin === "canvas" && latestTurn && latestTurn.id !== dismissedTurnId
+      ? latestTurn
+      : undefined;
+
+  const composerPlaceholder =
+    scapiMode === "ask"
+      ? scope === "selection"
+        ? "Ask about this selection…"
+        : "Ask about this scape…"
+      : scope === "selection"
+        ? "Describe a change to this selection…"
+        : starter.placeholder;
 
   const selectedObject = selection.length === 1 && scape ? scape.objects[selection[0]] : undefined;
   /** Tags already in play, offered when marking a block so a shared vocabulary forms. */
@@ -539,10 +574,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
           label: "Ask Scapi",
           hint: "Ask about this scape",
           shortcut: "⌘J",
-          run: () => {
-            setScapiOpen(true);
-            setComposerCollapsed(true);
-          },
+          run: () => setScapiOpen(true),
         },
       ];
 
@@ -570,10 +602,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     <div className="flex h-full flex-col bg-base">
       <TopBar
         scapiOpen={scapiOpen}
-        onOpenScapi={() => {
-          setScapiOpen((open) => !open);
-          setComposerCollapsed(true);
-        }}
+        onOpenScapi={() => setScapiOpen((open) => !open)}
         scape={scape}
         onBack={() => navigate("/")}
         onRename={(name) => {
@@ -654,12 +683,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
             </div>
           )}
 
-          <div
-            className={
-              "pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4" +
-              (scapiOpen ? " invisible" : "")
-            }
-          >
+          {/*
+            The canvas composer. Permanently present — it is the real input, not a button that
+            opens one somewhere else. It never hides for the Scapi panel: the two are the same
+            composer over the same draft, and whichever one you type in answers you back.
+          */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4">
             <div className="pointer-events-auto w-full max-w-[720px]">
               <Ribbon
                 state={generation.state}
@@ -669,54 +698,118 @@ export function Editor({ scapeId }: { scapeId: string }) {
               />
             </div>
 
-            {selection.length > 0 && !busy && composerCollapsed && (
-              <div className="pointer-events-auto flex items-center gap-1.5">
-                <QuickAction onClick={() => void handleConnect(selection)}>
-                  {selection.length > 1 ? "Connect these" : "Connect this"}
-                </QuickAction>
-                <QuickAction
-                  onClick={() =>
-                    void handleSend(
-                      selection.length > 1
-                        ? "Expand on the selected objects. Add the detail they are missing and connect what you add."
-                        : "Expand on the selected object. Add the detail it is missing and connect what you add.",
-                    )
-                  }
-                >
-                  Expand
-                </QuickAction>
+            {canvasAnswer && (
+              <div className="pointer-events-auto w-full max-w-[720px] rounded-2xl border border-subtle bg-surface p-3 shadow-md">
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <span className="mono">Scapi</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setScapiOpen(true)}
+                      className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
+                    >
+                      Open in Scapi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDismissedTurnId(canvasAnswer.id)}
+                      aria-label="Dismiss answer"
+                      className="text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-[38vh] overflow-auto whitespace-pre-wrap text-fg">
+                  {canvasAnswer.body || (scapi.streaming ? "…" : "")}
+                </div>
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={focusComposer}
-              aria-label="Edit with Scapi"
-              className="pointer-events-auto flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-left text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 15 15"
-                fill="none"
-                aria-hidden
-                className="shrink-0 text-fg-tertiary"
-              >
-                <path
-                  d="M7.5 1.75v2M7.5 11.25v2M1.75 7.5h2M11.25 7.5h2M3.43 3.43l1.42 1.42M10.15 10.15l1.42 1.42M11.57 3.43l-1.42 1.42M4.85 10.15l-1.42 1.42"
-                  stroke="currentColor"
-                  strokeWidth="1.15"
-                  strokeLinecap="round"
+            {canvasComposerOpen ? (
+              <div className="pointer-events-auto w-full max-w-[720px]">
+                <Composer
+                  instructions={scape.instructions?.body ?? ""}
+                  onInstructionsChange={setScapeInstructions}
+                  globalInstructions={instructions}
+                  onEditGlobalInstructions={() => setSettingsOpen(true)}
+                  controls={{ instructions: true }}
+                  value={draft}
+                  onValueChange={setDraft}
+                  onSend={(text) => {
+                    if (scapiMode === "ask") handleAsk(text, "canvas");
+                    else void handleSend(text, "canvas");
+                  }}
+                  sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
+                  onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
+                  busy={scapiMode === "ask" ? scapi.streaming : busy}
+                  disabled={readOnly || (scapiMode === "ask" ? busy : scapi.streaming)}
+                  mode={scapiMode}
+                  onModeChange={setScapiMode}
+                  modelId={modelId}
+                  onModelChange={setModelId}
+                  scope={scope}
+                  onScopeChange={setScope}
+                  types={types}
+                  onTypesChange={setTypes}
+                  availableTypes={starter.types}
+                  selectionCount={selection.length}
+                  inputRef={composerInput}
+                  placeholder={composerPlaceholder}
                 />
-                <circle cx="7.5" cy="7.5" r="2.15" stroke="currentColor" strokeWidth="1.15" />
-              </svg>
-              <span className="min-w-0 flex-1 truncate">
-                {scope === "selection" && selection.length
-                  ? "Tell AI what to do with this selection…"
-                  : "Tell AI what to do in this scape…"}
-              </span>
-              <span className="shrink-0 text-xs">Edit with Scapi</span>
-            </button>
+              </div>
+            ) : (
+              <div className="pointer-events-auto flex max-w-[calc(100vw-32px)] items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={focusComposer}
+                  aria-label="Open the composer"
+                  className="flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-left text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                    aria-hidden
+                    className="shrink-0 text-fg-tertiary"
+                  >
+                    <path
+                      d="M7.5 1.75v2M7.5 11.25v2M1.75 7.5h2M11.25 7.5h2M3.43 3.43l1.42 1.42M10.15 10.15l1.42 1.42M11.57 3.43l-1.42 1.42M4.85 10.15l-1.42 1.42"
+                      stroke="currentColor"
+                      strokeWidth="1.15"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="7.5" cy="7.5" r="2.15" stroke="currentColor" strokeWidth="1.15" />
+                  </svg>
+                  <span className="min-w-0 flex-1 truncate">
+                    {draft.trim() || composerPlaceholder}
+                  </span>
+                </button>
+
+                {/* Inline, not stacked above: a floating row of its own landed on top of
+                    whichever block sat at the bottom of the canvas. */}
+                {selection.length > 0 && !busy && (
+                  <>
+                    <QuickAction onClick={() => void handleConnect(selection)}>
+                      {selection.length > 1 ? "Connect these" : "Connect this"}
+                    </QuickAction>
+                    <QuickAction
+                      onClick={() =>
+                        void handleSend(
+                          selection.length > 1
+                            ? "Expand on the selected objects. Add the detail they are missing and connect what you add."
+                            : "Expand on the selected object. Add the detail it is missing and connect what you add.",
+                          "canvas",
+                        )
+                      }
+                    >
+                      Expand
+                    </QuickAction>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -764,33 +857,6 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   </button>
                 </div>
               </div>
-              <div className="border-b border-subtle px-4 py-2 text-xs text-fg-secondary">
-                {selection.length
-                  ? `Context: ${selection.map((id) => scape.objects[id]?.title || "Untitled").join(", ")}`
-                  : "Context: whole scape"}
-              </div>
-              <div
-                className="flex gap-2 border-b border-subtle px-4 py-2"
-                role="group"
-                aria-label="Scapi mode"
-              >
-                {(["ask", "edit"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    aria-pressed={scapiMode === mode}
-                    onClick={() => setScapiMode(mode)}
-                    className={
-                      "rounded-full px-3 py-1.5 text-sm active:bg-inset " +
-                      (scapiMode === mode
-                        ? "bg-accent text-on-accent"
-                        : "text-fg-secondary hover:bg-hover")
-                    }
-                  >
-                    {mode === "ask" ? "Ask" : "Edit"}
-                  </button>
-                ))}
-              </div>
               {generation.state.status !== "idle" && (
                 <div className="shrink-0 p-3" role="status">
                   <Ribbon
@@ -828,7 +894,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                         const request = proposedEdit;
                         if (!requireLease() || !requireKey()) return;
                         setProposedEdit(null);
-                        void handleSend(request);
+                        void handleSend(request, "panel");
                       }}
                     >
                       Apply proposed edit
@@ -843,14 +909,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   </div>
                 </div>
               )}
-              <div className={scapiMode === "ask" ? "min-h-0 flex-1" : "hidden"}>
+              <div className="min-h-0 flex-1">
                 <Suspense fallback={<div className="flex-1 bg-surface" />}>
                   <ScapiPanel
                     turns={scapi.turns}
                     streaming={scapi.streaming}
-                    onSend={(question) => {
-                      if (!busy && requireKey()) void scapi.send(question);
-                    }}
+                    onSend={(question) => handleAsk(question, "panel")}
                     onCancel={scapi.cancel}
                     onRetry={() => {
                       if (!busy && requireKey()) scapi.retry();
@@ -872,57 +936,50 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     restored={scapi.restored}
                     suggestions={suggestScapiQuestions(scape)}
                     disabled={!apiKey.trim() || busy}
-                    {...(apiKey.trim()
-                      ? {}
-                      : { placeholder: "Add an API key in settings to ask." })}
-                  />
-                </Suspense>
-              </div>
-              <div
-                className={
-                  scapiMode === "edit" ? "flex min-h-0 flex-1 flex-col overflow-auto p-3" : "hidden"
-                }
-              >
-                <p className="mb-3 text-sm text-fg-secondary">
-                  Describe a change to make. Changes appear on the canvas as Scapi works; use Undo
-                  to restore the previous version.
-                </p>
-                <p className="mb-3 text-sm text-fg">
-                  Editing:{" "}
-                  {scope === "selection"
-                    ? selection.map((id) => scape.objects[id]?.title || "Untitled").join(", ")
-                    : "Whole scape"}
-                </p>
-                <div className="mt-auto">
-                  <Composer
-                    instructions={scape.instructions?.body ?? ""}
-                    onInstructionsChange={setScapeInstructions}
-                    globalInstructions={instructions}
-                    onEditGlobalInstructions={() => setSettingsOpen(true)}
-                    controls={{ instructions: true }}
-                    value={editDraft}
-                    onValueChange={setEditDraft}
-                    onSend={(text) => void handleSend(text)}
-                    sendLabel="Edit"
-                    onCancel={generation.cancel}
-                    busy={busy}
-                    disabled={readOnly || scapi.streaming}
-                    modelId={modelId}
-                    onModelChange={setModelId}
-                    scope={scope}
-                    onScopeChange={setScope}
-                    types={types}
-                    onTypesChange={setTypes}
-                    availableTypes={starter.types}
-                    selectionCount={selection.length}
-                    inputRef={composerInput}
-                    placeholder={
-                      scope === "selection"
-                        ? "Describe a change to this selection…"
-                        : starter.placeholder
+                    value={draft}
+                    onValueChange={setDraft}
+                    composer={
+                      <div className="shrink-0 border-t border-subtle p-3">
+                        <Composer
+                          instructions={scape.instructions?.body ?? ""}
+                          onInstructionsChange={setScapeInstructions}
+                          globalInstructions={instructions}
+                          onEditGlobalInstructions={() => setSettingsOpen(true)}
+                          controls={{ instructions: true }}
+                          value={draft}
+                          onValueChange={setDraft}
+                          onSend={(text) => {
+                            if (scapiMode === "ask") handleAsk(text, "panel");
+                            else void handleSend(text, "panel");
+                          }}
+                          sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
+                          onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
+                          busy={scapiMode === "ask" ? scapi.streaming : busy}
+                          disabled={
+                            readOnly ||
+                            !apiKey.trim() ||
+                            (scapiMode === "ask" ? busy : scapi.streaming)
+                          }
+                          mode={scapiMode}
+                          onModeChange={setScapiMode}
+                          modelId={modelId}
+                          onModelChange={setModelId}
+                          scope={scope}
+                          onScopeChange={setScope}
+                          types={types}
+                          onTypesChange={setTypes}
+                          availableTypes={starter.types}
+                          selectionCount={selection.length}
+                          placeholder={
+                            apiKey.trim()
+                              ? composerPlaceholder
+                              : "Add an API key in settings to ask."
+                          }
+                        />
+                      </div>
                     }
                   />
-                </div>
+                </Suspense>
               </div>
             </aside>
           ) : rightPanelCollapsed ? (

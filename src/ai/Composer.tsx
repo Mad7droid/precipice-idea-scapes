@@ -44,6 +44,13 @@ export interface ComposerProps {
   selectionCount: number;
   disabled?: boolean;
   placeholder?: string;
+  /**
+   * Ask vs edit, when this composer is allowed to choose. Both surfaces that offer the choice
+   * — the canvas bar and the Scapi panel — render the same control here rather than owning a
+   * toggle of their own, so the two never disagree about which mode is live.
+   */
+  mode?: "ask" | "edit";
+  onModeChange?: (mode: "ask" | "edit") => void;
   /** Rendered to the left of the send button — the starter badge on the home page. */
   slot?: React.ReactNode;
   /** Lets the editor's command palette return focus to the prompt after expanding it. */
@@ -87,6 +94,8 @@ export function Composer({
   slot,
   inputRef,
   controls,
+  mode,
+  onModeChange,
 }: ComposerProps) {
   const showScope = controls?.scope ?? true;
   const showTypes = controls?.types ?? true;
@@ -146,6 +155,31 @@ export function Composer({
 
       {/* Icon row, inside the well. */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5 pt-1">
+        {mode && onModeChange && (
+          <div
+            className="flex items-center rounded-full border border-subtle p-0.5"
+            role="group"
+            aria-label="Scapi mode"
+          >
+            {(["ask", "edit"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={mode === option}
+                disabled={busy}
+                onClick={() => onModeChange(option)}
+                className={
+                  "rounded-full px-2.5 py-0.5 transition-colors duration-instant ease-out " +
+                  (mode === option
+                    ? "bg-accent text-on-accent"
+                    : "text-fg-secondary hover:bg-hover hover:text-fg")
+                }
+              >
+                {option === "ask" ? "Ask" : "Edit"}
+              </button>
+            ))}
+          </div>
+        )}
         {showScope && (
           <Select
             variant="pill"
