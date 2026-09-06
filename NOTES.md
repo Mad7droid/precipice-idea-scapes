@@ -577,7 +577,7 @@ so the streaming blocks are what you watch.
 
 The single column had outgrown the viewport; capping it and scrolling only moved the problem
 (the theme control slid under the title). It is now a 620×440 dialog with a 150px sidebar and
-three panes — **General** (theme, default model), **AI** (API key, generation instructions),
+three panes — **General** (theme, default model, API key), **AI** (generation instructions),
 **Agent** (the MCP bridge). Help and Done live in a footer that is always visible.
 
 - Three sections because there are three concerns, not to fill a sidebar. Each pane is short
@@ -594,3 +594,23 @@ while the Scapi panel is open, since the panel renders the same composer over th
 
 **This softens "the bar is never hidden" to "a composer is always on screen."** Deliberate: two
 live inputs for one draft is a worse answer than one.
+
+## Scapi — mode-aware controls, inline activity, ⌘J
+
+- **Ask hides what Ask cannot use.** `Composer` takes `mode`, and when asking the type picker
+  and the instructions pill are *absent*, not disabled — a question creates nothing for them to
+  constrain. Scope and model stay; they still shape a question.
+- **Web search came back.** Replacing the panel's own `ScapiComposer` with the shared one had
+  silently dropped the "Search web" toggle. It is now a `Composer` control, ask-only, and
+  disabled with a reason when the key has no search entitlement.
+- **The activity strip moved into the transcript.** It was pinned above the scroller while the
+  answer scrolled underneath it; an edit is a turn in the same conversation, so it now renders
+  after the last turn via a new `activity` prop on `ScapiPanel` and scrolls with everything else.
+- **⌘J toggles the panel and only the panel.** `useScapi` lives in `Editor`, above the panel, so
+  unmounting the transcript cannot cancel a request — closing mid-answer and reopening finds it
+  finished. Escape also closes, but only when focus is not in a field. **Untested against a live
+  request** (no API key in the browser session); the guarantee is structural, not observed.
+- **The skipped-actions popover no longer overflows.** It was a fixed 420px box inside a 420px
+  panel printing a serialised action — one long unbroken string. It now spans its container and
+  shows the tool, a short subject drawn from the payload, and the reason. The raw JSON is gone;
+  it was for a log, not for this.

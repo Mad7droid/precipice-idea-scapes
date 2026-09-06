@@ -51,6 +51,14 @@ export interface ComposerProps {
    */
   mode?: "ask" | "edit";
   onModeChange?: (mode: "ask" | "edit") => void;
+  /**
+   * Web search, which only asking can use. Rendered in place of the controls that shape a
+   * generation, since a question creates nothing for them to constrain.
+   */
+  webSearch?: boolean;
+  onWebSearchChange?: (enabled: boolean) => void;
+  /** Disables the toggle and says why, when the key has no search entitlement. */
+  webSearchUnavailable?: boolean;
   /** Rendered to the left of the send button — the starter badge on the home page. */
   slot?: React.ReactNode;
   /** Lets the editor's command palette return focus to the prompt after expanding it. */
@@ -96,11 +104,20 @@ export function Composer({
   controls,
   mode,
   onModeChange,
+  webSearch,
+  onWebSearchChange,
+  webSearchUnavailable,
 }: ComposerProps) {
-  const showScope = controls?.scope ?? true;
-  const showTypes = controls?.types ?? true;
+  // Asking reads the scape and answers; it creates nothing. So the controls that exist only to
+  // shape a generation — which types it may add, the standing instructions it writes under —
+  // are not merely disabled but absent. A control that cannot change the outcome is a promise
+  // the app does not keep.
+  const asking = mode === "ask";
+  const showScope = (controls?.scope ?? true) && !asking;
+  const showTypes = (controls?.types ?? true) && !asking;
   // Opt-in, unlike the other two: without a scape to attach them to there is nothing to edit.
-  const showInstructions = (controls?.instructions ?? false) && !!onInstructionsChange;
+  const showInstructions = (controls?.instructions ?? false) && !!onInstructionsChange && !asking;
+  const showWebSearch = asking && !!onWebSearchChange;
   const [localValue, setLocalValue] = useState("");
   const value = controlledValue ?? localValue;
   const setValue = onValueChange ?? setLocalValue;
@@ -180,7 +197,7 @@ export function Composer({
             ))}
           </div>
         )}
-        {showScope && (
+        {(showScope || asking) && (
           <Select
             variant="pill"
             label="Scope"
@@ -212,6 +229,29 @@ export function Composer({
             {...(globalInstructions ? { globalInstructions } : {})}
             {...(onEditGlobalInstructions ? { onEditGlobal: onEditGlobalInstructions } : {})}
           />
+        )}
+        {showWebSearch && (
+          <label
+            className={
+              "mono flex items-center gap-1.5 rounded-full border border-subtle px-2.5 py-1 " +
+              "normal-case tracking-normal text-fg-secondary " +
+              (webSearchUnavailable ? "opacity-40" : "cursor-pointer hover:text-fg")
+            }
+            title={
+              webSearchUnavailable
+                ? "Web search isn’t enabled for this API key."
+                : "Let Scapi search the web for this question"
+            }
+          >
+            <input
+              type="checkbox"
+              checked={!!webSearch && !webSearchUnavailable}
+              onChange={(event) => onWebSearchChange?.(event.target.checked)}
+              disabled={busy || webSearchUnavailable}
+              className="accent-[var(--accent)]"
+            />
+            Search web
+          </label>
         )}
         <Select
           variant="pill"

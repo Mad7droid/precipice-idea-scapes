@@ -101,12 +101,8 @@ export function SettingsModal({
                     className="mono w-full"
                   />
                 </div>
-              </>
-            )}
 
-            {section === "ai" && (
-              <>
-                <div>
+                <div className="mt-5">
                   <label
                     htmlFor="anthropic-api-key"
                     className="mb-1 block text-xs text-fg-secondary"
@@ -140,9 +136,13 @@ export function SettingsModal({
                     own and stores nothing.
                   </p>
                 </div>
+              </>
+            )}
 
-                {onInstructionsChange && (
-                  <div className="mt-5">
+            {section === "ai" && (
+              <>
+                {onInstructionsChange ? (
+                  <div>
                     <label
                       htmlFor="global-instructions"
                       className="mb-1 block text-xs text-fg-secondary"
@@ -161,6 +161,10 @@ export function SettingsModal({
                       own on top, from the composer.
                     </p>
                   </div>
+                ) : (
+                  <p className="text-xs text-fg-tertiary">
+                    Open a scape to set generation instructions.
+                  </p>
                 )}
               </>
             )}

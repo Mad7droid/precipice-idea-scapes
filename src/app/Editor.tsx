@@ -307,7 +307,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
       }
       if (meta && event.key.toLowerCase() === "j") {
         event.preventDefault();
-        setScapiOpen(true);
+        // A toggle, and only of the panel. Scapi's request lives in the hook above this
+        // component, so hiding the transcript never cancels the work behind it — the answer
+        // and any applied changes are waiting when you open it again.
+        setScapiOpen((open) => !open);
         return;
       }
       if (meta && event.key === "/") {
@@ -329,6 +332,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
         setShortcutsOpen(true);
         return;
       }
+      if (event.key === "Escape" && scapiOpen) {
+        event.preventDefault();
+        setScapiOpen(false);
+        return;
+      }
       if (!meta || event.key.toLowerCase() !== "z") return;
       event.preventDefault();
       // Undo is an edit. In a follower tab it would change a document this tab cannot save,
@@ -339,7 +347,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [leftPanelCollapsed, rightPanelCollapsed, readOnly]);
+  }, [leftPanelCollapsed, rightPanelCollapsed, readOnly, scapiOpen]);
 
   /**
    * The one place an edit can be attempted while another tab holds the scape. The canvas and
@@ -571,10 +579,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
         },
         {
           id: "ask-scapi",
-          label: "Ask Scapi",
-          hint: "Ask about this scape",
+          label: scapiOpen ? "Close Scapi" : "Ask Scapi",
+          hint: scapiOpen ? "Hide the panel; work keeps running" : "Ask about this scape",
           shortcut: "⌘J",
-          run: () => setScapiOpen(true),
+          run: () => setScapiOpen((open) => !open),
         },
       ];
 
@@ -752,6 +760,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   disabled={readOnly || (scapiMode === "ask" ? busy : scapi.streaming)}
                   mode={scapiMode}
                   onModeChange={setScapiMode}
+                  webSearch={scapi.webSearch}
+                  onWebSearchChange={scapi.setWebSearch}
+                  webSearchUnavailable={scapi.searchAvailability === "unavailable"}
                   modelId={modelId}
                   onModelChange={setModelId}
                   scope={scope}
@@ -857,24 +868,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     type="button"
                     onClick={() => setScapiOpen(false)}
                     aria-label="Close Scapi"
+                    title="Close Scapi (⌘J). Anything running keeps running."
                     className="text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg"
                   >
                     ✕
                   </button>
                 </div>
               </div>
-              {generation.state.status !== "idle" && (
-                <div className="shrink-0 p-3" role="status">
-                  <Ribbon
-                    state={generation.state}
-                    onCancel={generation.cancel}
-                    onUndo={() => {
-                      if (requireLease()) generation.undo();
-                    }}
-                    onDismiss={generation.dismiss}
-                  />
-                </div>
-              )}
               {proposedEdit && (
                 <div
                   className="border-b border-subtle bg-inset p-4"
@@ -944,6 +944,22 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     disabled={!apiKey.trim() || busy}
                     value={draft}
                     onValueChange={setDraft}
+                    {...(generation.state.status === "idle"
+                      ? {}
+                      : {
+                          activity: (
+                            <div role="status">
+                              <Ribbon
+                                state={generation.state}
+                                onCancel={generation.cancel}
+                                onUndo={() => {
+                                  if (requireLease()) generation.undo();
+                                }}
+                                onDismiss={generation.dismiss}
+                              />
+                            </div>
+                          ),
+                        })}
                     composer={
                       <div className="shrink-0 border-t border-subtle p-3">
                         <Composer
@@ -968,6 +984,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           }
                           mode={scapiMode}
                           onModeChange={setScapiMode}
+                          webSearch={scapi.webSearch}
+                          onWebSearchChange={scapi.setWebSearch}
+                          webSearchUnavailable={scapi.searchAvailability === "unavailable"}
                           modelId={modelId}
                           onModelChange={setModelId}
                           scope={scope}

@@ -118,7 +118,7 @@ const SHORTCUT_GROUPS = [
     title: "Commands & AI",
     shortcuts: [
       ["⌘↵", "Send AI prompt"],
-      ["⌘J", "Ask Scapi about the open scape"],
+      ["⌘J", "Open or close Scapi — closing does not stop it"],
       ["⌘K", "Open commands"],
       ["⌘/", "Minimize or restore side panels"],
       ["Esc", "Clear selection or close a menu"],

@@ -39,6 +39,12 @@ export interface ScapiPanelProps {
   onValueChange?: (value: string) => void;
   /** Rendered inside the composer, in place of this panel's own plain textarea. */
   composer?: React.ReactNode;
+  /**
+   * What a running edit is doing, rendered at the end of the transcript rather than pinned
+   * above it. An edit is a turn in the same conversation, so it reads in sequence with the
+   * answers around it and scrolls with them.
+   */
+  activity?: React.ReactNode;
 }
 
 /**
@@ -134,6 +140,7 @@ export function ScapiPanel({
   value,
   onValueChange,
   composer,
+  activity,
 }: ScapiPanelProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -143,7 +150,7 @@ export function ScapiPanel({
   // list this effect ran after *every* render and wrote `scrollTop` each time — a forced
   // synchronous layout per frame, which is its own source of stutter.
   const last = turns[turns.length - 1];
-  const growth = `${turns.length}:${last?.body.length ?? 0}:${last?.reasoning.length ?? 0}:${last?.activity.length ?? 0}`;
+  const growth = `${turns.length}:${last?.body.length ?? 0}:${last?.reasoning.length ?? 0}:${last?.activity.length ?? 0}:${activity ? 1 : 0}`;
 
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -189,7 +196,7 @@ export function ScapiPanel({
             Earlier answers are shown for reference. This conversation starts fresh from here.
           </p>
         )}
-        {turns.length === 0 ? (
+        {turns.length === 0 && !activity ? (
           <EmptyState suggestions={suggestions} onSend={onSend} />
         ) : (
           <ol className="space-y-5">
@@ -206,6 +213,7 @@ export function ScapiPanel({
             ))}
           </ol>
         )}
+        {activity && <div className="mt-5">{activity}</div>}
       </div>
 
       {!atLatest && turns.length > 0 && (

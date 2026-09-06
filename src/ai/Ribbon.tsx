@@ -179,24 +179,47 @@ export function Ribbon({
   );
 }
 
-/** What failed validation and why — so "2 skipped" is never the end of the story. */
+/**
+ * What failed validation and why — so "2 skipped" is never the end of the story.
+ *
+ * The raw payload used to be printed here, which is what made this overflow: a serialised
+ * action is one long unbroken string, and no amount of truncation helps a box that is already
+ * wider than the panel holding it. The tool and the reason are what a person can act on; the
+ * payload is for a log. So this names the action, says why it was dropped, and stays inside
+ * its container.
+ */
 function SkippedPopover({ state }: { state: GenerationState }) {
   return (
-    <div className="absolute bottom-full left-0 z-popover mb-2 max-h-[240px] w-[420px] overflow-auto rounded-lg border border-subtle bg-raised p-3 shadow-lg">
+    <div className="absolute bottom-full left-0 right-0 z-popover mb-2 max-h-[220px] overflow-y-auto rounded-lg border border-subtle bg-raised p-3 shadow-lg">
       <h3 className="mono mb-2">skipped · {state.skipped.length}</h3>
       <ul className="space-y-2">
         {state.skipped.map((item, i) => (
           <li key={i} className="border-b border-subtle pb-2 last:border-0 last:pb-0">
-            <div className="mono normal-case tracking-normal text-fg-secondary">{item.tool}</div>
-            <p className="mt-0.5 text-xs text-fg">{item.reason}</p>
-            <p className="mono mt-1 truncate normal-case tracking-normal">
-              {JSON.stringify(item.input)}
-            </p>
+            <div className="mono normal-case tracking-normal text-fg-secondary">
+              {item.tool}
+              {subjectOf(item.input) && (
+                <span className="text-fg-tertiary"> · {subjectOf(item.input)}</span>
+              )}
+            </div>
+            <p className="mt-0.5 break-words text-xs text-fg">{item.reason}</p>
           </li>
         ))}
       </ul>
     </div>
   );
+}
+
+/** Whatever names the dropped action in one short phrase, if it carried anything that does. */
+function subjectOf(input: unknown): string | null {
+  if (!input || typeof input !== "object") return null;
+  const record = input as Record<string, unknown>;
+  for (const key of ["title", "id", "from", "type"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.length > 40 ? `${value.slice(0, 39)}…` : value;
+    }
+  }
+  return null;
 }
 
 const Dot = () => (
