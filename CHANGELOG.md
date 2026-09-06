@@ -11,6 +11,17 @@ milestone is published.
 
 ### Changed
 
+- Scapi now brings Ask and Edit into one panel, preserving drafts across mode switches.
+  Proposed edits keep their progress, results, and Undo beside the conversation; edit scope
+  names the affected blocks and composer controls wrap in the narrow panel.
+
+- Editor AI defaults to the selected blocks, with matching scope copy and a visible Scapi button.
+  Scapi shows its context and a proposal review step before generation. Existing-block AI edits
+  preserve the layout; single renames have readable completion summaries.
+- New blocks find nearby free space, selected blocks fit beside resized assistant panels, and
+  inline text editing requires selecting a block first. “Scape block” is now labelled “Document,”
+  and the editor explains that work autosaves to this browser.
+
 - Redesigned Home with adaptive onboarding, a compact creator, visual scape previews, gallery/list
   views, persistent pins, search, filtering, and sorting. Added a Product brief starter.
 - Home now exposes PDF and scape exports, publication links, and contextual entry points for

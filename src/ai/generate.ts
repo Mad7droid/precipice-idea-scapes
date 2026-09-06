@@ -207,11 +207,16 @@ export function createApplier(options: ApplyOptions): Applier {
     options.onEvent({
       kind: "applied",
       action,
-      line: `${action.type} · ${describeAction(action)}`,
+      line:
+        action.type === "UpdateObject" && action.patch.title !== undefined
+          ? `Renamed block to “${action.patch.title}”`
+          : action.type === "CreateObject"
+            ? `Added ${getPlugin(action.objectType)?.label.toLowerCase() ?? "block"}: ${action.title}`
+            : `${action.type} · ${describeAction(action)}`,
     });
 
     // Reflow every few actions rather than every one — the canvas would thrash otherwise.
-    if (applied % LAYOUT_EVERY === 0) options.requestLayout?.();
+    if (created.length > 0 && applied % LAYOUT_EVERY === 0) options.requestLayout?.();
 
     return "Applied.";
   };
@@ -223,7 +228,7 @@ export function createApplier(options: ApplyOptions): Applier {
     skipped: () => skipped,
     createdIds: () => [...created],
     finish: () => {
-      if (applied > 0) options.requestLayout?.();
+      if (created.length > 0) options.requestLayout?.();
     },
   };
 }

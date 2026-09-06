@@ -133,7 +133,7 @@ export function Ribbon({
             <span aria-hidden className="mr-1.5 inline-block">
               {showSteps ? "▾" : "▸"}
             </span>
-            {state.applied} {state.applied === 1 ? "action" : "actions"}
+            {state.applied === 1 ? state.lines[0]?.text : `${state.applied} changes applied`}
           </button>
         ) : (
           <span className="mono normal-case tracking-normal">

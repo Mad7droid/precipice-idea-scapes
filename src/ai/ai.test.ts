@@ -162,6 +162,25 @@ describe("the apply loop", () => {
     expect(requestLayout).toHaveBeenCalledTimes(3); // one final reflow
   });
 
+  it("renames an existing block without rearranging the canvas", () => {
+    const initial = fixtureScape();
+    const id = initial.objectOrder[0];
+    const local = localDispatch(initial);
+    const { onEvent, events } = collector();
+    const requestLayout = vi.fn();
+    const applier = createApplier({ dispatch: local.dispatch, onEvent, requestLayout });
+    applier.apply("UpdateObject", { id, patch: { title: "Account sign-up" } });
+    applier.finish();
+    expect(local.get().objects[id].title).toBe("Account sign-up");
+    expect(requestLayout).not.toHaveBeenCalled();
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "applied", line: "Renamed block to “Account sign-up”" }),
+    );
+    expect(
+      initial.objectOrder.map((key) => [local.get().objects[key].x, local.get().objects[key].y]),
+    ).toEqual(initial.objectOrder.map((key) => [initial.objects[key].x, initial.objects[key].y]));
+  });
+
   it("does not lay out at all when nothing was applied", () => {
     const local = localDispatch(emptyScape("scp_t"));
     const { onEvent } = collector();

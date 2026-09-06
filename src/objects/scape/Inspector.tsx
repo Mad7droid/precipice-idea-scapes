@@ -22,7 +22,7 @@ export function ScapeBlockInspector({
 
   return (
     <div>
-      <SectionHeader>scape block</SectionHeader>
+      <SectionHeader>document</SectionHeader>
       <div className="space-y-3">
         <Field label="Title">
           <TextInput

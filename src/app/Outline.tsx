@@ -97,7 +97,7 @@ export function Outline({
         <>
           <div className="flex-1 overflow-auto px-2 py-2">
             <div className="mb-2 flex items-center justify-between px-1 pt-3">
-              <p className="mono">On this scape</p>
+              <p className="text-xs text-fg-secondary">On this scape</p>
               <span className="mono text-fg-tertiary">{scape.objectOrder.length}</span>
             </div>
             <label className="sr-only" htmlFor="outline-search">
@@ -112,7 +112,7 @@ export function Outline({
             />
             {scape.objectOrder.length === 0 ? (
               <p className="px-2 py-3 text-xs text-fg-tertiary">
-                Nothing on the canvas yet. Add a block below, or describe what you want.
+                Start with a block from the toolbar on the right, or describe what you want.
               </p>
             ) : (
               <>
@@ -133,7 +133,7 @@ export function Outline({
                     </div>
                     {loose.length === 1 && (
                       <p className="mt-1 text-xs text-fg-tertiary">
-                        Add another block, then connect them.
+                        Blocks can stand alone. Connect them when a relationship is useful.
                       </p>
                     )}
                   </div>

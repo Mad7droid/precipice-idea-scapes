@@ -10,7 +10,7 @@ import { scapeBlockSchema, type ScapeBlockData } from "./schema";
  */
 const view: ViewPlugin<ScapeBlockData> = {
   type: "scape",
-  label: "Scape block",
+  label: "Document",
   color: "--obj-scape",
   schema: scapeBlockSchema,
   View: ScapeBlockBody,

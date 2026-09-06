@@ -9,7 +9,7 @@ import type { NoteData } from "./schema";
  * The editable card. Display lives in `Body.tsx`, which the public viewer also renders — this
  * file is the editing state and the dispatch around it, and nothing else.
  */
-export function NoteNode({ object }: { object: ScapeObject; selected: boolean }) {
+export function NoteNode({ object, selected }: { object: ScapeObject; selected: boolean }) {
   const data = object.data as Partial<NoteData>;
   const [editing, setEditing] = useState<NoteEditField | null>(null);
   const readOnly = useCanvasReadOnly();
@@ -72,5 +72,5 @@ export function NoteNode({ object }: { object: ScapeObject; selected: boolean })
     );
   }
 
-  return <NoteBody object={object} {...(readOnly ? {} : { onEdit: setEditing })} />;
+  return <NoteBody object={object} {...(readOnly || !selected ? {} : { onEdit: setEditing })} />;
 }

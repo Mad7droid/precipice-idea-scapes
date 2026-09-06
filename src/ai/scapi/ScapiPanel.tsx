@@ -85,7 +85,7 @@ const markdownComponents: Components = {
       </div>
       <div className="overflow-x-auto pb-2">
         <table className="min-w-full border-collapse text-[length:var(--text-base)] text-fg">
-        {children}
+          {children}
         </table>
       </div>
     </section>
@@ -96,7 +96,9 @@ const markdownComponents: Components = {
     </th>
   ),
   td: ({ children }) => (
-    <td className="min-w-36 border-b border-subtle px-3 py-2 align-top leading-relaxed">{children}</td>
+    <td className="min-w-36 border-b border-subtle px-3 py-2 align-top leading-relaxed">
+      {children}
+    </td>
   ),
   blockquote: ({ children }) => (
     <blockquote className="mt-5 border-l-2 border-default pl-4 text-[length:var(--text-base)] leading-relaxed text-fg-secondary">
@@ -231,8 +233,8 @@ function EmptyState({
     <div className="mt-6">
       <p className="text-base font-[var(--weight-emph)] text-fg">Ask about this scape.</p>
       <p className="mt-1 text-sm text-fg-secondary">
-        Scapi can read every object on the canvas. It answers questions; it never changes the
-        document.
+        Scapi can read every object on the canvas. Ask answers questions without changing your work.
+        Choose Edit to make changes.
       </p>
       {suggestions.length > 0 && (
         <div className="mt-4 grid gap-2">
@@ -688,7 +690,7 @@ function ScapiComposer({
   searchAvailability: SearchAvailability;
 }) {
   const [draft, setDraft] = useState("");
-  const canSend = draft.trim().length > 0 && !disabled;
+  const canSend = draft.trim().length > 0 && !disabled && !streaming;
 
   const submit = () => {
     if (!canSend) return;

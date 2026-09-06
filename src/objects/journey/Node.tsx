@@ -9,7 +9,7 @@ import type { JourneyData, JourneyStep } from "./schema";
  * The editable card. Display lives in `Body.tsx`, which the public viewer also renders — this
  * file is the editing state and the dispatch around it, and nothing else.
  */
-export function JourneyNode({ object }: { object: ScapeObject; selected: boolean }) {
+export function JourneyNode({ object, selected }: { object: ScapeObject; selected: boolean }) {
   const steps = ((object.data as Partial<JourneyData>).steps ?? []).filter(Boolean);
   const [editing, setEditing] = useState<JourneyEditField | null>(null);
   const readOnly = useCanvasReadOnly();
@@ -29,7 +29,7 @@ export function JourneyNode({ object }: { object: ScapeObject; selected: boolean
   return (
     <JourneyBody
       object={object}
-      {...(readOnly ? {} : { onEdit: setEditing })}
+      {...(readOnly || !selected ? {} : { onEdit: setEditing })}
       {...(editing === "title"
         ? {
             renderTitle: (

@@ -16,6 +16,8 @@ export type ExportFormat = "scape" | "pdf";
  */
 export function TopBar({
   scape,
+  onOpenScapi,
+  scapiOpen,
   onBack,
   onRename,
   onExport,
@@ -27,6 +29,8 @@ export function TopBar({
   onThemeChange,
 }: {
   scape: Scape;
+  onOpenScapi?: () => void;
+  scapiOpen?: boolean;
   onBack: () => void;
   onRename: (name: string) => void;
   onExport: (format: ExportFormat) => void;
@@ -112,7 +116,25 @@ export function TopBar({
         </span>
       )}
 
+      <span
+        className="hidden text-xs text-fg-secondary lg:inline"
+        title="Your work autosaves locally. Export a scape file to back it up or move it to another device."
+      >
+        Autosaves to this browser
+      </span>
+
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        {onOpenScapi && (
+          <button
+            type="button"
+            onClick={onOpenScapi}
+            aria-pressed={scapiOpen}
+            title="Ask Scapi (⌘J)"
+            className="rounded-md border border-default px-3 py-1.5 text-fg hover:bg-hover"
+          >
+            Scapi
+          </button>
+        )}
         {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
         <ExportMenu onExport={onExport} busy={exporting ?? false} />
         <ThemeControl value={theme} onChange={onThemeChange} />

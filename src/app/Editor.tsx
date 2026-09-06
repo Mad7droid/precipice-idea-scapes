@@ -57,10 +57,26 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
+  useEffect(() => {
+    if (!scape) return;
+    const present = selection.filter((id) => scape.objects[id]);
+    if (present.length !== selection.length) useScapeStore.getState().setSelection(present);
+  }, [scape, selection]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
-  const [scope, setScope] = useState<Scope>("scape");
+  const [scopeOverride, setScopeOverride] = useState<{ selection: string; scope: Scope } | null>(
+    null,
+  );
+  const selectionKey = selection.join("|");
+  const scope: Scope =
+    selection.length > 0 && scopeOverride?.selection === selectionKey
+      ? scopeOverride.scope
+      : selection.length
+        ? "selection"
+        : "scape";
+  const setScope = (next: Scope) => setScopeOverride({ selection: selectionKey, scope: next });
+  const [proposedEdit, setProposedEdit] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<RelationshipId | null>(null);
   const [booted, setBooted] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -72,6 +88,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() => window.innerWidth < 768);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => window.innerWidth < 768);
   const [scapiOpen, setScapiOpen] = useState(false);
+  const [scapiMode, setScapiMode] = useState<"ask" | "edit">("ask");
+  const [editDraft, setEditDraft] = useState("");
   const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
   const { apiKey, setApiKey, modelId, setModelId, types, setTypes, ready } = useAppSettings();
@@ -125,6 +143,24 @@ export function Editor({ scapeId }: { scapeId: string }) {
     window.addEventListener("pointerup", onUp);
   };
 
+  useEffect(() => {
+    // Wait for the panel's width transition, then frame in the actual available canvas.
+    const timer = window.setTimeout(
+      () => {
+        const ids = useScapeStore.getState().selection;
+        if (ids.length === 1) commands.current?.focus(ids[0]);
+      },
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--dur-fast"),
+      ) || 0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [scapiOpen, scapiWide, leftPanelCollapsed, rightPanelCollapsed]);
+
+  useEffect(() => {
+    setProposedEdit(null);
+  }, [selectionKey, scope]);
+
   const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
   const scapi = useScapi({
     getScape: () => useScapeStore.getState().scape,
@@ -150,7 +186,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
   /** Enter / double-click on a node land here — the inspector is already open via selection,
    * so the useful thing left to do is jump focus straight into its first editable field. */
   const focusInspector = () => {
-    inspector.current?.querySelector<HTMLElement>("input, textarea")?.focus();
+    setRightPanelCollapsed(false);
+    setScapiOpen(false);
+    window.requestAnimationFrame(() =>
+      inspector.current?.querySelector<HTMLElement>("input, textarea")?.focus(),
+    );
   };
 
   // Boot: claim the scape's write lease, start autosave, load the scape named in the route,
@@ -313,8 +353,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const handleSend = async (request: string) => {
-    if (!requireLease()) return;
+    if (busy || scapi.streaming || !requireLease()) return;
     if (!requireKey()) return;
+    setScapiOpen(true);
+    setScapiMode("edit");
     await generation.start({ request, apiKey: apiKey.trim(), modelId, allowedTypes, scope });
   };
 
@@ -404,7 +446,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const focusComposer = () => {
-    setComposerCollapsed(false);
+    setScapiOpen(true);
+    setScapiMode("edit");
+    setComposerCollapsed(true);
     window.requestAnimationFrame(() => composerInput.current?.focus());
   };
 
@@ -478,6 +522,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
   return (
     <div className="flex h-full flex-col bg-base">
       <TopBar
+        scapiOpen={scapiOpen}
+        onOpenScapi={() => {
+          setScapiOpen((open) => !open);
+          setComposerCollapsed(true);
+        }}
         scape={scape}
         onBack={() => navigate("/")}
         onRename={(name) => {
@@ -587,59 +636,35 @@ export function Editor({ scapeId }: { scapeId: string }) {
               </div>
             )}
 
-            {composerCollapsed && !busy ? (
-              <button
-                type="button"
-                onClick={focusComposer}
-                aria-label="Open AI composer"
-                className="pointer-events-auto flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-left text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            <button
+              type="button"
+              onClick={focusComposer}
+              aria-label="Edit with Scapi"
+              className="pointer-events-auto flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-full border border-subtle bg-surface px-4 py-2 text-left text-sm text-fg-secondary shadow-md transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+                aria-hidden
+                className="shrink-0 text-fg-tertiary"
               >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 15 15"
-                  fill="none"
-                  aria-hidden
-                  className="shrink-0 text-fg-tertiary"
-                >
-                  <path
-                    d="M7.5 1.75v2M7.5 11.25v2M1.75 7.5h2M11.25 7.5h2M3.43 3.43l1.42 1.42M10.15 10.15l1.42 1.42M11.57 3.43l-1.42 1.42M4.85 10.15l-1.42 1.42"
-                    stroke="currentColor"
-                    strokeWidth="1.15"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="7.5" cy="7.5" r="2.15" stroke="currentColor" strokeWidth="1.15" />
-                </svg>
-                <span className="min-w-0 flex-1 truncate">
-                  {selection.length
-                    ? "Tell AI what to do with this selection…"
-                    : "Tell AI what to do in this scape…"}
-                </span>
-                <kbd className="mono shrink-0 normal-case tracking-normal">⌘K</kbd>
-              </button>
-            ) : (
-              <div className="pointer-events-auto w-full max-w-[720px]">
-                <Composer
-                  onSend={(text) => void handleSend(text)}
-                  onCancel={generation.cancel}
-                  busy={busy}
-                  modelId={modelId}
-                  onModelChange={setModelId}
-                  scope={scope}
-                  onScopeChange={setScope}
-                  types={types}
-                  onTypesChange={setTypes}
-                  availableTypes={starter.types}
-                  selectionCount={selection.length}
-                  placeholder={
-                    selection.length
-                      ? "Tell AI what to do with this selection…"
-                      : starter.placeholder
-                  }
-                  inputRef={composerInput}
+                <path
+                  d="M7.5 1.75v2M7.5 11.25v2M1.75 7.5h2M11.25 7.5h2M3.43 3.43l1.42 1.42M10.15 10.15l1.42 1.42M11.57 3.43l-1.42 1.42M4.85 10.15l-1.42 1.42"
+                  stroke="currentColor"
+                  strokeWidth="1.15"
+                  strokeLinecap="round"
                 />
-              </div>
-            )}
+                <circle cx="7.5" cy="7.5" r="2.15" stroke="currentColor" strokeWidth="1.15" />
+              </svg>
+              <span className="min-w-0 flex-1 truncate">
+                {scope === "selection" && selection.length
+                  ? "Tell AI what to do with this selection…"
+                  : "Tell AI what to do in this scape…"}
+              </span>
+              <span className="shrink-0 text-xs">Edit with Scapi</span>
+            </button>
           </div>
         </div>
 
@@ -649,7 +674,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
             width: scapiOpen
               ? scapiWide
                 ? "min(720px, 92vw)"
-                : "min(560px, 92vw)"
+                : "min(420px, 65vw)"
               : rightPanelCollapsed
                 ? 32
                 : selectedEdge || (selectedObject && plugin)
@@ -687,34 +712,159 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   </button>
                 </div>
               </div>
-              <Suspense fallback={<div className="flex-1 bg-surface" />}>
-                <ScapiPanel
-                  turns={scapi.turns}
-                  streaming={scapi.streaming}
-                  onSend={(question) => void scapi.send(question)}
-                  onCancel={scapi.cancel}
-                  onRetry={scapi.retry}
-                  onObjectClick={(id) => {
-                    setSelectedEdgeId(null);
-                    useScapeStore.getState().setSelection([id]);
-                    commands.current?.focus(id);
-                  }}
-                  onTurnIntoEdit={(turn) => {
-                    setScapiOpen(false);
-                    void handleSend(
-                      `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
-                    );
-                  }}
-                  objects={scape.objects}
-                  webSearch={scapi.webSearch}
-                  onWebSearchChange={scapi.setWebSearch}
-                  searchAvailability={scapi.searchAvailability}
-                  restored={scapi.restored}
-                  suggestions={suggestScapiQuestions(scape)}
-                  disabled={!apiKey.trim()}
-                  {...(apiKey.trim() ? {} : { placeholder: "Add an API key in settings to ask." })}
-                />
-              </Suspense>
+              <div className="border-b border-subtle px-4 py-2 text-xs text-fg-secondary">
+                {selection.length
+                  ? `Context: ${selection.map((id) => scape.objects[id]?.title || "Untitled").join(", ")}`
+                  : "Context: whole scape"}
+              </div>
+              <div
+                className="flex gap-2 border-b border-subtle px-4 py-2"
+                role="group"
+                aria-label="Scapi mode"
+              >
+                {(["ask", "edit"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={scapiMode === mode}
+                    onClick={() => setScapiMode(mode)}
+                    className={
+                      "rounded-full px-3 py-1.5 text-sm active:bg-inset " +
+                      (scapiMode === mode
+                        ? "bg-accent text-on-accent"
+                        : "text-fg-secondary hover:bg-hover")
+                    }
+                  >
+                    {mode === "ask" ? "Ask" : "Edit"}
+                  </button>
+                ))}
+              </div>
+              {generation.state.status !== "idle" && (
+                <div className="shrink-0 p-3" role="status">
+                  <Ribbon
+                    state={generation.state}
+                    onCancel={generation.cancel}
+                    onUndo={() => {
+                      if (requireLease()) generation.undo();
+                    }}
+                    onDismiss={generation.dismiss}
+                  />
+                </div>
+              )}
+              {proposedEdit && (
+                <div
+                  className="border-b border-subtle bg-inset p-4"
+                  role="region"
+                  aria-label="Review proposed edit"
+                >
+                  <p className="text-sm text-fg">Review before editing</p>
+                  <div className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-fg-secondary">
+                    {proposedEdit.replace(/^.*?Scapi's proposal:\n/s, "")}
+                  </div>
+                  <p className="mt-1 text-xs text-fg-secondary">
+                    {scope === "selection"
+                      ? `Only the ${selection.length} selected block(s) can be changed.`
+                      : "This edit can change the whole scape."}{" "}
+                    The generator will interpret the proposal above. You can undo the result.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy || scapi.streaming || readOnly}
+                      className="rounded-sm border border-default px-3 py-1.5 text-fg hover:bg-hover disabled:opacity-40"
+                      onClick={() => {
+                        const request = proposedEdit;
+                        if (!requireLease() || !requireKey()) return;
+                        setProposedEdit(null);
+                        void handleSend(request);
+                      }}
+                    >
+                      Apply proposed edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-sm px-3 py-1.5 text-fg-secondary hover:bg-hover"
+                      onClick={() => setProposedEdit(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className={scapiMode === "ask" ? "min-h-0 flex-1" : "hidden"}>
+                <Suspense fallback={<div className="flex-1 bg-surface" />}>
+                  <ScapiPanel
+                    turns={scapi.turns}
+                    streaming={scapi.streaming}
+                    onSend={(question) => {
+                      if (!busy && requireKey()) void scapi.send(question);
+                    }}
+                    onCancel={scapi.cancel}
+                    onRetry={scapi.retry}
+                    onObjectClick={(id) => {
+                      setSelectedEdgeId(null);
+                      useScapeStore.getState().setSelection([id]);
+                      commands.current?.focus(id);
+                    }}
+                    onTurnIntoEdit={(turn) => {
+                      setProposedEdit(
+                        `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
+                      );
+                    }}
+                    objects={scape.objects}
+                    webSearch={scapi.webSearch}
+                    onWebSearchChange={scapi.setWebSearch}
+                    searchAvailability={scapi.searchAvailability}
+                    restored={scapi.restored}
+                    suggestions={suggestScapiQuestions(scape)}
+                    disabled={!apiKey.trim() || busy}
+                    {...(apiKey.trim()
+                      ? {}
+                      : { placeholder: "Add an API key in settings to ask." })}
+                  />
+                </Suspense>
+              </div>
+              <div
+                className={
+                  scapiMode === "edit" ? "flex min-h-0 flex-1 flex-col overflow-auto p-3" : "hidden"
+                }
+              >
+                <p className="mb-3 text-sm text-fg-secondary">
+                  Describe a change to make. Changes appear on the canvas as Scapi works; use Undo
+                  to restore the previous version.
+                </p>
+                <p className="mb-3 text-sm text-fg">
+                  Editing:{" "}
+                  {scope === "selection"
+                    ? selection.map((id) => scape.objects[id]?.title || "Untitled").join(", ")
+                    : "Whole scape"}
+                </p>
+                <div className="mt-auto">
+                  <Composer
+                    value={editDraft}
+                    onValueChange={setEditDraft}
+                    onSend={(text) => void handleSend(text)}
+                    sendLabel="Edit"
+                    onCancel={generation.cancel}
+                    busy={busy}
+                    disabled={readOnly || scapi.streaming}
+                    modelId={modelId}
+                    onModelChange={setModelId}
+                    scope={scope}
+                    onScopeChange={setScope}
+                    types={types}
+                    onTypesChange={setTypes}
+                    availableTypes={starter.types}
+                    selectionCount={selection.length}
+                    inputRef={composerInput}
+                    placeholder={
+                      scope === "selection"
+                        ? "Describe a change to this selection…"
+                        : starter.placeholder
+                    }
+                  />
+                </div>
+              </div>
             </aside>
           ) : rightPanelCollapsed ? (
             <button

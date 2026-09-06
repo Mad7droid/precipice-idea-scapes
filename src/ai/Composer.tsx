@@ -126,7 +126,7 @@ export function Composer({
       />
 
       {/* Icon row, inside the well. */}
-      <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-1">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5 pt-1">
         {showScope && (
           <Select
             variant="pill"
@@ -135,10 +135,9 @@ export function Composer({
             onChange={(v) => onScopeChange(v as Scope)}
             options={[
               { value: "scape", label: "Whole scape" },
-              {
-                value: "selection",
-                label: selectionCount ? `Selection (${selectionCount})` : "Selection",
-              },
+              ...(selectionCount > 0
+                ? [{ value: "selection", label: `Selection (${selectionCount})` }]
+                : []),
             ]}
             disabled={busy}
           />

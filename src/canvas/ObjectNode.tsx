@@ -62,7 +62,8 @@ function ObjectNodeImpl({ data, selected }: NodeProps) {
         colour at any scale, so type identity remains visible alongside the expanded body.
       */}
       <div
-        className="flex items-center gap-1.5 px-3 py-1"
+        title="Drag to move this block"
+        className="flex cursor-grab items-center gap-1.5 px-3 py-1"
         style={{
           background: `color-mix(in srgb, ${colour} 14%, transparent)`,
           boxShadow: `inset 0 -1px 0 0 color-mix(in srgb, ${colour} 28%, transparent)`,

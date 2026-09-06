@@ -23,6 +23,7 @@ import { starterFor, type EdgeMode, type LayoutMode } from "@/starters";
 import { prefersReducedMotion, useFocusObject, useViewportPersistence } from "./camera";
 import { mergeFlowNodes, toFlowEdges, OBJECT_NODE_TYPE, type ObjectNodeData } from "./edges";
 import { layoutAction, widthFor } from "./layout";
+import { freePosition } from "./placement";
 import { ObjectNode } from "./ObjectNode";
 import { AddPalette, ConnectMenu } from "./pickers";
 import { ReadOnlyContext } from "./readOnly";
@@ -467,9 +468,21 @@ function CanvasSurface({
       const centre = rect
         ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
         : { x: 0, y: 0 };
-      createAt(objectType, centre);
+      const current = useScapeStore.getState().scape;
+      if (!current) return;
+      const position = freePosition(
+        current,
+        objectType,
+        { x: centre.x - widthFor(objectType) / 2, y: centre.y - 60 },
+        measuredSizes(),
+      );
+      const id = createAt(objectType, {
+        x: position.x + widthFor(objectType) / 2,
+        y: position.y + 60,
+      });
+      if (id) requestAnimationFrame(() => requestAnimationFrame(() => focus(id)));
     },
-    [createAt, screenToFlowPosition],
+    [createAt, screenToFlowPosition, measuredSizes, focus],
   );
 
   const openAddMenuAt = useCallback(

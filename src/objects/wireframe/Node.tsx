@@ -9,14 +9,14 @@ import { WireframeBody } from "./Body";
  * file is the title's editing state and the dispatch around it, and nothing else. The
  * primitives have never been editable on the card; they belong to the inspector.
  */
-export function WireframeNode({ object }: { object: ScapeObject; selected: boolean }) {
+export function WireframeNode({ object, selected }: { object: ScapeObject; selected: boolean }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const readOnly = useCanvasReadOnly();
 
   return (
     <WireframeBody
       object={object}
-      {...(readOnly ? {} : { onEdit: () => setEditingTitle(true) })}
+      {...(readOnly || !selected ? {} : { onEdit: () => setEditingTitle(true) })}
       {...(editingTitle
         ? {
             renderTitle: (
@@ -26,15 +26,13 @@ export function WireframeNode({ object }: { object: ScapeObject; selected: boole
                 onBlur={(e) => {
                   setEditingTitle(false);
                   if (!readOnly) {
-                    useScapeStore
-                      .getState()
-                      .dispatchTx([
-                        {
-                          type: "UpdateObject",
-                          id: object.id,
-                          patch: { title: e.currentTarget.value },
-                        },
-                      ]);
+                    useScapeStore.getState().dispatchTx([
+                      {
+                        type: "UpdateObject",
+                        id: object.id,
+                        patch: { title: e.currentTarget.value },
+                      },
+                    ]);
                   }
                 }}
                 onKeyDown={(e) => {

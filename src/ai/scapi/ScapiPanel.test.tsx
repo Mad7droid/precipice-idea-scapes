@@ -84,3 +84,28 @@ describe("ScapiPanel streaming states", () => {
     expect(container.textContent).toContain("Second point.");
   });
 });
+
+describe("Scapi composer submission", () => {
+  it("keeps a follow-up draft instead of submitting it while an answer streams", () => {
+    const sent: string[] = [];
+    const view = render(
+      <ScapiPanel turns={[]} streaming onSend={(text) => sent.push(text)} onCancel={() => {}} />,
+    );
+    mounted.push(view);
+    const input = view.container.querySelector("textarea")!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(
+        input,
+        "Follow up",
+      );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() =>
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true }),
+      ),
+    );
+    expect(sent).toEqual([]);
+    expect(input.value).toBe("Follow up");
+  });
+});
