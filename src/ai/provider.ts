@@ -1,3 +1,4 @@
+import { isDesktop } from "@/desktop/runtime";
 import { createAnthropic, type AnthropicProvider } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
 import { MODELS, type ModelChoice } from "./models";
@@ -49,12 +50,11 @@ export const anthropicProvider: Provider = {
   models: MODELS,
   model(modelId, apiKey) {
     if (!apiKey?.trim()) throw new MissingApiKeyError();
-    // The browser always talks to our Cloudflare Worker, which exists to add CORS headers and
-    // nothing else. It forwards this key for this request and stores neither it nor a key of
-    // its own — a hosted key behind a public endpoint is a hosted key anyone can spend.
+    // Web requests use the CORS Worker; desktop requests go directly to Anthropic.
+    // Both use the user-owned credential, never a managed server-side key.
     const provider = createAnthropic({
       apiKey,
-      baseURL: proxyBaseUrl(),
+      ...transportSettings(),
     });
     return provider(modelId);
   },
@@ -63,7 +63,7 @@ export const anthropicProvider: Provider = {
 /** The language model and Anthropic-hosted tools must share the same BYOK proxy settings. */
 export function anthropicClient(apiKey: string): AnthropicProvider {
   if (!apiKey?.trim()) throw new MissingApiKeyError();
-  return createAnthropic({ apiKey, baseURL: proxyBaseUrl() });
+  return createAnthropic({ apiKey, ...transportSettings() });
 }
 
 /** Turns provider failures into safe, actionable copy. Raw provider diagnostics stay out of the UI. */
@@ -106,4 +106,13 @@ export function describeProviderError(error: unknown): { message: string; detail
     message: "Something went wrong",
     detail: "Scapi could not complete this response. Please try again.",
   };
+}
+
+export function transportSettings() {
+  return isDesktop()
+    ? {
+        baseURL: "https://api.anthropic.com/v1",
+        headers: { "anthropic-dangerous-direct-browser-access": "true" },
+      }
+    : { baseURL: proxyBaseUrl() };
 }

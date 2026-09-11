@@ -104,6 +104,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
   const {
+    credentials,
     apiKey,
     setApiKey,
     modelId,
@@ -1093,6 +1094,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           theme={theme}
+          credentials={credentials}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
           instructions={instructions}

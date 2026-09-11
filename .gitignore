@@ -18,3 +18,19 @@ wrangler.publish.toml
 
 # Machine-local Conductor config. `*.local` above does not match `settings.local.toml`.
 .conductor/settings.local.toml
+
+# Native desktop build output
+src-tauri/target/
+src-tauri/gen/
+
+# Private exports, database copies, and Apple distribution credentials.
+*.scape
+*.scape-library
+*.sqlite
+*.sqlite3
+*.db
+*.p12
+*.p8
+*.mobileprovision
+*.dmg
+*.app/

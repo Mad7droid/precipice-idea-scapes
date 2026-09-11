@@ -1,3 +1,5 @@
+import { CredentialSettings } from "@/desktop/CredentialSettings";
+import type { DesktopCredentials } from "@/desktop/useCredentials";
 import { useEffect, useState } from "react";
 import { MAX_INSTRUCTIONS, SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
@@ -19,6 +21,7 @@ export function SettingsModal({
   onThemeChange,
   onOpenHelp,
   mcpBridge,
+  credentials,
 }: {
   onClose: () => void;
   theme: ThemePreference;
@@ -30,6 +33,7 @@ export function SettingsModal({
   onThemeChange: (next: ThemePreference) => void;
   onOpenHelp?: () => void;
   mcpBridge?: McpBridge;
+  credentials?: DesktopCredentials;
 }) {
   const dialogRef = useDialogFocus(onClose);
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
@@ -102,40 +106,44 @@ export function SettingsModal({
                   />
                 </div>
 
-                <div className="mt-5">
-                  <label
-                    htmlFor="anthropic-api-key"
-                    className="mb-1 block text-xs text-fg-secondary"
-                  >
-                    Anthropic API key
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="anthropic-api-key"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => onApiKeyChange(e.target.value)}
-                      placeholder="sk-ant-…"
-                      autoComplete="off"
-                      spellCheck={false}
-                      className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
-                    />
-                    {apiKey && (
-                      <button
-                        type="button"
-                        onClick={() => onApiKeyChange("")}
-                        className="rounded-md border border-subtle px-3 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-                      >
-                        Clear
-                      </button>
-                    )}
+                {credentials?.desktop ? (
+                  <CredentialSettings credentials={credentials} />
+                ) : (
+                  <div className="mt-5">
+                    <label
+                      htmlFor="anthropic-api-key"
+                      className="mb-1 block text-xs text-fg-secondary"
+                    >
+                      Anthropic API key
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="anthropic-api-key"
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => onApiKeyChange(e.target.value)}
+                        placeholder="sk-ant-…"
+                        autoComplete="off"
+                        spellCheck={false}
+                        className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
+                      />
+                      {apiKey && (
+                        <button
+                          type="button"
+                          onClick={() => onApiKeyChange("")}
+                          className="rounded-md border border-subtle px-3 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-fg-tertiary">
+                      Required to generate. Kept for this tab session and cleared when the tab is
+                      closed, then forwarded through the Precipice Worker, which keeps no key of its
+                      own and stores nothing.
+                    </p>
                   </div>
-                  <p className="mt-2 text-xs text-fg-tertiary">
-                    Required to generate. Kept for this tab session and cleared when the tab is
-                    closed, then forwarded through the Precipice Worker, which keeps no key of its
-                    own and stores nothing.
-                  </p>
-                </div>
+                )}
               </>
             )}
 

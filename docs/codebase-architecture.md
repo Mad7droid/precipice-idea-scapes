@@ -960,3 +960,17 @@ Precipice's architecture is strongest where it makes responsibilities explicit:
 That division keeps the editor fast, makes undo and persistence understandable, and gives future
 cloud/team features a place to attach without turning the current local workspace into a fragile
 always-online system.
+
+
+## macOS target and library transfer
+
+`src-tauri/` packages the same Vite frontend as a macOS app. The restricted native
+bridge reads, saves, and removes one non-synchronizing Keychain credential.
+`src/desktop/` handles opt-in credential state; web settings keep sessionStorage.
+The AI SDK uses the web proxy in a browser and Anthropic directly in the desktop.
+
+`src/persistence/libraryTransfer.ts` exports a transactionally consistent library
+of versioned `.scape` documents into one `.scape-library` file. Import validates
+all documents and adds them with fresh IDs in one database transaction. It does
+not read settings, authentication, publications, or MCP receipts. File transfer
+is user initiated and local; it is not an automatic sync service.

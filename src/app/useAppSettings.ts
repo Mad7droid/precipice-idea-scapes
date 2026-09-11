@@ -1,3 +1,5 @@
+import { useCredentials, type DesktopCredentials } from "@/desktop/useCredentials";
+import { isDesktop } from "@/desktop/runtime";
 import {
   createContext,
   createElement,
@@ -14,12 +16,11 @@ import { settingsRepository } from "@/persistence/settings";
 /**
  * The app-wide preferences both screens need: the API key and the model.
  *
- * The API key lives in sessionStorage rather than IndexedDB or localStorage. Keeping it above
- * the route components lets Home hand off to Editor, and session storage keeps it through a
- * refresh while discarding it when the tab session ends. Everything else remains a browser-
- * local preference.
+ * Web keys live in sessionStorage. Desktop keys live in memory, optionally restored from
+ * macOS Keychain. Other preferences remain local data.
  */
 interface AppSettings {
+  credentials: DesktopCredentials;
   apiKey: string;
   setApiKey: (next: string) => void;
   modelId: string;
@@ -39,7 +40,7 @@ const AppSettingsContext = createContext<AppSettings | null>(null);
 const API_KEY_SESSION_KEY = "anthropic.apiKey";
 
 function readSessionApiKey(): string {
-  if (typeof window === "undefined") return "";
+  if (isDesktop() || typeof window === "undefined") return "";
   try {
     return window.sessionStorage.getItem(API_KEY_SESSION_KEY) ?? "";
   } catch {
@@ -49,7 +50,8 @@ function readSessionApiKey(): string {
 }
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
-  const [apiKey, setApiKeyState] = useState(readSessionApiKey);
+  const credentials = useCredentials();
+  const [sessionKey, setApiKeyState] = useState(readSessionApiKey);
   const [modelId, setModelIdState] = useState(DEFAULT_MODEL);
   const [types, setTypesState] = useState<string[]>([]);
   const [instructions, setInstructionsState] = useState("");
@@ -69,7 +71,12 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  const apiKey = credentials.desktop ? credentials.key : sessionKey;
   const setApiKey = (next: string) => {
+    if (credentials.desktop) {
+      credentials.change(next);
+      return;
+    }
     setApiKeyState(next);
     try {
       if (next) window.sessionStorage.setItem(API_KEY_SESSION_KEY, next);
@@ -97,6 +104,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      credentials,
       apiKey,
       setApiKey,
       modelId,
@@ -105,9 +113,9 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       setTypes,
       instructions,
       setInstructions,
-      ready,
+      ready: ready && credentials.ready,
     }),
-    [apiKey, modelId, types, instructions, ready],
+    [credentials, apiKey, modelId, types, instructions, ready],
   );
 
   return createElement(AppSettingsContext.Provider, { value }, children);

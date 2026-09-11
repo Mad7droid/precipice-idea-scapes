@@ -48,3 +48,26 @@ appropriate.
   and browser profile that hold them.
 - Note bodies and journey details are Markdown. The app renders an allowlisted Markdown subset
   as React elements and does not interpret raw HTML; links are restricted to `http` and `https`.
+
+### macOS desktop credentials
+
+The Tauri app optionally persists the Anthropic key in macOS Keychain, under a
+fixed service/account. Desktop session-only keys remain in memory. The key is
+loaded into the shared frontend's memory for direct Anthropic requests; Keychain
+protects storage at rest, not a compromised running app. No native credentials
+are written to browser storage or application files. Native commands are scoped
+to the local main window and return fixed errors. See [desktop notes](docs/desktop.md)
+for deletion, unsigned build limitations, and the manual verification checklist.
+
+### Repository hygiene
+
+GitHub secret scanning and push protection should remain enabled. The Secret scan
+workflow also scans Git history using a checksum-pinned Gitleaks release and
+redacted output. A clean scan is evidence against known secret patterns, not a
+guarantee that no sensitive content exists. Review prose, screenshots, and Git
+commit identity as well as source code before publishing.
+
+Keep `.scape` and `.scape-library` exports, databases, `.env` files, and Apple
+signing credentials outside Git. Use a GitHub no-reply email for new commits if
+you do not want an email address in public commit metadata. Removing a file or
+changing attribution today does not remove older commits, forks, or cached copies.

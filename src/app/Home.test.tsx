@@ -210,7 +210,7 @@ describe("home workflows", () => {
     vi.mocked(importScape).mockRejectedValue(new Error("Invalid file"));
     await mount();
     const input = view.container.querySelector<HTMLInputElement>('input[type="file"]')!;
-    Object.defineProperty(input, "files", { value: [{ text: async () => "bad" }] });
+    Object.defineProperty(input, "files", { value: [{ name: "broken.scape", size: 3, text: async () => "bad" }] });
     act(() => input.dispatchEvent(new Event("change", { bubbles: true })));
     await flush();
     expect(navigate).not.toHaveBeenCalled();

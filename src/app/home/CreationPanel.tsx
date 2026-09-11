@@ -34,7 +34,7 @@ export function CreationPanel({
         <h2 className="text-sm font-medium text-fg">Start something new</h2>
         <span className="text-xs text-fg-tertiary">
           {apiKey.trim() ? (
-            "API key configured for this tab"
+            "API key configured"
           ) : (
             <button
               type="button"

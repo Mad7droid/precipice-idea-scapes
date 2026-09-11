@@ -1,6 +1,6 @@
 # Precipice
 
-Copyright © 2026 [Madhav M Nair](https://www.linkedin.com/in/madhav-m-nair-b20767345/).
+Created by [Mad7droid](https://github.com/Mad7droid). See [LICENSE](LICENSE) for copyright and license terms.
 
 Precipice is a visual workspace for turning product ideas into connected,
 editable artifacts. Start with a prompt or a blank scape, then shape the result
@@ -198,3 +198,34 @@ change is added to `main`. Bug reports and focused pull requests are welcome.
 ## License
 
 Precipice is released under the [MIT License](LICENSE).
+
+## macOS desktop app
+
+Precipice also builds as a Tauri Mac app with opt-in macOS Keychain storage for
+Anthropic keys. The hosted web app keeps its tab-session-only key behavior.
+See [desktop build, installation, and security notes](docs/desktop.md).
+
+To copy an entire browser library to the Mac app: choose **Export library** on the
+browser home page, then **Import** in the desktop app and select the downloaded
+`.scape-library` file. It adds new copies without overwriting existing Scapes.
+This is a local file transfer, not automatic synchronization; API keys, sign-in
+tokens, publication ownership, and app preferences are excluded.
+
+
+## Code map for contributors
+
+| Area | Responsibility |
+| --- | --- |
+| `src/app/`, `src/canvas/`, `src/objects/` | Shared React editor and object UI |
+| `src/core/` | Document model, validation, reducer, and undo |
+| `src/persistence/` | Local IndexedDB storage and portable file transfer |
+| `src/ai/` | Anthropic generation and Scapi |
+| `src/desktop/` | Desktop detection and credential UI/state |
+| `src-tauri/` | macOS window, restricted IPC, and Keychain access |
+| `worker/`, `src/publish/`, `src/viewer/` | Web proxy and optional published snapshots |
+
+Start with [the architecture guide](docs/codebase-architecture.md), then
+[desktop notes](docs/desktop.md) for the native boundary. The same frontend builds
+for both targets. Cloning this repository does not give access to anyone's browser
+library, local Keychain, or GitHub Actions secrets. Public screenshots show example
+workspaces; do not add screenshots of private work when contributing.

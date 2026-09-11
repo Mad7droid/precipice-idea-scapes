@@ -1,3 +1,4 @@
+import { downloadLibrary, importLibrary, MAX_LIBRARY_BYTES } from "@/persistence/libraryTransfer";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { notify } from "@/core/notify";
 import { allPlugins } from "@/core/registry";
@@ -53,7 +54,7 @@ export function Home() {
   const [name, setName] = useState("");
   const [copied, setCopied] = useState<{ id: string; name: string } | null>(null);
   const [theme, setTheme] = useTheme();
-  const { apiKey, setApiKey, instructions, setInstructions, ready } = useAppSettings();
+  const { credentials, apiKey, setApiKey, instructions, setInstructions, ready } = useAppSettings();
   const refreshId = useRef(0);
   const mounted = useRef(true);
   const refresh = useCallback(async () => {
@@ -158,7 +159,17 @@ export function Home() {
   };
   const onImport = (file: File) =>
     void run("creation", async () => {
-      const scape = await importScape(await file.text(), scapeRepository);
+      if (file.size > MAX_LIBRARY_BYTES)
+        throw new Error("Import files must be smaller than 100 MB.");
+      const text = await file.text();
+      if (file.name.endsWith(".scape-library")) {
+        const count = await importLibrary(text);
+        await refresh();
+        void requestPersistence();
+        notify.success("Library imported.", `${count} scapes added as new copies.`);
+        return;
+      }
+      const scape = await importScape(text, scapeRepository);
       await requireScape(scape.id);
       void requestPersistence();
       open(scape.id);
@@ -264,6 +275,21 @@ export function Home() {
         <Brand />
         <div className="flex flex-wrap items-center gap-2">
           <ImportButton onFile={onImport} disabled={busy.has("creation")} />
+          <button
+            className={HOME_BUTTON}
+            disabled={status !== "ready" || !scapes.length || busy.has("library-export")}
+            onClick={() =>
+              void run("library-export", async () => {
+                await downloadLibrary();
+                notify.success(
+                  "Library exported.",
+                  "Import the file on another device to copy your scapes.",
+                );
+              })
+            }
+          >
+            Export library
+          </button>
           <ThemeControl value={theme} onChange={setTheme} />
           <button
             aria-label="Open settings"
@@ -386,8 +412,8 @@ export function Home() {
                 </ul>
               )}
               <p className="mt-5 text-xs leading-5 text-fg-tertiary">
-                Saved in this browser. Export a scape file to back up your work or move it to
-                another device.
+                Saved on this device. Export a scape file to back up your work or move it to another
+                device.
               </p>
             </section>
             {!exploreHidden && (
@@ -451,6 +477,7 @@ export function Home() {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           theme={theme}
+          credentials={credentials}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
           instructions={instructions}

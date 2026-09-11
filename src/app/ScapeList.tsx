@@ -277,7 +277,7 @@ export function ImportButton({
       <input
         ref={input}
         type="file"
-        accept=".scape,application/json"
+        accept=".scape,.scape-library,application/json"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
