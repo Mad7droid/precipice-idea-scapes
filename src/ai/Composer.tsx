@@ -188,7 +188,7 @@ export function Composer({
                 className={
                   "rounded-full px-2.5 py-0.5 transition-colors duration-instant ease-out " +
                   (mode === option
-                    ? "bg-accent text-on-accent"
+                    ? "bg-action-primary text-fg-on-action-primary"
                     : "text-fg-secondary hover:bg-hover hover:text-fg")
                 }
               >
@@ -297,7 +297,7 @@ export function Composer({
               "rounded-full transition-colors " +
               "duration-instant ease-out " +
               (canSend
-                ? "bg-accent text-on-accent hover:bg-accent-hover"
+                ? "bg-action-primary text-fg-on-action-primary hover:bg-action-primary-hover"
                 : "bg-inset text-fg-tertiary")
             }
           >

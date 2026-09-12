@@ -131,7 +131,7 @@ export function ScapeList({
                       setConfirmingId(null);
                     }}
                     onBlur={() => setConfirmingId(null)}
-                    className="rounded-full bg-danger px-2 py-0.5 text-2xs text-on-accent"
+                    className="rounded-full bg-danger px-2 py-0.5 text-2xs text-fg-on-accent"
                   >
                     {/* A published scape has a copy on a server that this delete has to take
                         with it. Saying so on the button is the only warning there is room for,

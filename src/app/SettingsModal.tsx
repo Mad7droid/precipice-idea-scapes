@@ -205,7 +205,7 @@ export function SettingsModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full bg-accent px-5 py-1.5 text-on-accent transition-colors duration-instant ease-out hover:bg-accent-hover"
+              className="rounded-full bg-action-primary px-5 py-1.5 text-fg-on-action-primary transition-colors duration-instant ease-out hover:bg-action-primary-hover"
             >
               Done
             </button>

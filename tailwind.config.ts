@@ -27,6 +27,7 @@ export default {
           inverse: "var(--text-inverse)",
           accent: "var(--text-accent)",
           "on-accent": "var(--text-on-accent)",
+          "on-action-primary": "var(--text-on-action-primary)",
         },
 
         accent: {
@@ -34,6 +35,12 @@ export default {
           hover: "var(--accent-hover)",
           active: "var(--accent-active)",
           subtle: "var(--accent-subtle)",
+        },
+
+        action: {
+          primary: "var(--action-primary)",
+          "primary-hover": "var(--action-primary-hover)",
+          "primary-active": "var(--action-primary-active)",
         },
 
         success: "var(--success)",

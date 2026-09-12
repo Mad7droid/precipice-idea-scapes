@@ -1,7 +1,7 @@
-import type { McpOperation } from "../mcp/operations";
 import Dexie, { type EntityTable } from "dexie";
 import type { Action } from "@/core/actions";
 import type { PublicationRecord, Scape, ScapeId } from "@/core/types";
+import type { McpOperation } from "@/mcp/contracts";
 
 /**
  * The only module in the app that knows Dexie exists. Everything else talks to the

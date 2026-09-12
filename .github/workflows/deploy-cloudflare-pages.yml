@@ -65,6 +65,12 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # The bridge server is a local tool and never ships to the site, but it is the only
+      # thing standing between an agent and the user's document. It gates the deploy because
+      # a broken bridge is a broken product, not a broken script.
+      - name: Test MCP bridge
+        run: pnpm test:mcp
+
       - name: Build
         run: pnpm build
 

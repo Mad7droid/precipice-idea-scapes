@@ -208,6 +208,13 @@
   --accent-subtle: var(--signal-50);
   --accent-ring: rgba(250, 80, 15, 0.45);
 
+  /* Filled actions need a calmer surface than selection and focus. Keeping this deeper
+     rust preserves white-label legibility without the black-on-neon pairing. */
+  --action-primary: var(--signal-700);
+  --action-primary-hover: var(--signal-800);
+  --action-primary-active: var(--signal-900);
+  --text-on-action-primary: #ffffff;
+
   --success: var(--success-light);
   --danger: var(--danger-light);
   --info: var(--info-light);
@@ -274,6 +281,12 @@
   --accent-active: var(--signal-200);
   --accent-subtle: rgba(250, 80, 15, 0.16);
   --accent-ring: rgba(255, 112, 51, 0.5);
+
+  /* Preserve the existing light-on-dark action treatment in dark mode. */
+  --action-primary: var(--signal-400);
+  --action-primary-hover: var(--signal-300);
+  --action-primary-active: var(--signal-200);
+  --text-on-action-primary: var(--ash-900);
 
   --success: var(--success-dark);
   --danger: var(--danger-dark);

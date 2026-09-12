@@ -73,6 +73,10 @@ function originAllowed(origin) {
   if (!origin) return true;
   return (
     origin === "https://precipice.pages.dev" ||
+    // The installed Tauri app serves its bundled editor from this origin. It is a fixed,
+    // application-owned origin rather than a wildcard, so enabling desktop pairing does not
+    // broaden access to arbitrary local pages.
+    origin === "tauri://localhost" ||
     /^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin)
   );
 }

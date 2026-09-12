@@ -60,6 +60,26 @@ test("a bridge session rejects a request without its pairing code", async () => 
   });
 });
 
+test("the installed desktop app can reach the loopback bridge", async () => {
+  await withBridge(async (origin) => {
+    const response = await fetch(`${origin}/bridge/health`, {
+      headers: { Origin: "tauri://localhost" },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), "tauri://localhost");
+    assert.deepEqual(await response.json(), { ok: true });
+  });
+});
+
+test("the loopback bridge refuses untrusted origins", async () => {
+  await withBridge(async (origin) => {
+    const response = await fetch(`${origin}/bridge/health`, {
+      headers: { Origin: "https://untrusted.example" },
+    });
+    assert.equal(response.status, 403);
+  });
+});
+
 // Claude Desktop starts this command more than once. The instance that loses the race for the
 // port used to exit, taking the host's tool list with it.
 test("a second instance survives a port already in use", async () => {

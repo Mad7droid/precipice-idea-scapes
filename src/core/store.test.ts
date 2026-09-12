@@ -141,3 +141,81 @@ describe("action log", () => {
     expect(drained[0].type).toBe("DeleteObject");
   });
 });
+
+describe("commit freezes the store", () => {
+  const note = (id: string) => ({
+    type: "CreateObject" as const,
+    id,
+    objectType: "note",
+    title: id,
+  });
+
+  it("rejects dispatch, undo and redo from outside the commit", async () => {
+    store().dispatchTx([note("a")]);
+    store().undo();
+
+    await store().commit(async () => {
+      expect(store().dispatch({ ...note("b"), txId: "tx_x", ts: 1 })).toBe(false);
+      expect(store().undo()).toBe(false);
+      expect(store().redo()).toBe(false);
+      expect(store().committing).toBe(true);
+    });
+
+    expect(Object.keys(store().scape!.objects)).toHaveLength(0);
+    expect(store().redoStack).toHaveLength(1);
+  });
+
+  it("lets the commit's own writes through, as one undo step", async () => {
+    await store().commit(async (token) => {
+      store().dispatchTx([note("a"), note("b")], "tx_mcp", token);
+    });
+
+    expect(Object.keys(store().scape!.objects)).toHaveLength(2);
+    expect(store().undoStack).toHaveLength(1);
+    expect(store().undoStack[0].size).toBe(2);
+
+    store().undo();
+    expect(Object.keys(store().scape!.objects)).toHaveLength(0);
+  });
+
+  it("lowers the flag when the work throws, so a failure cannot wedge the editor", async () => {
+    await expect(
+      store().commit(async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+
+    expect(store().committing).toBe(false);
+    expect(store().dispatchTx([note("a")])).toBeTruthy();
+    expect(Object.keys(store().scape!.objects)).toHaveLength(1);
+  });
+
+  it("refuses a second concurrent commit rather than interleaving two transactions", async () => {
+    let release = () => {};
+    const first = store().commit(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+
+    await expect(store().commit(async () => {})).rejects.toThrow("commit_in_progress");
+
+    release();
+    await first;
+    expect(store().committing).toBe(false);
+  });
+
+  it("does not let a stale token from a finished commit write later", async () => {
+    let stolen: symbol | null = null;
+    await store().commit(async (token) => {
+      stolen = token;
+    });
+
+    expect(store().committing).toBe(false);
+    await store().commit(async () => {
+      expect(store().dispatchTx([note("a")], "tx_stale", stolen!)).toBeTruthy();
+      expect(Object.keys(store().scape!.objects)).toHaveLength(0);
+    });
+  });
+});

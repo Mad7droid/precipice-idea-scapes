@@ -69,7 +69,7 @@ export function McpBridgePanel({
             <button
               type="button"
               onClick={() => bridge.pending.forEach((command) => bridge.applyPending(command.id))}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs text-on-accent transition-colors duration-instant ease-out hover:bg-accent-hover"
+              className="rounded-md bg-action-primary px-3 py-1.5 text-xs text-fg-on-action-primary transition-colors duration-instant ease-out hover:bg-action-primary-hover"
             >
               Apply all
             </button>

@@ -5,6 +5,18 @@ import { applyAction } from "./reducer";
 import type { ObjectId, Scape, TxId } from "./types";
 
 /**
+ * Proof that a dispatch belongs to the commit currently holding the store.
+ *
+ * A commit has to be able to write while everything else is frozen out, so the gate cannot
+ * simply reject every dispatch. It rejects every dispatch that does not carry the token
+ * `commit` handed to its own callback. The token is a fresh symbol per commit and never
+ * leaves that callback, so "is this write part of the transaction" is answered by identity
+ * rather than by a flag anyone could set.
+ */
+export type CommitToken = symbol;
+let activeCommit: CommitToken | null = null;
+
+/**
  * One store, one mutation path.
  *
  * Undo groups on `txId` and nothing else. A drag emits one MoveObject with a fresh txId, so
@@ -27,13 +39,23 @@ interface StoreState {
   redoStack: Transaction[];
   /** Set while a generation is streaming, so the canvas can defer expensive work. */
   generating: boolean;
+  /** True while `commit` holds the store. Read-only: there is no setter by design. */
   committing: boolean;
 
   loadScape: (scape: Scape | null) => void;
   /** Returns false if the action was a no-op and nothing was recorded. */
-  dispatch: (action: Action) => boolean;
+  dispatch: (action: Action, token?: CommitToken) => boolean;
   /** Stamps one txId across the payloads so they undo together. */
-  dispatchTx: (payloads: ActionPayload[], txId?: TxId) => TxId;
+  dispatchTx: (payloads: ActionPayload[], txId?: TxId, token?: CommitToken) => TxId;
+  /**
+   * Runs `work` with the store frozen against every other mutation: user edits, undo, redo
+   * and a second commit all no-op until it settles. Writes belonging to this commit pass the
+   * token through to `dispatch`/`dispatchTx`.
+   *
+   * This is what makes an MCP batch atomic against the person typing in the same tab. The
+   * flag is lowered in `finally`, so a throwing or rejecting `work` cannot wedge the editor.
+   */
+  commit: <T>(work: (token: CommitToken) => T | Promise<T>) => Promise<T>;
   undo: () => boolean;
   redo: () => boolean;
   setSelection: (ids: ObjectId[]) => void;
@@ -53,9 +75,9 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
   loadScape: (scape) => set({ scape, selection: [], actionLog: [], undoStack: [], redoStack: [] }),
 
-  dispatch: (action) => {
+  dispatch: (action, token) => {
     const { scape, undoStack } = get();
-    if (!scape || get().committing) return false;
+    if (!scape || (get().committing && token !== activeCommit)) return false;
 
     const { state, inverse } = applyAction(scape, action);
     if (!inverse) return false;
@@ -87,12 +109,25 @@ export const useScapeStore = create<StoreState>((set, get) => ({
     return true;
   },
 
-  dispatchTx: (payloads, txId = newTxId()) => {
+  dispatchTx: (payloads, txId = newTxId(), token) => {
     const ts = Date.now();
     for (const payload of payloads) {
-      get().dispatch({ ...payload, txId, ts } as Action);
+      get().dispatch({ ...payload, txId, ts } as Action, token);
     }
     return txId;
+  },
+
+  commit: async (work) => {
+    if (get().committing) throw new Error("commit_in_progress");
+    const token: CommitToken = Symbol("commit");
+    activeCommit = token;
+    set({ committing: true });
+    try {
+      return await work(token);
+    } finally {
+      activeCommit = null;
+      set({ committing: false });
+    }
   },
 
   undo: () => {

@@ -774,7 +774,7 @@ function ScapiComposer({
               type="button"
               onClick={onCancel}
               aria-label="Stop"
-              className="grid h-7 w-7 place-items-center rounded-full bg-accent text-fg-on-accent transition-colors duration-fast ease-out hover:bg-accent-hover"
+              className="grid h-7 w-7 place-items-center rounded-full bg-action-primary text-fg-on-action-primary transition-colors duration-fast ease-out hover:bg-action-primary-hover"
             >
               <span aria-hidden className="block h-2.5 w-2.5 rounded-xs bg-current" />
             </button>
@@ -784,7 +784,7 @@ function ScapiComposer({
               onClick={submit}
               disabled={!canSend}
               aria-label="Ask"
-              className="grid h-7 w-7 place-items-center rounded-full bg-accent text-fg-on-accent transition-colors duration-instant ease-out hover:bg-accent-hover disabled:bg-inset disabled:text-fg-tertiary"
+              className="grid h-7 w-7 place-items-center rounded-full bg-action-primary text-fg-on-action-primary transition-colors duration-instant ease-out hover:bg-action-primary-hover disabled:bg-inset disabled:text-fg-tertiary"
             >
               <span aria-hidden>↑</span>
             </button>

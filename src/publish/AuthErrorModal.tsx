@@ -45,7 +45,7 @@ export function AuthErrorModal({
             type="button"
             autoFocus
             onClick={onClose}
-            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-on-accent transition-colors duration-fast hover:bg-accent-hover"
+            className="rounded-md bg-action-primary px-3 py-1.5 text-xs font-medium text-fg-on-action-primary transition-colors duration-fast hover:bg-action-primary-hover"
           >
             Got it
           </button>

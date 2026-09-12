@@ -1,5 +1,6 @@
 /** Shared, runtime-independent MCP contract. Never import editor registries here. */
 import { z } from "zod";
+import type { Action } from "../core/actions";
 import { noteSchema } from "../objects/note/schema";
 import { journeySchema } from "../objects/journey/schema";
 import { wireframeSchema } from "../objects/wireframe/schema";
@@ -88,6 +89,24 @@ export const instructions = "Use list_connected_scapes, then get_scape and get_i
 export type ToolArgs = Record<string, any>;
 export interface Command { id: string; tool: ToolName; args: ToolArgs; }
 export interface Outcome { status: string; operation_id?: string; revision?: string; error?: string; message?: string; [key: string]: unknown; }
+/**
+ * A durable receipt for one MCP command: what was asked, what happened, and how to undo it.
+ *
+ * It lives here rather than beside the code that writes it because persistence stores it and
+ * the remote Worker reasons about it, and a shape both of those import must not sit in a
+ * module that imports either. `key` is the caller's idempotency key: replaying a command
+ * returns the stored `result` instead of applying it twice.
+ */
+export interface McpOperation {
+  key: string;
+  scapeId: string;
+  command: Command;
+  fingerprint: string;
+  expiresAt: number;
+  result: Outcome;
+  inverses?: Action[];
+  afterRevision?: string;
+}
 export function failure(error: string, message = error): Outcome { return { status: "failed", error, message }; }
 export function annotations(name: ToolName) { return { readOnlyHint: !writes.has(name), destructiveHint: ["apply_changes", "set_instructions", "delete_scape", "publish_scape", "unpublish_scape", "revert_operation"].includes(name), openWorldHint: ["publish_scape", "unpublish_scape"].includes(name), idempotentHint: writes.has(name) }; }
 export function byteLength(value: unknown) { return new TextEncoder().encode(JSON.stringify(value)).length; }
