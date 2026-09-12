@@ -203,7 +203,10 @@ Precipice is released under the [MIT License](LICENSE).
 
 Precipice also builds as a Tauri Mac app with opt-in macOS Keychain storage for
 Anthropic keys. The hosted web app keeps its tab-session-only key behavior.
-See [desktop build, installation, and security notes](docs/desktop.md).
+Build and install it with `pnpm desktop:install`, which replaces the app in
+`/Applications` instead of leaving a second copy behind. There is no in-app
+updater yet; see [desktop build, installation, and security notes](docs/desktop.md)
+for why that waits on Developer ID signing.
 
 To copy an entire browser library to the Mac app: choose **Export library** on the
 browser home page, then **Import** in the desktop app and select the downloaded

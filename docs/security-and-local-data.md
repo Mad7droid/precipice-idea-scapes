@@ -71,6 +71,29 @@ encryption, retention, or compliance guarantees for your particular use case.
 Review Anthropic's current terms and privacy documentation for the account and
 API plan you use.
 
+## The macOS app, and what installing an update trusts
+
+The Mac app is a separate local store from the browser: its Scapes, preferences, and key never
+reach browser storage, and no route synchronizes the two. An Anthropic key is only written to the
+login Keychain when you ask for it, as a non-synchronizing generic-password item under service
+`dev.precipice.desktop.anthropic`. It is never written to a file, IndexedDB, an export, or a log.
+Desktop AI calls reach Anthropic directly rather than through the Worker. See
+[desktop notes](desktop.md) for the full native boundary.
+
+Installing a build is the moment you extend trust, so treat it as a security step:
+
+- Local builds are ad-hoc signed. Their code directory hash changes on every build, so macOS
+  treats each build as a different app and asks for Keychain access again. That prompt is
+  expected on a rebuild; a prompt you did not trigger by installing is not.
+- The app version comes from `package.json` and is checked against `src-tauri/Cargo.toml` by
+  `pnpm check:version`. Two builds that claim the same version cannot be told apart after
+  installation, which is a problem for auditing what is running, not only for convenience.
+- There is no in-app updater, and one should not be added before Developer ID signing and
+  notarization exist. An updater downloads and runs code; without a stable signing identity
+  and an update-manifest signature, installing an update would trust whatever the download
+  endpoint served.
+- Uninstalling the app does not remove its Keychain item. Remove the key in Settings first.
+
 ## Deployment and repository hygiene
 
 - API keys, Cloudflare tokens, `.env` files, and private user data must never be
@@ -85,7 +108,14 @@ API plan you use.
   only the Workers and Pages permissions required for this project.
 - The public repository contains only the public proxy URL in `.env.example`.
 - Keep Secret Scanning, push protection, and Dependabot enabled on the GitHub
-  repository when available.
+  repository when available, including the non-provider pattern set and validity checks.
+- Pin every GitHub Action to a full commit SHA, not a tag. A tag is mutable, and these
+  workflows hold the Cloudflare deployment credentials. Record the intended version in a
+  trailing comment so the pin stays reviewable, and keep SHA pinning required in the
+  repository's Actions settings.
+- Protect `main` against force pushes and deletion. A push to `main` deploys the Workers,
+  applies publication database migrations, and publishes the site, so rewriting that branch
+  rewrites production.
 - Never paste a real API key into a screenshot, issue, pull request, chat log,
   test fixture, or exported documentation image.
 - Publication sessions expire after seven days and are revoked immediately on logout, account

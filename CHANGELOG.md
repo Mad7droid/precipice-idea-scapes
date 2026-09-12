@@ -11,6 +11,14 @@ milestone is published.
 
 ### Changed
 
+- The macOS app now has one version number, taken from `package.json`, and `pnpm verify` fails if
+  `src-tauri/Cargo.toml` drifts from it. Two builds can no longer claim to be the same version.
+- Every GitHub Action is pinned to a commit SHA rather than a mutable tag, and `main` is
+  protected against force pushes and deletion. These workflows carry the deployment
+  credentials and a push to `main` publishes production.
+- `pnpm desktop:install` builds the Mac app and replaces the copy in `/Applications` directly, then
+  deletes the staged bundle under `src-tauri/target` that made a second "Precipice" show up in
+  Spotlight. It refuses to replace a running app or anything that is not Precipice.
 - The composer now lives on the canvas *and* in the Scapi panel, over one shared draft and one
   shared transcript. Whichever surface you send from is where the answer appears; an edit sent
   from the canvas opens no panel, leaving the blocks arriving on the canvas as the result.

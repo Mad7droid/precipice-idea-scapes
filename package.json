@@ -1,7 +1,7 @@
 {
   "name": "precipice",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,11 +11,13 @@
     "test:watch": "vitest",
     "test:mcp": "node --test mcp/*.mcp-test.mjs",
     "mcp": "node mcp/server.mjs",
-    "verify": "pnpm build && pnpm test",
+    "verify": "pnpm check:version && pnpm build && pnpm test",
+    "check:version": "node scripts/check-version.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build --bundles app,dmg"
+    "desktop:build": "tauri build --bundles app,dmg",
+    "desktop:install": "bash scripts/install-desktop.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.35",

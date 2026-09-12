@@ -17,7 +17,19 @@ pnpm install --frozen-lockfile
 pnpm desktop:dev
 ```
 
-For a local release:
+To build and install in one step, replacing the copy in `/Applications`:
+
+```sh
+pnpm desktop:install
+```
+
+Quit Precipice first; the script refuses to replace a running app. It also
+refuses to overwrite anything in `/Applications/Precipice.app` that is not
+`dev.precipice.desktop`. Afterwards it deletes the staged bundle under
+`src-tauri/target`, so only the installed app exists (see *Avoiding duplicate
+apps* below).
+
+For a distributable disk image instead:
 
 ```sh
 pnpm desktop:build
@@ -28,6 +40,32 @@ Applications, then launch it. Builds target the current Mac architecture. This
 local build is not Developer ID signed or notarized and needs no Apple Developer
 account. For downloaded unsigned builds, macOS may require approval in System
 Settings → Privacy & Security. Do not disable Gatekeeper globally.
+
+## Versions and updates
+
+`package.json` holds the one app version. `src-tauri/tauri.conf.json` reads it
+with `"version": "../package.json"`, and `pnpm check:version` (part of
+`pnpm verify`) fails when `src-tauri/Cargo.toml` drifts from it. Bump
+`package.json` for every build you intend to keep, or two installs will report
+the same version and become impossible to tell apart.
+
+There is no in-app updater. Each local build replaces the installed app in
+place; the bundle identifier does not change, so Scapes and the Keychain item
+survive. A real update channel needs Developer ID signing and notarization
+first: local builds are ad-hoc signed, their code directory hash changes on
+every build, and macOS therefore treats each build as a different app. That is
+why Keychain access is requested again after installing a new local build.
+
+## Avoiding duplicate apps
+
+`pnpm desktop:build` leaves a launchable `Precipice.app` under
+`src-tauri/target/release/bundle/macos/`. Spotlight indexes it, so the same app
+appears twice — once installed, once as a build artifact — and the wrong one is
+easy to launch. `pnpm desktop:install` removes that staged copy for you. After
+`pnpm desktop:build`, delete it yourself or ignore the duplicate until the next
+install. With several worktrees checked out, each one that has been built adds
+another entry. To suppress them for good, add the checkout's parent directory
+under System Settings → Spotlight → Search Privacy.
 
 For distribution to other people, use Developer ID signing and Apple notarization:
 [Tauri signing guide](https://v2.tauri.app/distribute/sign/macos/). Stable signing
