@@ -1,6 +1,6 @@
 # Precipice
 
-Created by [Mad7droid](https://github.com/Mad7droid). See [LICENSE](LICENSE) for copyright and license terms.
+Copyright © 2026 [Madhav M Nair](https://www.linkedin.com/in/madhav-m-nair-b20767345/).
 
 Precipice is a visual workspace for turning product ideas into connected,
 editable artifacts. Start with a prompt or a blank scape, then shape the result
