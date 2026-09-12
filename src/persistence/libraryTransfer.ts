@@ -37,7 +37,9 @@ export async function exportLibrary(database: PrecipiceDb = db): Promise<string>
 
 export async function downloadLibrary(): Promise<void> {
   const text = await exportLibrary();
-  downloadBlob(new Blob([text], { type: "application/json" }), "Precipice-library.scape-library");
+  // Use a standard extension so macOS's native picker enables the file without
+  // requiring a custom UTI registration in every installed copy of the app.
+  downloadBlob(new Blob([text], { type: "application/json" }), "Precipice-library.json");
 }
 
 /** Validate every document first; commit all new copies or none. Never overwrite an existing ID. */
