@@ -1,3 +1,5 @@
+// @vitest-environment node
+// The D1 harness uses Node's SQLite implementation; this Worker suite does not need a DOM.
 import { beforeEach, describe, expect, it } from "vitest";
 import { fixtureScape } from "../../src/core/fixtures";
 import { PUBLICATION_LIMIT, canonicalHash } from "../../src/publish/contract";
