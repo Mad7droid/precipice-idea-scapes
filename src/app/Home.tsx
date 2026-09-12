@@ -385,8 +385,8 @@ export function Home() {
                 <div className="rounded-xl border border-dashed border-subtle px-6 py-10 text-center">
                   <h3 className="text-base">A home for your ideas</h3>
                   <p className="mt-2 text-sm text-fg-secondary">
-                    Create your first scape above, or import a .scape file to continue existing
-                    work.
+                    Create your first scape above, or import a .scape file or library export to
+                    continue existing work.
                   </p>
                   <div className="mt-4">
                     <ImportButton onFile={onImport} disabled={busy.has("creation")} />

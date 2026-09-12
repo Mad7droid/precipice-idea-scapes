@@ -65,7 +65,7 @@ blocked, and the bundled app has a CSP. Service workers are web-only.
 ## Data and current limits
 
 Scapes in the Mac app are separate from browser Scapes. Choose **Export library** on the browser home page, then **Import** in the Mac
-app and select the `.scape-library` file. All Scapes are added as new copies in one
+app and select the downloaded `Precipice-library.json` file. All Scapes are added as new copies in one
 transaction; existing desktop Scapes are never overwritten. Document content,
 timestamps and action history transfer; credentials, preferences, publication
 ownership and MCP pairing do not. The file is plain JSON: keep it private and out
@@ -95,5 +95,5 @@ cargo test --manifest-path src-tauri/Cargo.toml keychain_round_trip -- --ignored
 Manual installed-app acceptance: save a test key, quit/reopen, generate; replace,
 quit/reopen and generate; remove, quit/reopen and confirm a key is requested. Deny
 Keychain access and verify the error and temporary-session flow. Use your own
-throwaway API key for paid generation checks. Confirm `.scape` transfer before
-moving important work from the browser.
+throwaway API key for paid generation checks. Confirm a `Precipice-library.json`
+transfer before moving important work from the browser.

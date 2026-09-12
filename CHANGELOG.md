@@ -25,6 +25,9 @@ milestone is published.
 
 ### Fixed
 
+- Desktop library transfer now uses `Precipice-library.json`, which macOS can select reliably.
+  The private export name is ignored by Git, and the web and desktop instructions now describe
+  the same transfer flow.
 - "Jump to latest" no longer sits inside the composer.
 - The Ribbon and the composer no longer render twice when the Scapi panel is open.
 

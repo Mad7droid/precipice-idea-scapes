@@ -26,6 +26,9 @@ src-tauri/gen/
 # Private exports, database copies, and Apple distribution credentials.
 *.scape
 *.scape-library
+# Library exports use a standard JSON extension so macOS can select them. Keep
+# this specific private export name out of version control as well.
+Precipice-library.json
 *.sqlite
 *.sqlite3
 *.db

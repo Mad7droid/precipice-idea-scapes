@@ -970,7 +970,7 @@ bridge reads, saves, and removes one non-synchronizing Keychain credential.
 The AI SDK uses the web proxy in a browser and Anthropic directly in the desktop.
 
 `src/persistence/libraryTransfer.ts` exports a transactionally consistent library
-of versioned `.scape` documents into one `.scape-library` file. Import validates
+of versioned `.scape` documents into `Precipice-library.json`. Import validates
 all documents and adds them with fresh IDs in one database transaction. It does
 not read settings, authentication, publications, or MCP receipts. File transfer
 is user initiated and local; it is not an automatic sync service.

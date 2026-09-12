@@ -22,8 +22,8 @@ For a first look:
 4. Select an object to edit it in the inspector; resize any card from its lower-right handle.
 5. Ask or edit with Scapi from the composer at the bottom of the canvas, or press `⌘J` for the
    full conversation panel.
-5. Switch between Light, Dark, and System themes from the top-right theme control.
-6. Use **Export** in the top bar to download either a `.scape` file for reopening in Precipice or
+6. Switch between Light, Dark, and System themes from the top-right theme control.
+7. Use **Export** in the top bar to download either a `.scape` file for reopening in Precipice or
    a PDF for sharing and printing.
 
 The hosted version stores scapes locally in your browser. It is not a shared
@@ -207,7 +207,7 @@ See [desktop build, installation, and security notes](docs/desktop.md).
 
 To copy an entire browser library to the Mac app: choose **Export library** on the
 browser home page, then **Import** in the desktop app and select the downloaded
-`.scape-library` file. It adds new copies without overwriting existing Scapes.
+`Precipice-library.json` file. It adds new copies without overwriting existing Scapes.
 This is a local file transfer, not automatic synchronization; API keys, sign-in
 tokens, publication ownership, and app preferences are excluded.
 
