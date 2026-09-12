@@ -277,7 +277,9 @@ export function ImportButton({
       <input
         ref={input}
         type="file"
-        accept=".scape,.scape-library,application/json"
+        // Keep the native macOS picker unrestricted: WKWebView can disable
+        // custom extensions such as .scape-library before our validator sees it.
+        // onFile performs the format and size validation before persisting data.
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

@@ -162,7 +162,22 @@ export function Home() {
       if (file.size > MAX_LIBRARY_BYTES)
         throw new Error("Import files must be smaller than 100 MB.");
       const text = await file.text();
-      if (file.name.endsWith(".scape-library")) {
+      // The macOS WebView does not consistently honour custom file extensions in
+      // a file-input accept filter. Recognise the envelope from its contents so
+      // a renamed backup remains importable and validation stays authoritative.
+      const isLibrary = (() => {
+        try {
+          const parsed: unknown = JSON.parse(text);
+          return (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            (parsed as { format?: unknown }).format === "precipice-library"
+          );
+        } catch {
+          return false;
+        }
+      })();
+      if (isLibrary) {
         const count = await importLibrary(text);
         await refresh();
         void requestPersistence();
