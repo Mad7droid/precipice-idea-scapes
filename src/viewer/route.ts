@@ -8,8 +8,7 @@ import { PUBLICATION_ID_PATTERN } from "@/publish/contract";
  * is a separate world and deliberately a separate id space — see the comment in `_redirects`.
  */
 export type ViewerRoute =
-  | { kind: "publication"; publicationId: string; embed: boolean }
-  | { kind: "unknown" };
+  { kind: "publication"; publicationId: string; embed: boolean } | { kind: "unknown" };
 
 export function parseViewerRoute(pathname: string): ViewerRoute {
   const match = pathname.replace(/\/+$/, "").match(/^\/(p|embed)\/([^/]+)$/);

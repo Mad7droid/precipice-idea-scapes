@@ -76,7 +76,7 @@ async function flushFrame() {
 
 async function flushCadence() {
   await act(async () => {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 70));
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 70));
   });
   await flushFrame();
 }

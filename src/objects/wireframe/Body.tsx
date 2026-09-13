@@ -31,10 +31,7 @@ export function WireframeBody({
   return (
     <>
       {renderTitle ?? (
-        <h4
-          onClick={onEdit}
-          className={`text-sm font-medium leading-snug text-fg ${editable}`}
-        >
+        <h4 onClick={onEdit} className={`text-sm font-medium leading-snug text-fg ${editable}`}>
           {object.title || "Untitled"}
         </h4>
       )}

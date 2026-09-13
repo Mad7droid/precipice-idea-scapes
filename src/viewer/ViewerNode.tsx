@@ -15,8 +15,7 @@ export const VIEWER_NODE_TYPE = "publishedObject";
  * These occupy a one-pixel, inert point at each card edge: enough for layout measurement, never
  * visible or reachable to a visitor.
  */
-const READ_ONLY_HANDLE =
-  "!pointer-events-none !h-px !w-px !border-0 !bg-transparent !opacity-0";
+const READ_ONLY_HANDLE = "!pointer-events-none !h-px !w-px !border-0 !bg-transparent !opacity-0";
 
 /**
  * The card, in the viewer. The same chrome the editor draws — surface, radius, the tinted type

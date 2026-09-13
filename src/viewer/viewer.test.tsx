@@ -8,12 +8,7 @@ import { PublicationCanvas } from "./PublicationCanvas";
 import { prepare } from "./publication";
 import { parseViewerRoute } from "./route";
 import { consumePublicCopy, localCopyFromPublication, stagePublicCopy } from "@/shared/publicCopy";
-import {
-  ErrorState,
-  MissingState,
-  UnknownRouteState,
-  UnpublishedState,
-} from "./states";
+import { ErrorState, MissingState, UnknownRouteState, UnpublishedState } from "./states";
 
 /**
  * The whole viewer, exercised against a checked-in publication. No Worker, no Google account,
@@ -21,9 +16,7 @@ import {
  * same path a real publish takes.
  */
 const sample: PublishedScape = publishedScapeSchema.parse(
-  JSON.parse(
-    readFileSync(resolve(__dirname, "fixtures/sample-publication.json"), "utf8"),
-  ),
+  JSON.parse(readFileSync(resolve(__dirname, "fixtures/sample-publication.json"), "utf8")),
 );
 
 const ID = "pub_abcdefghijklmnopqrstuvwxyz";
@@ -170,7 +163,10 @@ describe("loading a publication", () => {
   });
 
   it("reports a network failure instead of hanging", async () => {
-    const result = await loadPublication(ID, vi.fn().mockRejectedValue(new Error("offline")) as never);
+    const result = await loadPublication(
+      ID,
+      vi.fn().mockRejectedValue(new Error("offline")) as never,
+    );
     expect(result).toEqual({ kind: "error", detail: "Could not reach the server." });
   });
 });
@@ -253,8 +249,12 @@ describe("rendering the canvas", () => {
     expect(container.textContent).toContain("New customers abandon at identity verification");
     // Read-only anchors are intentionally invisible, but React Flow needs them to calculate
     // every relationship's endpoints. Without them, it silently omits all public flow lines.
-    expect(container.querySelectorAll(".react-flow__handle.source")).toHaveLength(sample.objects.length);
-    expect(container.querySelectorAll(".react-flow__handle.target")).toHaveLength(sample.objects.length);
+    expect(container.querySelectorAll(".react-flow__handle.source")).toHaveLength(
+      sample.objects.length,
+    );
+    expect(container.querySelectorAll(".react-flow__handle.target")).toHaveLength(
+      sample.objects.length,
+    );
     unmount();
   });
 

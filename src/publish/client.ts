@@ -48,7 +48,8 @@ const MESSAGES: Record<PublishErrorCode, string> = {
   account_suspended: "This publishing account is suspended. Contact an administrator for help.",
   bot_check_failed: "Complete the security check and try again.",
   daily_write_limit: "You have reached today’s publishing write limit. Try again tomorrow.",
-  storage_limit: "This account has reached its publication storage limit. Delete a publication and try again.",
+  storage_limit:
+    "This account has reached its publication storage limit. Delete a publication and try again.",
   admin_required: "Only publishing administrators can do that.",
   server_error: "The server could not complete that. Try again shortly.",
 };
@@ -97,7 +98,10 @@ async function call(
   return payload;
 }
 
-function parse<T>(schema: { safeParse: (value: unknown) => { success: boolean; data?: T } }, value: unknown): T {
+function parse<T>(
+  schema: { safeParse: (value: unknown) => { success: boolean; data?: T } },
+  value: unknown,
+): T {
   const result = schema.safeParse(value);
   if (!result.success || result.data === undefined) {
     throw new PublishClientError("server_error", "The server sent a response we could not read.");
@@ -193,7 +197,10 @@ export async function deletePublication(
 /* -------------------------------------------------------------------------- */
 
 export async function listAdmin(options: RequestOptions, cursor?: number): Promise<AdminList> {
-  return parse(adminListSchema, await call("GET", `/admin${cursor ? `?cursor=${cursor}` : ""}`, options));
+  return parse(
+    adminListSchema,
+    await call("GET", `/admin${cursor ? `?cursor=${cursor}` : ""}`, options),
+  );
 }
 
 export async function createInvite(email: string, options: RequestOptions): Promise<void> {
@@ -209,5 +216,9 @@ export async function setMemberStatus(
   status: "active" | "suspended",
   options: RequestOptions,
 ): Promise<void> {
-  await call("POST", `/admin/members/${encodeURIComponent(id)}/${status === "active" ? "restore" : "suspend"}`, options);
+  await call(
+    "POST",
+    `/admin/members/${encodeURIComponent(id)}/${status === "active" ? "restore" : "suspend"}`,
+    options,
+  );
 }

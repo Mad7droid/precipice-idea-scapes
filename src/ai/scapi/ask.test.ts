@@ -23,7 +23,9 @@ describe("safe error presentation", () => {
   it("recognises malformed internal tool history for a clean-context retry", () => {
     expect(
       isMalformedToolHistory(
-        new Error("messages.11: code_execution tool use was found without a corresponding tool_result block"),
+        new Error(
+          "messages.11: code_execution tool use was found without a corresponding tool_result block",
+        ),
       ),
     ).toBe(true);
   });

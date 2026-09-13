@@ -66,7 +66,10 @@ describe("content security policy", () => {
     // site serves.
     for (const path of ["/", "/index.html", "/p/pub_abc", "/embed/pub_abc"]) {
       const covering = cspBlocks().filter((block) => matches(block.path, path));
-      expect(covering.map((block) => block.path), path).toHaveLength(1);
+      expect(
+        covering.map((block) => block.path),
+        path,
+      ).toHaveLength(1);
     }
   });
 

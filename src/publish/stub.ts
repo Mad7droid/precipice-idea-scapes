@@ -82,7 +82,11 @@ export class PublishStub {
         limit: PUBLICATION_LIMIT,
         used: live.length,
         activeUsed: live.filter((row) => row.status === "published").length,
-        storedBytes: live.reduce((sum, row) => sum + new TextEncoder().encode(row.snapshots.get(row.version) ?? "").byteLength, 0),
+        storedBytes: live.reduce(
+          (sum, row) =>
+            sum + new TextEncoder().encode(row.snapshots.get(row.version) ?? "").byteLength,
+          0,
+        ),
       });
     }
 

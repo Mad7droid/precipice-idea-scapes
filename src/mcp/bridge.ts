@@ -121,33 +121,36 @@ export function useMcpBridge({
     }
   }, [disconnect]);
 
-  const acknowledge = useCallback(async (
-    commandId: string,
-    status: "applied" | "awaiting_review" | "rejected",
-    result?: BridgeApplyResult,
-  ) => {
-    const id = sessionId.current;
-    const secret = code.current;
-    if (!id || !secret) return;
-    const snapshot = currentScapeRef.current();
-    try {
-      await request(
-        `/bridge/sessions/${id}/commands/${commandId}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status,
-            ...(result ?? {}),
-            ...(snapshot ? { scape: snapshot } : {}),
-          }),
-        },
-        secret,
-      );
-    } catch {
-      setStatus("unavailable");
-    }
-  }, []);
+  const acknowledge = useCallback(
+    async (
+      commandId: string,
+      status: "applied" | "awaiting_review" | "rejected",
+      result?: BridgeApplyResult,
+    ) => {
+      const id = sessionId.current;
+      const secret = code.current;
+      if (!id || !secret) return;
+      const snapshot = currentScapeRef.current();
+      try {
+        await request(
+          `/bridge/sessions/${id}/commands/${commandId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status,
+              ...(result ?? {}),
+              ...(snapshot ? { scape: snapshot } : {}),
+            }),
+          },
+          secret,
+        );
+      } catch {
+        setStatus("unavailable");
+      }
+    },
+    [],
+  );
 
   const applyPending = useCallback(
     (id: string) => {
@@ -177,7 +180,11 @@ export function useMcpBridge({
     const timeout = window.setTimeout(() => {
       void request(
         `/bridge/sessions/${id}/scape`,
-        { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scape }) },
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scape }),
+        },
         secret,
       ).catch(() => setStatus("unavailable"));
     }, 180);
@@ -193,7 +200,11 @@ export function useMcpBridge({
       const secret = code.current;
       if (!id || !secret || cancelled) return;
       try {
-        const response = await request(`/bridge/sessions/${id}/commands`, { method: "GET" }, secret);
+        const response = await request(
+          `/bridge/sessions/${id}/commands`,
+          { method: "GET" },
+          secret,
+        );
         if (!response.ok) throw new Error("bridge unavailable");
         const body = (await response.json()) as { commands?: BridgeCommand[] };
         for (const command of body.commands ?? []) {
@@ -202,7 +213,9 @@ export function useMcpBridge({
             const result = applyRef.current(command.actions);
             await acknowledge(command.id, "applied", result);
           } else {
-            setPending((items) => (items.some((item) => item.id === command.id) ? items : [...items, command]));
+            setPending((items) =>
+              items.some((item) => item.id === command.id) ? items : [...items, command],
+            );
             await acknowledge(command.id, "awaiting_review");
           }
         }

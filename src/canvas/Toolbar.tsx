@@ -153,10 +153,7 @@ export function Toolbar({
           <path d="M1.5 5V1.5h3.5M12.5 5V1.5H9M1.5 9v3.5h3.5M12.5 9v3.5H9" />
         </ToolButton>
         {!readOnly && (
-          <ToolButton
-            label="Tidy scape — left to right, then fit"
-            onClick={onTidy}
-          >
+          <ToolButton label="Tidy scape — left to right, then fit" onClick={onTidy}>
             <path d="M2 2.5h4v3.5H2zM8 2.5h4v9H8zM2 8h4v3.5H2z" strokeLinejoin="round" />
           </ToolButton>
         )}

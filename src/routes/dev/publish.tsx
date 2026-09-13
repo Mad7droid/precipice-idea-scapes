@@ -66,8 +66,8 @@ export function DevPublish() {
         <span className="mono">dev harness</span>
         <h1 className="mt-2 text-2xl text-fg">Publishing</h1>
         <p className="mt-2 text-fg-secondary">
-          Driven against an in-memory Worker implementing <span className="mono">contract.ts</span>
-          . Nothing here touches the network, a Google account, or your real publications.
+          Driven against an in-memory Worker implementing <span className="mono">contract.ts</span>.
+          Nothing here touches the network, a Google account, or your real publications.
         </p>
 
         <Section title="State">

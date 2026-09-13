@@ -46,10 +46,12 @@ export async function loadPublication(
   // existed" are different things to tell someone holding a link.
   if (pointerResponse.status === ERROR_STATUS.not_found) return { kind: "missing" };
   if (pointerResponse.status === ERROR_STATUS.unpublished) return { kind: "unpublished" };
-  if (!pointerResponse.ok) return { kind: "error", detail: `Server returned ${pointerResponse.status}.` };
+  if (!pointerResponse.ok)
+    return { kind: "error", detail: `Server returned ${pointerResponse.status}.` };
 
   const pointer = publicationPointerSchema.safeParse(await readJson(pointerResponse));
-  if (!pointer.success) return { kind: "error", detail: "The server sent a response we could not read." };
+  if (!pointer.success)
+    return { kind: "error", detail: "The server sent a response we could not read." };
 
   // Relative to the API origin, and required to stay that way. `snapshotPath` is a string the
   // server chooses, but it arrives over the network and is therefore treated as hostile: an
@@ -71,7 +73,8 @@ export async function loadPublication(
   }
 
   if (snapshotResponse.status === ERROR_STATUS.not_found) return { kind: "missing" };
-  if (!snapshotResponse.ok) return { kind: "error", detail: `Server returned ${snapshotResponse.status}.` };
+  if (!snapshotResponse.ok)
+    return { kind: "error", detail: `Server returned ${snapshotResponse.status}.` };
 
   const scape = publishedScapeSchema.safeParse(await readJson(snapshotResponse));
   if (!scape.success) return { kind: "error", detail: "This publication could not be read." };
