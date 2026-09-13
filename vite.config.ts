@@ -61,5 +61,12 @@ export default defineConfig(({ mode }) => ({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    /*
+     * `.context` is a gitignored scratch directory. Release tooling leaves whole checkouts of
+     * the repo in it, each with its own `node_modules`, so leaving it in the default glob
+     * meant `pnpm verify` ran every suite twice — the second copy against a second React,
+     * which fails on `useState` being null. Only the working tree is under test here.
+     */
+    exclude: ["**/node_modules/**", "**/dist/**", ".context/**"],
   },
 }));

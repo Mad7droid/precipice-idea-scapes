@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { notify } from "@/core/notify";
 import type { Scape } from "@/core/types";
+import { Button } from "@/design/Button";
 import { type Publication, type PublicationList } from "./contract";
 import {
   PublishClientError,
@@ -62,10 +63,11 @@ export function PublishSheet({
     try {
       await publication.record(await action());
       notify.success(`${label}.`);
-      void listPublications(options).then(setQuota).catch(() => {});
+      void listPublications(options)
+        .then(setQuota)
+        .catch(() => {});
     } catch (error) {
-      const message =
-        error instanceof PublishClientError ? error.message : "Something went wrong.";
+      const message = error instanceof PublishClientError ? error.message : "Something went wrong.";
       notify.error(message);
       // A fresh Turnstile token is required before OAuth can begin, so an expired session is
       // surfaced here instead of silently launching a redirect the user cannot complete. But the
@@ -115,8 +117,8 @@ export function PublishSheet({
         </div>
 
         <p className="mt-2 text-xs text-fg-secondary">
-          Publishing puts a read-only copy of this scape at a public address. Your local scape
-          stays private and keeps working exactly as it does now.
+          Publishing puts a read-only copy of this scape at a public address. Your local scape stays
+          private and keeps working exactly as it does now.
         </p>
 
         {!signedIn ? (
@@ -130,9 +132,7 @@ export function PublishSheet({
                 <Primary
                   busy={busy === "Published"}
                   disabled={busy !== null || projection.objects.length === 0}
-                  onClick={() =>
-                    run("Published", () => createPublication(projection, options))
-                  }
+                  onClick={() => run("Published", () => createPublication(projection, options))}
                 >
                   Publish
                 </Primary>
@@ -214,37 +214,145 @@ function AdminPanel({ options }: { options: RequestOptions }) {
   const [invite, setInvite] = useState("");
   const [busy, setBusy] = useState(false);
   const refresh = async () => {
-    try { setData(await listAdmin(options)); }
-    catch (error) { notify.error(error instanceof PublishClientError ? error.message : "Could not load administration."); }
+    try {
+      setData(await listAdmin(options));
+    } catch (error) {
+      notify.error(
+        error instanceof PublishClientError ? error.message : "Could not load administration.",
+      );
+    }
   };
   const loadMore = async () => {
     if (!data?.nextCursor) return;
     try {
       const next = await listAdmin(options, data.nextCursor);
-      setData({ invites: [...data.invites, ...next.invites], members: [...data.members, ...next.members], nextCursor: next.nextCursor });
-    } catch (error) { notify.error(error instanceof PublishClientError ? error.message : "Could not load more members."); }
+      setData({
+        invites: [...data.invites, ...next.invites],
+        members: [...data.members, ...next.members],
+        nextCursor: next.nextCursor,
+      });
+    } catch (error) {
+      notify.error(
+        error instanceof PublishClientError ? error.message : "Could not load more members.",
+      );
+    }
   };
   const mutate = async (action: () => Promise<void>) => {
     setBusy(true);
-    try { await action(); await refresh(); }
-    catch (error) { notify.error(error instanceof PublishClientError ? error.message : "Could not update administration."); }
-    finally { setBusy(false); }
+    try {
+      await action();
+      await refresh();
+    } catch (error) {
+      notify.error(
+        error instanceof PublishClientError ? error.message : "Could not update administration.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
-  if (!open) return <button type="button" className="mt-4 text-2xs text-fg-secondary underline-offset-2 hover:text-fg hover:underline" onClick={() => { setOpen(true); void refresh(); }}>Publishing administration</button>;
+  if (!open)
+    return (
+      <button
+        type="button"
+        className="mt-4 text-2xs text-fg-secondary underline-offset-2 hover:text-fg hover:underline"
+        onClick={() => {
+          setOpen(true);
+          void refresh();
+        }}
+      >
+        Publishing administration
+      </button>
+    );
   return (
-    <section className="mt-4 rounded-md border border-subtle bg-inset p-3" aria-label="Publishing administration">
-      <div className="flex items-center justify-between"><h3 className="text-xs text-fg">Publishing administration</h3><button type="button" className="text-2xs text-fg-secondary hover:text-fg" onClick={() => setOpen(false)}>Hide</button></div>
-      <form className="mt-2 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (!invite.trim()) return; void mutate(async () => { await createInvite(invite, options); setInvite(""); }); }}>
-        <input value={invite} onChange={(event) => setInvite(event.target.value)} type="email" required placeholder="invitee@example.com" className="min-w-0 flex-1 rounded-sm border border-subtle bg-surface px-2 py-1 text-2xs text-fg" />
-        <button type="submit" disabled={busy} className="rounded-md border border-default px-3 py-1.5 text-xs text-fg-secondary transition-colors duration-fast hover:bg-active disabled:opacity-50">Invite</button>
+    <section
+      className="mt-4 rounded-md border border-subtle bg-inset p-3"
+      aria-label="Publishing administration"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs text-fg">Publishing administration</h3>
+        <button
+          type="button"
+          className="text-2xs text-fg-secondary hover:text-fg"
+          onClick={() => setOpen(false)}
+        >
+          Hide
+        </button>
+      </div>
+      <form
+        className="mt-2 flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!invite.trim()) return;
+          void mutate(async () => {
+            await createInvite(invite, options);
+            setInvite("");
+          });
+        }}
+      >
+        <input
+          value={invite}
+          onChange={(event) => setInvite(event.target.value)}
+          type="email"
+          required
+          placeholder="invitee@example.com"
+          className="min-w-0 flex-1 rounded-sm border border-subtle bg-surface px-2 py-1 text-2xs text-fg"
+        />
+        <Button type="submit" variant="secondary" size="sm" disabled={busy}>
+          Invite
+        </Button>
       </form>
       <div className="mt-3 space-y-2 text-2xs">
         <p className="text-fg-tertiary">Pending invitations</p>
-        {(data?.invites.filter((item) => item.status === "pending") ?? []).map((item) => <div key={item.email} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-fg-secondary">{item.email}</span><button type="button" disabled={busy} className="text-fg-secondary hover:text-fg" onClick={() => void mutate(() => revokeInvite(item.email, options))}>Revoke</button></div>)}
-        {data && data.invites.every((item) => item.status !== "pending") && <p className="text-fg-tertiary">No pending invitations.</p>}
+        {(data?.invites.filter((item) => item.status === "pending") ?? []).map((item) => (
+          <div key={item.email} className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-fg-secondary">{item.email}</span>
+            <button
+              type="button"
+              disabled={busy}
+              className="text-fg-secondary hover:text-fg"
+              onClick={() => void mutate(() => revokeInvite(item.email, options))}
+            >
+              Revoke
+            </button>
+          </div>
+        ))}
+        {data && data.invites.every((item) => item.status !== "pending") && (
+          <p className="text-fg-tertiary">No pending invitations.</p>
+        )}
         <p className="pt-1 text-fg-tertiary">Members</p>
-        {(data?.members ?? []).map((member) => <div key={member.id} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-fg-secondary">{member.email}{member.role === "admin" ? " · admin" : ""}</span><button type="button" disabled={busy || member.role === "admin"} className="text-fg-secondary hover:text-fg disabled:opacity-40" onClick={() => void mutate(() => setMemberStatus(member.id, member.status === "active" ? "suspended" : "active", options))}>{member.status === "active" ? "Suspend" : "Restore"}</button></div>)}
-        {data?.nextCursor && <button type="button" className="text-fg-secondary hover:text-fg" onClick={() => void loadMore()}>Load more</button>}
+        {(data?.members ?? []).map((member) => (
+          <div key={member.id} className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-fg-secondary">
+              {member.email}
+              {member.role === "admin" ? " · admin" : ""}
+            </span>
+            <button
+              type="button"
+              disabled={busy || member.role === "admin"}
+              className="text-fg-secondary hover:text-fg disabled:opacity-40"
+              onClick={() =>
+                void mutate(() =>
+                  setMemberStatus(
+                    member.id,
+                    member.status === "active" ? "suspended" : "active",
+                    options,
+                  ),
+                )
+              }
+            >
+              {member.status === "active" ? "Suspend" : "Restore"}
+            </button>
+          </div>
+        ))}
+        {data?.nextCursor && (
+          <button
+            type="button"
+            className="text-fg-secondary hover:text-fg"
+            onClick={() => void loadMore()}
+          >
+            Load more
+          </button>
+        )}
       </div>
     </section>
   );
@@ -258,7 +366,9 @@ function SignedOut({ onSignIn }: { onSignIn: (turnstileToken: string) => Promise
     try {
       await onSignIn(token);
     } catch (error) {
-      notify.error(error instanceof PublishClientError ? error.message : "Could not start sign-in.");
+      notify.error(
+        error instanceof PublishClientError ? error.message : "Could not start sign-in.",
+      );
       setBusy(false);
     }
   };
@@ -313,7 +423,9 @@ function PublicUrl({ url }: { url: string }) {
  */
 function Quota({ list }: { list: PublicationList }) {
   const full = list.used >= list.limit;
-  const mib = (list.storedBytes / (1024 * 1024)).toFixed(list.storedBytes >= 10 * 1024 * 1024 ? 0 : 1);
+  const mib = (list.storedBytes / (1024 * 1024)).toFixed(
+    list.storedBytes >= 10 * 1024 * 1024 ? 0 : 1,
+  );
   return (
     <p className={`mt-3 text-2xs ${full ? "text-fg-secondary" : "text-fg-tertiary"}`}>
       <span className="mono">
@@ -325,11 +437,26 @@ function Quota({ list }: { list: PublicationList }) {
 }
 
 type TurnstileApi = {
-  render: (element: HTMLElement, options: { sitekey: string; action: string; callback: (token: string) => void; "error-callback": () => void; "expired-callback": () => void }) => string;
+  render: (
+    element: HTMLElement,
+    options: {
+      sitekey: string;
+      action: string;
+      callback: (token: string) => void;
+      "error-callback": () => void;
+      "expired-callback": () => void;
+    },
+  ) => string;
   remove: (widgetId: string) => void;
 };
 
-function TurnstileChallenge({ disabled, onToken }: { disabled: boolean; onToken: (token: string) => void }) {
+function TurnstileChallenge({
+  disabled,
+  onToken,
+}: {
+  disabled: boolean;
+  onToken: (token: string) => void;
+}) {
   const element = useRef<HTMLDivElement>(null);
   const widget = useRef<string | null>(null);
   const sitekey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
@@ -347,7 +474,9 @@ function TurnstileChallenge({ disabled, onToken }: { disabled: boolean; onToken:
         "expired-callback": () => notify.error("Security check expired. Please retry."),
       });
     };
-    const existing = document.querySelector<HTMLScriptElement>('script[data-turnstile="publish-auth"]');
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-turnstile="publish-auth"]',
+    );
     if (existing) {
       if ((window as Window & { turnstile?: TurnstileApi }).turnstile) render();
       else existing.addEventListener("load", render, { once: true });
@@ -367,8 +496,17 @@ function TurnstileChallenge({ disabled, onToken }: { disabled: boolean; onToken:
     };
   }, [sitekey, onToken]);
 
-  if (!sitekey) return <p className="text-2xs text-fg-secondary">Sign-in security check is not configured yet.</p>;
-  return <div className={disabled ? "pointer-events-none opacity-60" : ""} ref={element} aria-label="Security check" />;
+  if (!sitekey)
+    return (
+      <p className="text-2xs text-fg-secondary">Sign-in security check is not configured yet.</p>
+    );
+  return (
+    <div
+      className={disabled ? "pointer-events-none opacity-60" : ""}
+      ref={element}
+      aria-label="Security check"
+    />
+  );
 }
 
 function Primary({
@@ -383,14 +521,9 @@ function Primary({
   busy?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || busy}
-      className="rounded-md bg-action-primary px-3 py-1.5 text-xs font-medium text-fg-on-action-primary transition-colors duration-fast hover:bg-action-primary-hover disabled:opacity-50"
-    >
+    <Button variant="primary" size="sm" onClick={onClick} disabled={disabled || busy}>
       {busy ? "Working…" : children}
-    </button>
+    </Button>
   );
 }
 
@@ -404,13 +537,8 @@ function Secondary({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-md border border-default px-3 py-1.5 text-xs text-fg-secondary transition-colors duration-fast hover:bg-active disabled:opacity-50"
-    >
+    <Button variant="secondary" size="sm" onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </Button>
   );
 }

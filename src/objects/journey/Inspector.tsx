@@ -1,3 +1,4 @@
+import { buttonClass } from "@/design/Button";
 import { useState } from "react";
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
@@ -92,7 +93,7 @@ export function JourneyInspector({
       <button
         type="button"
         onClick={() => commitSteps([...steps, { id: newStepId(), label: "" }])}
-        className="mt-3 w-full rounded-md border border-subtle px-3 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+        className={buttonClass({ variant: "secondary", className: "mt-3 w-full" })}
       >
         Add step
       </button>

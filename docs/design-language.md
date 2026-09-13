@@ -104,8 +104,21 @@ The accent **shifts lighter and slightly less saturated in dark mode**. A colour
 contrast against paper will vibrate against near-black. This is the same adjustment
 Mistral makes and it is not optional.
 
-Accent is for: primary buttons, focus rings, the active generation state, selection
-outlines on canvas, and the Risk object type. That's the complete list.
+Accent is for: focus rings, the active generation state, selection outlines on canvas,
+canvas connectors, small state indicators, and the Risk object type. That's the complete
+list — and note that **filled buttons are not on it**.
+
+**The action accent is a separate, deeper rust.** `#B02F06` (`--action-primary`) in light
+mode, `#FF7033` in dark. A colour tuned to catch the eye as a 2px selection ring becomes an
+assault as a filled rectangle you are meant to read white text off; at `#FA500F` the only
+label that clears contrast is near-black, and black on neon orange is the pairing that made
+this split necessary. Filled actions get the deeper rust and a white label (6.45:1); the
+bright accent stays for the thin, small, stateful things.
+
+The practical consequence: **a surface gets at most one filled action**. Everything else is
+a bordered secondary, a ghost, or — if it is a toggle rather than an action — `--bg-selected`
+with ordinary text. Toggles outnumber actions in this app, so filling them accent turns the
+accent into wallpaper and the real action disappears into it.
 
 ### Brand gradient
 
@@ -229,11 +242,22 @@ plain opacity fade. The generation ribbon still updates — it's information, no
 
 ## Component notes
 
+**Button.** One primitive, `src/design/Button.tsx`, and every action goes through it —
+either as `<Button>` or as `buttonClass()` for a control that needs its own element. Five
+variants: `primary` (the filled `--action-primary`, one per surface), `neutral` (a filled
+`--bg-surface` control that holds a primary's footprint without its weight — Stop), `secondary`
+(hairline `--border-default`, secondary text), `ghost` (no border), `destructive` (filled
+`--danger` with `--text-inverse`). Two sizes, `sm` and `md`; three shapes, `rounded` (radius 8, the
+default), `pill`, and `icon` (a square of the size's height). Labels on a fill come from
+that fill's own token — never `--text-on-accent`, which is tuned for the bright accent and
+inverts to near-black in dark mode.
+
 **Composer.** Docked bottom-centre, floating over the canvas, `max-width: 720px`. Inset
 well background, 20px radius, hairline border that shifts to `--border-focus` on focus.
 Icon row along the bottom inside the well: scope selector, model picker, attach. Send is a
-filled circular button in `--accent`, disabled to `--bg-inset` when empty. This is the
-loudest element on screen and everything else is arranged to make that true.
+primary icon button, disabled to `--bg-inset` when empty. This is the loudest element on
+screen and everything else is arranged to make that true — which is why Stop, the Ask/Edit
+toggle and the scope pills are all quiet.
 
 **Sidebar.** Collapsible, `--bg-base`, no border on the canvas side — the surface step
 alone separates it. Scape rows are 32px tall, 13px text, radius 6, hover to `--bg-hover`.

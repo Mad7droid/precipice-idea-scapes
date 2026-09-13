@@ -11,6 +11,23 @@ milestone is published.
 
 ### Changed
 
+- Buttons are one system again. Every action now comes from a single primitive
+  (`src/design/Button.tsx`) with four roles — primary, secondary, ghost, destructive — so
+  filled actions no longer appear at three different radii, two durations and two font
+  weights depending on which panel they landed in. The orange rules are now enforced in one
+  place: the deep rust `--action-primary` fill is the only filled accent and a surface gets
+  at most one of it, while the bright signal orange is reserved for focus, selection,
+  connectors and small indicators.
+- Several controls that were wearing the accent without being the primary action have been
+  quieted: Scapi's Stop button matches the canvas composer's neutral stop instead of being a
+  second orange fill, and the Ask/Edit toggle uses the same selection treatment as the
+  outline and library filters rather than an accent fill.
+- The Home rename and delete dialogs now put the weight on the confirm as a fill — crimson
+  for delete, the action accent for rename — instead of accent-coloured text that read as a
+  link and lost to Cancel.
+- Fixed the delete-confirmation pill in the sidebar, which took its label colour from the
+  bright accent's token and so rendered near-black text on crimson in dark mode.
+
 - The macOS app now has one version number, taken from `package.json`, and `pnpm verify` fails if
   `src-tauri/Cargo.toml` drifts from it. Two builds can no longer claim to be the same version.
 - Every GitHub Action is pinned to a commit SHA rather than a mutable tag, and `main` is

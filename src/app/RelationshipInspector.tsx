@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ObjectId, Relationship, Scape } from "@/core/types";
+import { buttonClass } from "@/design/Button";
 
 /**
  * The inspector for a relationship.
@@ -100,7 +101,7 @@ export function RelationshipInspector({
         <button
           type="button"
           onClick={() => rewrite({ from: relationship.to, to: relationship.from })}
-          className="flex-1 rounded-full border border-subtle px-3 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          className={buttonClass({ variant: "secondary", shape: "pill", className: "flex-1" })}
         >
           Reverse
         </button>
@@ -110,7 +111,11 @@ export function RelationshipInspector({
             dispatchTx([{ type: "DisconnectObjects", id: relationship.id }]);
             onClose();
           }}
-          className="flex-1 rounded-full border border-subtle px-3 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-danger"
+          className={buttonClass({
+            variant: "secondary",
+            shape: "pill",
+            className: "flex-1 hover:text-danger",
+          })}
         >
           Disconnect
         </button>

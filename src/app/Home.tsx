@@ -4,6 +4,7 @@ import { notify } from "@/core/notify";
 import { allPlugins } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import { SETTING_KEYS, type PublicationRecord, type ScapeSummary } from "@/core/types";
+import { Button } from "@/design/Button";
 import { getStarter } from "@/starters";
 import { downloadScape, importScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
@@ -533,19 +534,21 @@ export function Home() {
               </p>
             )}
             <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 data-initial-focus={dialog.kind === "delete" ? true : undefined}
                 disabled={busy.has(dialog.scape.id)}
                 onClick={closeDialog}
-                className={HOME_BUTTON}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              {/* The confirm carries the weight, as a fill: the delete in crimson, the rename
+                  in the one action accent. Accent-coloured *text* on a bordered button read as
+                  a link and lost to Cancel, which is the wrong way round in a dialog. */}
+              <Button
                 type="submit"
+                variant={dialog.kind === "delete" ? "destructive" : "primary"}
                 disabled={busy.has(dialog.scape.id) || (dialog.kind === "rename" && !name.trim())}
-                className={`${HOME_BUTTON} ${dialog.kind === "delete" ? "text-danger" : "text-fg-accent"}`}
               >
                 {busy.has(dialog.scape.id)
                   ? "Saving…"
@@ -554,7 +557,7 @@ export function Home() {
                     : publications.get(dialog.scape.id)?.status === "published"
                       ? "Unpublish and delete"
                       : "Delete scape"}
-              </button>
+              </Button>
             </div>
           </form>
         </Dialog>

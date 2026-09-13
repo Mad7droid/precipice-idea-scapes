@@ -13,6 +13,7 @@ import { useScapi } from "@/ai/scapi/useScapi";
 import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
 import { isToolName } from "@/ai/tools";
 import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
+import { Button, buttonClass } from "@/design/Button";
 import { starterFor } from "@/starters";
 import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
 import { acquireScapeLease, type ScapeLease } from "@/persistence/lease";
@@ -684,7 +685,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   type="button"
                   onClick={() => void takeOver()}
                   disabled={takingOver}
-                  className="rounded-full border border-subtle px-2.5 py-0.5 text-fg transition-colors duration-instant ease-out hover:bg-hover disabled:text-fg-tertiary"
+                  className={buttonClass({ variant: "secondary", size: "sm", shape: "pill" })}
                 >
                   {takingOver ? "Moving…" : "Edit here"}
                 </button>
@@ -893,10 +894,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     The generator will interpret the proposal above. You can undo the result.
                   </p>
                   <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       disabled={busy || scapi.streaming || readOnly}
-                      className="rounded-sm border border-default px-3 py-1.5 text-fg hover:bg-hover disabled:opacity-40"
                       onClick={() => {
                         const request = proposedEdit;
                         if (!requireLease() || !requireKey()) return;
@@ -905,14 +905,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
                       }}
                     >
                       Apply proposed edit
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-sm px-3 py-1.5 text-fg-secondary hover:bg-hover"
-                      onClick={() => setProposedEdit(null)}
-                    >
+                    </Button>
+                    <Button variant="ghost" onClick={() => setProposedEdit(null)}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1161,7 +1157,12 @@ function QuickAction({ onClick, children }: { onClick: () => void; children: Rea
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full border border-subtle bg-surface px-3 py-1 text-xs text-fg-secondary shadow-sm transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+      className={buttonClass({
+        variant: "secondary",
+        size: "sm",
+        shape: "pill",
+        className: "bg-surface shadow-sm",
+      })}
     >
       {children}
     </button>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DesktopCredentials } from "./useCredentials";
+import { buttonClass } from "@/design/Button";
 
 export function CredentialSettings({ credentials: c }: { credentials: DesktopCredentials }) {
   const [draft, setDraft] = useState("");
@@ -51,7 +52,7 @@ export function CredentialSettings({ credentials: c }: { credentials: DesktopCre
           type="button"
           disabled={disabled || !draft.trim()}
           onClick={() => void submit()}
-          className="rounded-md border border-subtle px-3 py-2 text-xs text-fg disabled:opacity-50"
+          className={buttonClass({ variant: "secondary", size: "sm" })}
         >
           {c.busy
             ? "Updating…"
@@ -65,7 +66,7 @@ export function CredentialSettings({ credentials: c }: { credentials: DesktopCre
           type="button"
           disabled={disabled}
           onClick={() => void c.persist(null)}
-          className="rounded-md border border-subtle px-3 py-2 text-xs text-fg disabled:opacity-50"
+          className={buttonClass({ variant: "secondary", size: "sm" })}
         >
           Remove key
         </button>

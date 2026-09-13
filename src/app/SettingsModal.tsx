@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { MAX_INSTRUCTIONS, SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
 import { DEFAULT_MODEL, MODELS } from "@/ai/models";
+import { Button, buttonClass } from "@/design/Button";
 import { Select } from "@/design/Select";
 import { InstructionsField } from "@/ai/Instructions";
 import { ThemeControl } from "./ThemeControl";
@@ -131,7 +132,7 @@ export function SettingsModal({
                         <button
                           type="button"
                           onClick={() => onApiKeyChange("")}
-                          className="rounded-md border border-subtle px-3 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                          className={buttonClass({ variant: "secondary", size: "sm" })}
                         >
                           Clear
                         </button>
@@ -192,23 +193,15 @@ export function SettingsModal({
 
           <div className="flex shrink-0 items-center justify-between gap-3 border-t border-subtle px-5 py-3">
             {onOpenHelp ? (
-              <button
-                type="button"
-                onClick={onOpenHelp}
-                className="rounded-full border border-subtle px-3 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-              >
+              <Button variant="secondary" shape="pill" onClick={onOpenHelp}>
                 Help & keyboard shortcuts
-              </button>
+              </Button>
             ) : (
               <span />
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full bg-action-primary px-5 py-1.5 text-fg-on-action-primary transition-colors duration-instant ease-out hover:bg-action-primary-hover"
-            >
+            <Button variant="primary" shape="pill" onClick={onClose} className="px-5">
               Done
-            </button>
+            </Button>
           </div>
         </div>
       </div>

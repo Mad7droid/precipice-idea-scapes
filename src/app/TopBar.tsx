@@ -5,6 +5,7 @@ import { starterFor } from "@/starters";
 import { describeState, type PublicationState } from "@/publish/usePublication";
 import { ThemeControl } from "./ThemeControl";
 import { Brand } from "./Brand";
+import { buttonClass } from "@/design/Button";
 
 export type ExportFormat = "scape" | "pdf";
 
@@ -183,7 +184,7 @@ function PublishControl({ state, onClick }: { state?: PublicationState; onClick:
       type="button"
       onClick={onClick}
       title={label}
-      className="flex items-center gap-1.5 rounded-md border border-default px-2.5 py-1.5 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+      className={buttonClass({ variant: "secondary", size: "sm" })}
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PUBLICATION_DOT[kind]}`} aria-hidden />
       <span className="hidden sm:inline">{kind === "unpublished" ? "Publish" : label}</span>

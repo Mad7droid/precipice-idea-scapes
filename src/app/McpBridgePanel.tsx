@@ -1,3 +1,4 @@
+import { Button } from "@/design/Button";
 import type { McpBridge } from "@/mcp/bridge";
 
 export function McpBridgePanel({
@@ -21,17 +22,18 @@ export function McpBridgePanel({
             Agent MCP
           </h3>
           <p className={embedded ? "text-xs text-fg-secondary" : "mt-1 text-xs text-fg-tertiary"}>
-            Share this open scape with a local Codex or Claude connection. Nothing is uploaded or retained.
+            Share this open scape with a local Codex or Claude connection. Nothing is uploaded or
+            retained.
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => void (connected ? bridge.disconnect() : bridge.connect())}
           disabled={bridge.status === "connecting"}
-          className="shrink-0 rounded-md border border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg disabled:opacity-60"
         >
           {bridge.status === "connecting" ? "Connecting…" : connected ? "Disconnect" : "Connect"}
-        </button>
+        </Button>
       </div>
 
       {bridge.status === "unavailable" && (
@@ -43,9 +45,12 @@ export function McpBridgePanel({
       {connected && bridge.pairingCode && (
         <>
           <p className="mt-3 text-xs text-fg-secondary">
-            In Codex or Claude, call <code className="mono">pair_with_precipice</code> with this code:
+            In Codex or Claude, call <code className="mono">pair_with_precipice</code> with this
+            code:
           </p>
-          <p className="mono mt-1 select-all text-base tracking-[0.18em] text-fg">{bridge.pairingCode}</p>
+          <p className="mono mt-1 select-all text-base tracking-[0.18em] text-fg">
+            {bridge.pairingCode}
+          </p>
           <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-fg-secondary">
             <input
               type="checkbox"
@@ -63,23 +68,24 @@ export function McpBridgePanel({
       {bridge.pending.length > 0 && (
         <div className="mt-3 rounded-md border border-subtle bg-raised p-3">
           <p className="text-xs text-fg">
-            {bridge.pending.length} agent {bridge.pending.length === 1 ? "change" : "changes"} ready to review
+            {bridge.pending.length} agent {bridge.pending.length === 1 ? "change" : "changes"} ready
+            to review
           </p>
           <div className="mt-2 flex gap-2">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => bridge.pending.forEach((command) => bridge.applyPending(command.id))}
-              className="rounded-md bg-action-primary px-3 py-1.5 text-xs text-fg-on-action-primary transition-colors duration-instant ease-out hover:bg-action-primary-hover"
             >
               Apply all
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => bridge.pending.forEach((command) => bridge.rejectPending(command.id))}
-              className="rounded-md border border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
             >
               Reject all
-            </button>
+            </Button>
           </div>
         </div>
       )}

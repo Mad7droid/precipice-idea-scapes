@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { allPlugins } from "@/core/registry";
 import { MAX_INSTRUCTIONS } from "@/core/types";
+import { Button } from "@/design/Button";
 import { Select } from "@/design/Select";
 import { DotMatrix } from "./DotMatrix";
 import { InstructionsPill } from "./Instructions";
@@ -187,8 +188,11 @@ export function Composer({
                 onClick={() => onModeChange(option)}
                 className={
                   "rounded-full px-2.5 py-0.5 transition-colors duration-instant ease-out " +
+                  // A pressed segment is selection, not an action: the same `bg-selected`
+                  // treatment the outline and library filters use. Filling it accent would
+                  // make one of the two segments permanently louder than Send.
                   (mode === option
-                    ? "bg-action-primary text-fg-on-action-primary"
+                    ? "bg-selected text-fg"
                     : "text-fg-secondary hover:bg-hover hover:text-fg")
                 }
               >
@@ -276,30 +280,19 @@ export function Composer({
         </div>
 
         {busy ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label="Stop generating"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface text-fg transition-colors duration-instant ease-out hover:bg-raised"
-          >
-            <span aria-hidden className="block h-2.5 w-2.5 rounded-[2px] bg-fg" />
-          </button>
+          // Stop is not the primary action — it undoes one. Filling it accent would put two
+          // loud controls in the same corner across the two composers.
+          <Button variant="neutral" shape="icon" onClick={onCancel} aria-label="Stop generating">
+            <span aria-hidden className="block h-2.5 w-2.5 rounded-[2px] bg-current" />
+          </Button>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            shape={sendLabel ? "pill" : "icon"}
             onClick={send}
             disabled={!canSend}
             aria-label={sendLabel ?? "Send"}
-            className={
-              (sendLabel
-                ? "flex h-8 shrink-0 items-center gap-2 px-3 "
-                : "grid h-8 w-8 shrink-0 place-items-center ") +
-              "rounded-full transition-colors " +
-              "duration-instant ease-out " +
-              (canSend
-                ? "bg-action-primary text-fg-on-action-primary hover:bg-action-primary-hover"
-                : "bg-inset text-fg-tertiary")
-            }
+            className={sendLabel ? "h-8" : ""}
           >
             {sendLabel}
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
@@ -312,7 +305,7 @@ export function Composer({
                 fill="none"
               />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
     </div>

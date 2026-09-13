@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MAX_OBJECT_WIDTH, MIN_OBJECT_WIDTH, widthFor } from "@/canvas/layout";
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
+import { buttonClass } from "@/design/Button";
 import { Select } from "@/design/Select";
 import { Field, IconButton, SectionHeader, TextInput, useDebouncedText } from "../ui";
 import { PRESETS, scaleSpan } from "./presets";
@@ -195,7 +196,7 @@ export function WireframeInspector({
             key={kind}
             type="button"
             onClick={() => add(kind)}
-            className="mono rounded-md border border-subtle px-2 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            className="mono rounded-md border border-default px-2 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
           >
             + {kind}
           </button>
@@ -220,7 +221,7 @@ export function WireframeInspector({
           type="button"
           onClick={() => setPresetsOpen((o) => !o)}
           aria-expanded={presetsOpen}
-          className="w-full rounded-md border border-subtle px-3 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          className={buttonClass({ variant: "secondary", className: "w-full" })}
         >
           Insert a layout
         </button>

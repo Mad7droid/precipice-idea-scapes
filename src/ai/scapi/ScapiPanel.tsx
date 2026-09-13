@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DotMatrix } from "@/ai/DotMatrix";
 import type { ObjectId, ScapeObject } from "@/core/types";
+import { Button } from "@/design/Button";
 import { answerFormatLabel, inferAnswerFormat } from "./answerFormat";
 import { ObjectChip } from "./ObjectChip";
 import type { ActivityEvent, SearchAvailability, Turn } from "./types";
@@ -770,24 +771,21 @@ function ScapiComposer({
             <span className="mono text-fg-tertiary">⌘↵</span>
           </div>
           {streaming ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              aria-label="Stop"
-              className="grid h-7 w-7 place-items-center rounded-full bg-action-primary text-fg-on-action-primary transition-colors duration-fast ease-out hover:bg-action-primary-hover"
-            >
+            // Matches the canvas composer: stop is a quiet control, not a second primary.
+            <Button variant="neutral" size="sm" shape="icon" onClick={onCancel} aria-label="Stop">
               <span aria-hidden className="block h-2.5 w-2.5 rounded-xs bg-current" />
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
+              shape="icon"
               onClick={submit}
               disabled={!canSend}
               aria-label="Ask"
-              className="grid h-7 w-7 place-items-center rounded-full bg-action-primary text-fg-on-action-primary transition-colors duration-instant ease-out hover:bg-action-primary-hover disabled:bg-inset disabled:text-fg-tertiary"
             >
               <span aria-hidden>↑</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>

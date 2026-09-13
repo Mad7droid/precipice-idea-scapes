@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { getPlugin } from "@/core/registry";
 import type { PublicationRecord, ScapeSummary } from "@/core/types";
+import { Button, buttonClass } from "@/design/Button";
 import { getStarter } from "@/starters";
 import { ScapeThumbnail } from "./ScapeThumbnail";
 
@@ -123,15 +124,16 @@ export function ScapeList({
                 {/* Deleting a scape cannot be undone — the undo stack lives inside a document,
                     not above it — so it asks once, in place, rather than opening a dialog. */}
                 {confirmingId === scape.id ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    shape="pill"
                     autoFocus
                     onClick={() => {
                       onDelete(scape.id);
                       setConfirmingId(null);
                     }}
                     onBlur={() => setConfirmingId(null)}
-                    className="rounded-full bg-danger px-2 py-0.5 text-2xs text-fg-on-accent"
                   >
                     {/* A published scape has a copy on a server that this delete has to take
                         with it. Saying so on the button is the only warning there is room for,
@@ -139,7 +141,7 @@ export function ScapeList({
                     {publications?.get(scape.id)?.status === "published"
                       ? "Unpublish & delete?"
                       : "Delete?"}
-                  </button>
+                  </Button>
                 ) : (
                   <RowButton
                     label={`Delete ${scape.name}`}
@@ -270,7 +272,7 @@ export function ImportButton({
         type="button"
         disabled={disabled}
         onClick={() => input.current?.click()}
-        className="rounded-full border border-subtle px-3 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+        className={buttonClass({ variant: "secondary", shape: "pill" })}
       >
         Import
       </button>

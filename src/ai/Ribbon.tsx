@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DotMatrix } from "./DotMatrix";
 import type { GenerationState } from "./useGeneration";
+import { buttonClass } from "@/design/Button";
 
 /**
  * What the wait is spent on, in the order it happens. The model gives no progress signal
@@ -241,7 +242,7 @@ function RibbonButton({ onClick, children }: { onClick: () => void; children: Re
     <button
       type="button"
       onClick={onClick}
-      className="shrink-0 rounded-full border border-subtle px-2.5 py-0.5 text-xs text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+      className={buttonClass({ variant: "secondary", size: "sm", shape: "pill" })}
     >
       {children}
     </button>

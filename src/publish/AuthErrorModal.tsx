@@ -1,3 +1,4 @@
+import { Button } from "@/design/Button";
 import type { AuthErrorReturn } from "./session";
 
 /** Keeps an OAuth rejection in the editor, where the user still has the scape they were working on. */
@@ -41,14 +42,9 @@ export function AuthErrorModal({
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            autoFocus
-            onClick={onClose}
-            className="rounded-md bg-action-primary px-3 py-1.5 text-xs font-medium text-fg-on-action-primary transition-colors duration-fast hover:bg-action-primary-hover"
-          >
+          <Button variant="primary" size="sm" autoFocus onClick={onClose}>
             Got it
-          </button>
+          </Button>
         </div>
       </div>
     </div>
