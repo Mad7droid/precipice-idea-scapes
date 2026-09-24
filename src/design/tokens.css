@@ -282,11 +282,12 @@
   --accent-subtle: rgba(250, 80, 15, 0.16);
   --accent-ring: rgba(255, 112, 51, 0.5);
 
-  /* Preserve the existing light-on-dark action treatment in dark mode. */
-  --action-primary: var(--signal-400);
-  --action-primary-hover: var(--signal-300);
-  --action-primary-active: var(--signal-200);
-  --text-on-action-primary: var(--ash-900);
+  /* Primary actions keep the same deep-rust/white-label pairing in both themes. The former
+     bright-orange/near-black pairing was technically contrasty but visually harsh on dark UI. */
+  --action-primary: var(--signal-700);
+  --action-primary-hover: var(--signal-800);
+  --action-primary-active: var(--signal-900);
+  --text-on-action-primary: #ffffff;
 
   --success: var(--success-dark);
   --danger: var(--danger-dark);
