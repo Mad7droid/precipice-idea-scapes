@@ -188,11 +188,11 @@ export function Composer({
                 onClick={() => onModeChange(option)}
                 className={
                   "rounded-full px-2.5 py-0.5 transition-colors duration-instant ease-out " +
-                  // A pressed segment is selection, not an action: the same `bg-selected`
-                  // treatment the outline and library filters use. Filling it accent would
-                  // make one of the two segments permanently louder than Send.
+                  // A pressed segment is selection, not an action. Its warm surface, accent
+                  // label and hairline ring make the current mode clear without competing with
+                  // Send's solid action fill.
                   (mode === option
-                    ? "bg-selected text-fg"
+                    ? "bg-selected font-medium text-fg-accent shadow-sm ring-1 ring-[var(--border-focus)]"
                     : "text-fg-secondary hover:bg-hover hover:text-fg")
                 }
               >
