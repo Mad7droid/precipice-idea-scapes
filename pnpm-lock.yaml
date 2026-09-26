@@ -59,6 +59,9 @@ importers:
         specifier: ^5.0.3
         version: 5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
+      '@cloudflare/workers-oauth-provider':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@cloudflare/workers-types':
         specifier: ^5.20260904.1
         version: 5.20260904.1
@@ -280,6 +283,9 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
+
+  '@cloudflare/workers-oauth-provider@1.1.0':
+    resolution: {integrity: sha512-J3J7AZ/Iok8DyIeXobc6zk9vSj5oeQB1I6Jxe8OqgvlhTq6nm/9fKhdyjKba82tLzLCfEc0w8yy8s715TeNe6Q==}
 
   '@cloudflare/workers-types@5.20260904.1':
     resolution: {integrity: sha512-SbulPvrdb4j5iISDr81Iw+YpNCG4Bb6xRqV3arkgn/Ib6STMaoG63lhPnuWqmZdakOn0qS1OUudBMdxtBFx0Jg==}
@@ -2925,6 +2931,8 @@ snapshots:
 
   '@cloudflare/workerd-windows-64@1.20260801.1':
     optional: true
+
+  '@cloudflare/workers-oauth-provider@1.1.0': {}
 
   '@cloudflare/workers-types@5.20260904.1': {}
 
