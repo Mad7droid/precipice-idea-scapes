@@ -12,9 +12,10 @@ import {
   failure,
   toolSchemas,
   writes,
+  type Envelope,
+  type Grant,
   type McpOperation,
   type Outcome,
-  type ToolName,
 } from "./contracts";
 import { applyBatch, digest, revision, validateChanges } from "./document";
 
@@ -28,24 +29,7 @@ import { applyBatch, digest, revision, validateChanges } from "./document";
  * for a person.
  */
 
-/** What the person agreed to when they connected this client. Enforced on every call. */
-export interface Grant {
-  clientId: string;
-  clientName: string;
-  /** `"all"`, or the only scape IDs this client may see. */
-  scapes: "all" | string[];
-  /** `direct` applies batches immediately (still one undo step); `review` waits for the person. */
-  mode: "direct" | "review";
-  /** `false` for a read-only connection. */
-  write: boolean;
-}
-
-export interface Envelope {
-  id: string;
-  tool: ToolName;
-  args: unknown;
-  grant: Grant;
-}
+export type { Envelope, Grant };
 
 /** A scape open in an editor. Writes must go through it, never around it. */
 export interface LiveScape {

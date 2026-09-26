@@ -4,6 +4,10 @@ fn main() {
             "read_api_key",
             "save_api_key",
             "remove_api_key",
+            "mcp_ready",
+            "mcp_send",
+            "mcp_install_client",
+            "mcp_helper_path",
         ]),
     ))
     .expect("failed to build desktop app");

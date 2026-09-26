@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcp-ready"
+description = "Enables the mcp_ready command without any pre-configured scope."
+commands.allow = ["mcp_ready"]
+
+[[permission]]
+identifier = "deny-mcp-ready"
+description = "Denies the mcp_ready command without any pre-configured scope."
+commands.deny = ["mcp_ready"]

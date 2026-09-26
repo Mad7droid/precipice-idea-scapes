@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcp-install-client"
+description = "Enables the mcp_install_client command without any pre-configured scope."
+commands.allow = ["mcp_install_client"]
+
+[[permission]]
+identifier = "deny-mcp-install-client"
+description = "Denies the mcp_install_client command without any pre-configured scope."
+commands.deny = ["mcp_install_client"]

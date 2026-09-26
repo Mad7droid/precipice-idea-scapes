@@ -1,0 +1,36 @@
+# Copy this file to the ignored `wrangler.mcp.toml` and fill in your deployment identifiers.
+# The MCP connector shares the publishing D1 database (accounts, sessions, invites) and adds
+# a KV namespace for OAuth tokens and a Durable Object for the per-person relay.
+#
+#   wrangler kv namespace create OAUTH_KV
+#   wrangler secret put TICKET_SECRET --config wrangler.mcp.toml   # 32+ random bytes
+#   wrangler d1 migrations apply <DB> --remote --config wrangler.publish.toml
+#   wrangler deploy --config wrangler.mcp.toml
+name = "precipice-mcp"
+main = "worker/mcp/index.ts"
+compatibility_date = "2026-08-02"
+# Required for Client ID Metadata Documents: client metadata URLs are fetched only if public.
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+[[d1_databases]]
+binding = "PUBLISH_DB"
+database_name = "REPLACE_WITH_D1_DATABASE_NAME"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "worker/publish/migrations"
+
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "McpRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["McpRelay"]
+
+[vars]
+APP_ORIGIN = "https://REPLACE_WITH_PAGES_HOST"
+# "1" turns the connector off without a deploy (tools then return service_unavailable).
+MCP_DISABLED = "0"

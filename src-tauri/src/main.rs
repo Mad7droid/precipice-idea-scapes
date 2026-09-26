@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod mcp;
+
 use security_framework::passwords::{
     delete_generic_password_options, generic_password, set_generic_password_options,
     PasswordOptions,
@@ -49,8 +51,14 @@ fn remove_api_key() -> Result<(), &'static str> {
 }
 
 fn main() {
+    // Agents launch this same binary as their MCP command. That mode pipes stdio to the
+    // running app and never opens a window.
+    if std::env::args().any(|arg| arg == "--mcp") {
+        std::process::exit(mcp::run_pipe());
+    }
     tauri::Builder::default()
         .setup(|app| {
+            mcp::start_listener(app.handle().clone());
             tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
@@ -70,7 +78,11 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             read_api_key,
             save_api_key,
-            remove_api_key
+            remove_api_key,
+            mcp::mcp_ready,
+            mcp::mcp_send,
+            mcp::mcp_install_client,
+            mcp::mcp_helper_path
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Precipice");
