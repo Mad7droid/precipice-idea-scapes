@@ -12,6 +12,7 @@ import { requestPersistence, warnIfStorageTight } from "@/persistence/storage";
 import { settingsRepository } from "@/persistence/settings";
 import { deletePublication } from "@/publish/client";
 import { publicPath } from "@/publish/contract";
+import { publicationUrl } from "@/publish/url";
 import { readSession } from "@/publish/session";
 import { ImportButton } from "./ScapeList";
 import { setEditorIntent, setPendingWork } from "./pending";
@@ -208,7 +209,7 @@ export function Home() {
     if (kind === "public") {
       const row = publications.get(scape.id);
       if (row?.status === "published")
-        window.open(publicPath(row.publicationId), "_blank", "noopener,noreferrer");
+        window.open(publicationUrl(publicPath(row.publicationId)), "_blank", "noopener,noreferrer");
       return;
     }
     void run(scape.id, async () => {
@@ -233,9 +234,7 @@ export function Home() {
         const row = publications.get(scape.id);
         if (!row || row.status !== "published")
           throw new Error("This scape has no published link.");
-        await navigator.clipboard.writeText(
-          new URL(publicPath(row.publicationId), location.origin).href,
-        );
+        await navigator.clipboard.writeText(publicationUrl(publicPath(row.publicationId)));
         notify.success("Public link copied.");
       } else {
         const document = await requireScape(scape.id);

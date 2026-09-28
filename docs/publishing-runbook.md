@@ -26,7 +26,7 @@ cp wrangler.publish.example.toml wrangler.publish.toml
 | Current snapshot storage | 100 MiB per account |
 | Create/update budget | 20 per account per UTC day |
 
-Apply both migrations before deploying code that requires them:
+Apply all pending migrations, including the MCP schema, before deploying code that requires them:
 
 ```sh
 cp wrangler.publish.example.toml wrangler.publish.toml
@@ -78,7 +78,7 @@ For a direct Wrangler Pages deployment, pass the two public build values explici
 relying on a developer's local shell configuration:
 
 ```sh
-VITE_PUBLICATION_API_URL=https://precipice-publications.precipice.workers.dev \
+VITE_PUBLICATION_API_URL=https://publication-api.example.com \
 VITE_TURNSTILE_SITE_KEY=<Turnstile-site-key> \
 pnpm build
 pnpm wrangler pages deploy dist --project-name precipice --branch main
@@ -170,3 +170,22 @@ the production dashboard has the metrics above before promoting.
 After deployment, confirm a published `/p/<id>` page draws its relationship arrows as well as
 its cards. The viewer has invisible non-interactive source/target anchors specifically so React
 Flow can measure those endpoints; removing them makes React Flow omit every edge.
+
+## Share-link troubleshooting
+
+The editor displays and copies `https://precipice.pages.dev/p/<publication-id>`. This is the
+Pages viewer, not the publication API or the desktop's `tauri://localhost` origin. The viewer
+fetches the public snapshot from the configured API. If deploying under another viewer domain,
+update the canonical origin in `src/publish/url.ts` along with the deployment configuration.
+
+An existing publication needs no new ID to correct a local-origin link: retain `/p/<id>` and
+use the hosted origin. **Update available** means local content differs from the last snapshot;
+**Update public copy** uploads the latest projection at the same address. It is not an app update.
+
+Verify in a signed-out browser that the viewer renders the intended objects and relationships.
+HTTP 200 alone verifies only the frontend route, not that the snapshot exists or is readable.
+Use fictional content for acceptance tests; do not publish a private workspace to test sharing.
+
+Desktop sign-in runs through the system browser and returns through a PKCE-bound callback.
+See [desktop setup](desktop.md) and [MCP deployment](mcp.md) for host credentials and the optional
+connector Worker. Browser and desktop libraries remain separate after signing in.

@@ -16,6 +16,21 @@ if pgrep -f "Precipice.app/Contents/MacOS/precipice-desktop" >/dev/null 2>&1; th
   exit 1
 fi
 
+# Vite inlines these at build time. Without them the app calls its own origin
+# (tauri://localhost) and publishing fails with an unreadable response.
+for name in VITE_PUBLICATION_API_URL VITE_MCP_URL VITE_TURNSTILE_SITE_KEY; do
+  if [ -z "${!name:-}" ] && command -v gh >/dev/null 2>&1; then
+    value="$(gh variable get "$name" 2>/dev/null || true)"
+    [ -n "$value" ] && export "$name=$value"
+  fi
+done
+if [ -z "${VITE_PUBLICATION_API_URL:-}" ] &&
+  ! grep -qs '^VITE_PUBLICATION_API_URL=https://' .env .env.local .env.production .env.production.local; then
+  echo "VITE_PUBLICATION_API_URL is not set and could not be read from the GitHub repo variables." >&2
+  echo "Export it (see .env.example) and run again." >&2
+  exit 1
+fi
+
 pnpm tauri build --bundles app
 
 if [ ! -d "$STAGED" ]; then

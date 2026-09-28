@@ -124,6 +124,14 @@ Signing out revokes only this Mac's credential. Build with `VITE_MCP_URL`,
 
 ## Verification
 
+Published links use `https://precipice.pages.dev/p/<publication-id>` in both desktop and web.
+The desktop's `tauri://localhost` address is only the local editor origin and must never be
+used as a share link. Existing publications keep their IDs when the app is updated. Changes
+made after publishing require **Update public copy** before readers see them.
+
+An **Update available** badge beside Publish refers to the public snapshot, not an app update.
+See [publishing troubleshooting](publishing-runbook.md#share-link-troubleshooting).
+
 ```sh
 pnpm build
 pnpm test
@@ -137,6 +145,8 @@ quit/reopen and generate; remove, quit/reopen and confirm a key is requested. De
 Keychain access and verify the error and temporary-session flow. Use your own
 throwaway API key for paid generation checks. Confirm a `Precipice-library.json`
 transfer before moving important work from the browser.
+Also copy a published link and open it in a signed-out browser. Verify the hosted viewer loads
+the expected snapshot, then verify a local MCP read after quitting and reopening Precipice.
 
 ## Built-in local MCP
 

@@ -1,5 +1,9 @@
 # Workstream A — Persistence
 
+> Historical implementation brief. The ownership and scope restrictions below applied to the
+> original workstream. Use [the documentation index](README.md) and
+> [current architecture](codebase-architecture.md) for today's behavior and boundaries.
+
 Read `/CLAUDE.md` first. It overrides anything here that conflicts.
 
 ## Goal

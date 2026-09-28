@@ -1,7 +1,7 @@
 # Precipice contributor guide
 
 Precipice is a local-first visual workspace. The web app, optional macOS app,
-publication service, and local MCP bridge live in this repository.
+publication service, hosted MCP connector, and built-in desktop MCP live in this repository.
 
 ## Start here
 
@@ -9,6 +9,8 @@ publication service, and local MCP bridge live in this repository.
 - [docs/codebase-architecture.md](docs/codebase-architecture.md) describes the current system.
 - [docs/security-and-local-data.md](docs/security-and-local-data.md) defines data boundaries.
 - [docs/desktop.md](docs/desktop.md) covers the macOS target and Keychain boundary.
+- [docs/mcp.md](docs/mcp.md) covers agent setup, review, OAuth, and native transport.
+- [docs/README.md](docs/README.md) distinguishes maintained guides from historical specs.
 - [docs/publishing-runbook.md](docs/publishing-runbook.md) covers the hosted publication service.
 
 ## Architectural rules
@@ -22,6 +24,9 @@ publication service, and local MCP bridge live in this repository.
 - Public publishing receives a bounded read-only projection, never a local library or API key.
 - Keep the native bridge narrow. Remote content must not receive Tauri permissions.
 - Treat exports, screenshots, fixtures, and documentation as potential disclosure paths.
+- Capture public screenshots from fictional data in an isolated browser library. Follow
+  [screenshot provenance](docs/screenshots/README.md); never use a personal desktop screenshot.
+- Build public links with `src/publish/url.ts`, never the editor's current origin.
 
 ## Working conventions
 
