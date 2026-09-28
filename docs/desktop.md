@@ -113,12 +113,14 @@ the same bundle identifier preserves its local data and Keychain service name.
 Uninstalling the app does not remove its Keychain item; remove the key in Settings
 first, or remove the item using Keychain Access.
 
-This first desktop target covers local editing and AI generation. Hosted publishing,
-Google sign-in, remote MCP pairing, browser links, and download/export behavior
-need separate installed-app compatibility checks; browser OAuth and Turnstile
-origins are not configured for the native origin. Continue using the web app for
-hosted publishing. Do not put production publishing environment variables into
-a local desktop build expecting browser authentication to work automatically.
+Google sign-in never runs inside the app's webview: Google blocks embedded OAuth and
+the app's CSP blocks Turnstile. **Continue with Google** (Publish sheet or Settings →
+Agents) opens the system browser at `/host/start`; the web app runs Turnstile and
+Google there, then returns a single-use code to `precipice://auth/callback`. The app
+exchanges it with its PKCE verifier for a host credential kept in the Keychain. That
+credential publishes and hosts the agent relay; it cannot reach account or admin APIs.
+Signing out revokes only this Mac's credential. Build with `VITE_MCP_URL`,
+`VITE_PUBLICATION_API_URL` and `VITE_TURNSTILE_SITE_KEY` set, as the CI workflow does.
 
 ## Verification
 

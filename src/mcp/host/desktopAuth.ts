@@ -1,6 +1,6 @@
 import { notify } from "@/core/notify";
 import { MCP_ORIGIN } from "./relay";
-import { saveHostCredential, type HostCredential } from "./credential";
+import { hostToken, saveHostCredential, type HostCredential } from "./credential";
 const PENDING = "precipice.agent.pkce";
 export async function startDesktopSignIn() {
   const verifier = [...crypto.getRandomValues(new Uint8Array(32))]
@@ -44,10 +44,9 @@ export async function listenDesktopSignIn(onConnected: () => void) {
         await saveHostCredential((await response.json()) as HostCredential);
         sessionStorage.removeItem(PENDING);
         onConnected();
-        window.dispatchEvent(new Event("precipice-agent-auth"));
         notify.success(
-          "This Mac is connected.",
-          "Choose the desktop library when connecting your agent.",
+          "Signed in on this Mac.",
+          "You can publish scapes and connect agents to the desktop library.",
         );
       } catch (error) {
         notify.error("Could not connect this Mac.", String(error));
@@ -60,4 +59,15 @@ export async function listenDesktopSignIn(onConnected: () => void) {
   const initial = await getCurrent();
   if (initial) await receive(initial);
   return stop;
+}
+
+/** Revokes this Mac's credential on the server (best effort) and forgets it from the Keychain. */
+export async function signOutDesktop() {
+  const token = hostToken();
+  if (token)
+    await fetch(`${MCP_ORIGIN}/host/session`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => undefined);
+  await saveHostCredential(null);
 }

@@ -41,3 +41,17 @@ export const useAgentStore = create<AgentState>((set) => ({
   removePending: (key) =>
     set((state) => ({ pending: state.pending.filter((op) => op.key !== key) })),
 }));
+
+/** MCP clients report package names (`claude-ai`, `codex-mcp-client`); people know products. */
+export function agentLabel(name: string): string {
+  if (/claude/i.test(name)) return "Claude";
+  if (/codex/i.test(name)) return "Codex";
+  if (/cursor/i.test(name)) return "Cursor";
+  if (/chatgpt|openai/i.test(name)) return "ChatGPT";
+  return name;
+}
+
+/** Distinct product names, in connection order. */
+export function agentLabels(names: string[]): string[] {
+  return [...new Set(names.map(agentLabel))];
+}

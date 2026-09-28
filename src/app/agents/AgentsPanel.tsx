@@ -4,7 +4,7 @@ import { Button } from "@/design/Button";
 import { isDesktop } from "@/desktop/runtime";
 import { hostToken } from "@/mcp/host/credential";
 import { startDesktopSignIn } from "@/mcp/host/desktopAuth";
-import { useAgentStore } from "@/mcp/host/agentStore";
+import { agentLabels, useAgentStore } from "@/mcp/host/agentStore";
 import { connectApi, type AgentConnection } from "@/mcp/host/connectApi";
 import { LOCAL_MODE_KEY, localApplyMode } from "@/mcp/host/desktopLocal";
 import { MCP_ENDPOINT } from "@/mcp/host/relay";
@@ -332,7 +332,7 @@ export function AgentsPanel() {
           </label>
           {localClients.length > 0 && (
             <p className="mt-1.5 text-2xs text-fg-tertiary">
-              Connected now: {localClients.join(", ")}
+              Connected now: {agentLabels(localClients).join(", ")}
             </p>
           )}
         </div>

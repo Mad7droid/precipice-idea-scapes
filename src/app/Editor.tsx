@@ -43,7 +43,8 @@ import { useTheme } from "./theme";
 import { useMcpBridge } from "@/mcp/bridge";
 import { registerLiveScape } from "@/mcp/host/host";
 import { liveEditor } from "@/mcp/host/liveEditor";
-import { saveHostCredential } from "@/mcp/host/credential";
+import { publishToken, saveHostCredential } from "@/mcp/host/credential";
+import { signOutDesktop } from "@/mcp/host/desktopAuth";
 import { isDesktop } from "@/desktop/runtime";
 
 // Markdown is sizeable and Scapi is optional. Keep it out of the editor's first paint.
@@ -131,7 +132,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
    */
   const publication = usePublication(scape, scapeRepository);
   const session = readSession();
-  const requestOptions = useMemo(() => (session ? { token: session.token } : {}), [session?.token]);
+  const publishingToken = publishToken();
+  const requestOptions = useMemo(
+    () => (publishingToken ? { token: publishingToken } : {}),
+    [publishingToken],
+  );
 
   /**
    * Picks up an intent that survived the round trip to Google.
@@ -1143,6 +1148,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
             // aborted the local clear the user would be sealed into a signed-in UI that can
             // neither publish nor sign out. The worst case of clearing anyway is a server-side
             // session nobody holds a token for, which expires on its own.
+            if (isDesktop()) {
+              await signOutDesktop();
+              publication.refresh();
+              return;
+            }
             const revoked = session
               ? await logout(requestOptions).then(
                   () => true,

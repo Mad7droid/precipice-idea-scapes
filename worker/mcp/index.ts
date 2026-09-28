@@ -7,7 +7,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { buildMcpServer } from "../../src/mcp/server";
 import { failure, type Envelope, type Grant, type Outcome } from "../../src/mcp/contracts";
 import { McpRelay } from "./relay";
-import { hostUser, issueHost, approveHost, exchangeHost } from "./hostAuth";
+import { hostUser, issueHost, approveHost, exchangeHost, revokeHost } from "./hostAuth";
 
 /**
  * The hosted Precipice MCP connector.
@@ -258,7 +258,9 @@ async function app(request: Request, env: Env): Promise<Response> {
   )
     return problem(request, env, "unauthorized", "Requests must come from Precipice.", 403);
   const hostIdentity =
-    url.pathname === "/relay/ticket" || url.pathname.startsWith("/connect/connections")
+    url.pathname === "/relay/ticket" ||
+    url.pathname === "/host/session" ||
+    url.pathname.startsWith("/connect/connections")
       ? await hostUser(request, env)
       : null;
   const user = hostIdentity ?? (await sessionUser(request, env));
@@ -267,6 +269,11 @@ async function app(request: Request, env: Env): Promise<Response> {
   if (user.status !== "active")
     return problem(request, env, "account_suspended", "This account is suspended.", 403);
 
+  if (url.pathname === "/host/session" && request.method === "DELETE") {
+    if (!hostIdentity) return problem(request, env, "unauthorized", "Not a host credential.", 401);
+    await revokeHost(env, request);
+    return new Response(null, { status: 204, headers: cors(request, env) });
+  }
   if (url.pathname === "/host/approve" && request.method === "POST") {
     const body = (await request.json().catch(() => ({}))) as { challenge?: unknown };
     const redirectTo = await approveHost(env, user.id, body.challenge);

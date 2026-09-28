@@ -74,3 +74,11 @@ export async function exchangeHost(env: Env, input: unknown) {
   if (user?.status !== "active") return null;
   return issueHost(env, row.user_id, "desktop");
 }
+/** Signs out the one host presenting this credential; other hosts stay connected. */
+export async function revokeHost(env: Env, request: Request) {
+  const token = request.headers.get("Authorization")?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
+  if (!token) return;
+  await env.PUBLISH_DB.prepare("DELETE FROM mcp_hosts WHERE token_hash = ?")
+    .bind(await digest(token))
+    .run();
+}

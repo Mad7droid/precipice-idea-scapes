@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { notify } from "@/core/notify";
 import { Button } from "@/design/Button";
-import { useAgentStore } from "@/mcp/host/agentStore";
+import { agentLabel, agentLabels, useAgentStore } from "@/mcp/host/agentStore";
 import { connectApi } from "@/mcp/host/connectApi";
 import { agentHost } from "@/mcp/host/host";
 
@@ -16,6 +16,7 @@ const FIRST_CALL_KEY = "precipice.agent.greeted";
 export function AgentDock() {
   const last = useAgentStore((s) => s.last);
   const pending = useAgentStore((s) => s.pending);
+  const localClients = useAgentStore((s) => s.localClients);
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -38,11 +39,16 @@ export function AgentDock() {
     } catch {
       return;
     }
-    notify.success(`${last.client} is connected.`, "It can now read and build on your scapes.");
+    notify.success(
+      `${agentLabel(last.client)} is connected.`,
+      "It can now read and build on your scapes.",
+    );
   }, [last]);
 
   const active = last && now - last.at < ACTIVE_MS;
-  if (!active && pending.length === 0) return null;
+  // Agents attached to this Mac stay visible while idle, as a quieter version of the pill.
+  const connected = agentLabels(localClients);
+  if (!active && pending.length === 0 && connected.length === 0) return null;
 
   const resolve = async (key: string, approve: boolean) => {
     setBusy(key);
@@ -125,7 +131,16 @@ export function AgentDock() {
           className="flex items-center gap-2 rounded-full border border-subtle bg-surface px-3 py-1 text-2xs text-fg-secondary shadow-sm"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-          {last.client} is working in Precipice
+          {agentLabel(last.client)} is working in Precipice
+        </div>
+      )}
+      {!active && pending.length === 0 && connected.length > 0 && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-full border border-subtle bg-surface px-3 py-1 text-2xs text-fg-tertiary shadow-sm"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
+          {connected.join(", ")} connected
         </div>
       )}
     </div>
