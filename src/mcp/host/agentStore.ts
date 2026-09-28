@@ -42,13 +42,25 @@ export const useAgentStore = create<AgentState>((set) => ({
     set((state) => ({ pending: state.pending.filter((op) => op.key !== key) })),
 }));
 
-/** MCP clients report package names (`claude-ai`, `codex-mcp-client`); people know products. */
+/**
+ * MCP clients report package names (`claude-ai`, `codex-mcp-client`, Claude Desktop's
+ * `local-agent-mode-precipice`); people know products.
+ */
 export function agentLabel(name: string): string {
-  if (/claude/i.test(name)) return "Claude";
+  if (/claude|local-agent-mode/i.test(name)) return "Claude";
   if (/codex/i.test(name)) return "Codex";
   if (/cursor/i.test(name)) return "Cursor";
   if (/chatgpt|openai/i.test(name)) return "ChatGPT";
-  return name;
+  // Unknown client: drop plumbing words and read it as a name rather than an identifier.
+  const words = name
+    .replace(/[-_.]+/g, " ")
+    .replace(/\b(mcp|client|precipice)\b/gi, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return words.length > 0
+    ? words.map((word) => word[0].toUpperCase() + word.slice(1)).join(" ")
+    : name;
 }
 
 /** Distinct product names, in connection order. */
