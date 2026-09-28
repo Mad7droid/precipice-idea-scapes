@@ -10,6 +10,7 @@ import { InstructionsField } from "@/ai/Instructions";
 import { ThemeControl } from "./ThemeControl";
 import { useDialogFocus } from "./home/Dialog";
 import { McpBridgePanel } from "./McpBridgePanel";
+import { AgentsPanel } from "./agents/AgentsPanel";
 import type { McpBridge } from "@/mcp/bridge";
 
 export function SettingsModal({
@@ -180,12 +181,14 @@ export function SettingsModal({
 
             {section === "agent" && (
               <>
-                {mcpBridge ? (
-                  <McpBridgePanel bridge={mcpBridge} embedded />
-                ) : (
-                  <p className="text-xs text-fg-tertiary">
-                    Open a scape to share it with a local agent.
-                  </p>
+                <AgentsPanel />
+                {mcpBridge && import.meta.env.DEV && (
+                  <details className="mt-5">
+                    <summary className="cursor-pointer text-xs text-fg-tertiary">
+                      Developer bridge
+                    </summary>
+                    <McpBridgePanel bridge={mcpBridge} embedded />
+                  </details>
                 )}
               </>
             )}
@@ -215,5 +218,5 @@ type SectionId = "general" | "ai" | "agent";
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "general", label: "General" },
   { id: "ai", label: "AI" },
-  { id: "agent", label: "Agent" },
+  { id: "agent", label: "Agents" },
 ];

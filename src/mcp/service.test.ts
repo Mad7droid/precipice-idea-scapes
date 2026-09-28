@@ -228,3 +228,60 @@ describe("command service", () => {
     expect(fetched.object).toBeTruthy();
   });
 });
+
+describe("concurrent agent calls", () => {
+  it("keeps both simultaneous write batches", async () => {
+    const { service, repository, scape } = await setup();
+    const results = await Promise.all(
+      ["parallel_a", "parallel_b"].map((id) =>
+        service.execute(call("apply_changes", { scape_id: scape.id, actions: [note(id)] })),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual(["applied", "applied"]);
+    const stored = (await repository.get(scape.id))!;
+    expect(stored.objects.parallel_a).toBeTruthy();
+    expect(stored.objects.parallel_b).toBeTruthy();
+  });
+  it("lets clients retrieve an idempotent operation by the returned key", async () => {
+    const { service, scape } = await setup();
+    const args = {
+      scape_id: scape.id,
+      idempotency_key: "retry_key",
+      actions: [note("retry_note")],
+    };
+    const [first, second] = await Promise.all([
+      service.execute(call("apply_changes", args)),
+      service.execute(call("apply_changes", args)),
+    ]);
+    expect(second).toEqual(first);
+    expect(
+      await service.execute(call("get_operation", { operation_id: first.operation_id })),
+    ).toEqual(first);
+  });
+  it("does not approve expired review cards", async () => {
+    let now = 1000;
+    const { service, scape, repository } = await setup({ now: () => now });
+    const result = await service.execute(
+      call(
+        "apply_changes",
+        { scape_id: scape.id, actions: [note("expired_note")] },
+        grant({ mode: "review" }),
+      ),
+    );
+    now += 11 * 60_000;
+    expect(await service.resolveReview(result.operation_id!, true)).toMatchObject({
+      error: "expired",
+    });
+    expect((await repository.get(scape.id))!.objects.expired_note).toBeUndefined();
+  });
+});
+
+it("publishing always waits for confirmation, even for a trusted agent", async () => {
+  let published = false;
+  const { service, scape } = await setup({ publish: async () => { published = true; return { url: "https://example.test/public" }; } });
+  const result = await service.execute(call("publish_scape", {scape_id: scape.id}));
+  expect(result.status).toBe("awaiting_review");
+  expect(published).toBe(false);
+  expect(await service.resolveReview(result.operation_id!, true)).toMatchObject({status: "applied", url: "https://example.test/public"});
+  expect(published).toBe(true);
+});

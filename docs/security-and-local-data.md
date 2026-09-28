@@ -120,6 +120,9 @@ Installing a build is the moment you extend trust, so treat it as a security ste
   test fixture, or exported documentation image.
 - Publication sessions expire after seven days and are revoked immediately on logout, account
   suspension, or replacement by a newer sign-in.
+- Agent host credentials (90 days, extended on use) let a tab or the Mac app open its relay and
+  manage publications, never account or admin APIs. Logout revokes web host credentials and
+  clears the browser copy; the Mac's Keychain credential ends with account deletion or expiry.
 
 ## Operational protections
 
@@ -142,3 +145,26 @@ Immediately revoke the affected Anthropic key in the Anthropic console and
 create a replacement. Then remove it from browser settings and any local files.
 Do not publish the old key while reporting the incident. For a vulnerability in
 Precipice itself, use the private process in [SECURITY.md](../SECURITY.md).
+
+## Hosted MCP and local agents
+
+The hosted MCP Worker shares publishing accounts and the invite gate. OAuth grants/tokens live
+in KV; scoped connection records and expiring authorization requests live in D1. Scape content
+passes through the relay in memory to the authorized client and is not persisted by the Worker.
+Operation receipts and pending reviews remain in the local IndexedDB library. Every hosted call
+checks the connection and account status; revocation prevents subsequent calls, but cannot
+recall content already returned or undo an in-flight write. Consent requests are consumed once.
+A global authenticated-request counter limits daily MCP work; public OAuth endpoints still need
+operational monitoring. Configure only the exact app origin for app-facing requests.
+
+Desktop local MCP uses the app's `--mcp` stdio mode and a socket in its user-private application
+support directory (directory 0700, socket 0600). It authorizes same-user local processes, not
+remote web content. Local MCP has the library access explicitly enabled in Agents and shares
+one local review policy. The app can update its entry in supported client configuration files
+when the user presses Add; unrelated client settings must be preserved. Desktop host credentials live in a separate Keychain item. System-browser sign-in returns a
+one-minute single-use code bound to an in-memory/session PKCE verifier, never a bearer token.
+Host credentials permit relay connection, connection management, and bounded publication
+snapshots. They cannot approve new OAuth grants, administer users, or access account deletion.
+Agent publishing/unpublishing always requires in-app confirmation, even for trusted clients. Browser host credentials live in localStorage. They expire after
+90 days of inactivity, and account suspension is checked on use. Each grant selects browser
+or desktop, and the relay destinations are separate.

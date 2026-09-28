@@ -59,7 +59,7 @@ export class TestD1 {
   readonly db = new DatabaseSync(":memory:");
 
   constructor() {
-    for (const migration of ["0001_initial.sql", "0002_security.sql", "0003_session_ttl.sql", "0004_mcp_connections.sql"]) {
+    for (const migration of ["0001_initial.sql", "0002_security.sql", "0003_session_ttl.sql", "0004_mcp_connections.sql", "0005_mcp_budget.sql", "0006_mcp_hosts.sql"]) {
       this.db.exec(readFileSync(resolve(__dirname, "migrations", migration), "utf8"));
     }
   }

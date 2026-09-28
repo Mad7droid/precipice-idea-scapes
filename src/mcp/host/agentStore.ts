@@ -38,5 +38,6 @@ export const useAgentStore = create<AgentState>((set) => ({
     set((state) => ({
       pending: [...state.pending.filter((op) => op.key !== operation.key), operation],
     })),
-  removePending: (key) => set((state) => ({ pending: state.pending.filter((op) => op.key !== key) })),
+  removePending: (key) =>
+    set((state) => ({ pending: state.pending.filter((op) => op.key !== key) })),
 }));

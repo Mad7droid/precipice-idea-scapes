@@ -48,9 +48,15 @@ export class McpRelay extends DurableObject {
     const now = Date.now();
     if (now - this.minute.start > 60_000) this.minute = { start: now, calls: 0 };
     if (++this.minute.calls > LIMITS.callsPerMinute)
-      return failure("rate_limited", "Too many Precipice calls this minute. Wait a moment and retry.");
+      return failure(
+        "rate_limited",
+        "Too many Precipice calls this minute. Wait a moment and retry.",
+      );
     if (this.pending.size >= LIMITS.concurrent)
-      return failure("rate_limited", "Too many Precipice calls in flight. Wait for earlier calls to finish.");
+      return failure(
+        "rate_limited",
+        "Too many Precipice calls in flight. Wait for earlier calls to finish.",
+      );
     const [socket] = this.ctx.getWebSockets("tab").slice(-1);
     if (!socket) return failure("precipice_unavailable", UNAVAILABLE);
     return new Promise<Outcome>((resolve) => {

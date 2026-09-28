@@ -2,8 +2,12 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-credentials",
   "description": "Only the local main window can manage the one Anthropic credential and relay local MCP connections.",
-  "windows": ["main"],
-  "platforms": ["macOS"],
+  "windows": [
+    "main"
+  ],
+  "platforms": [
+    "macOS"
+  ],
   "permissions": [
     "allow-read-api-key",
     "allow-save-api-key",
@@ -13,6 +17,10 @@
     "allow-mcp-install-client",
     "allow-mcp-helper-path",
     "core:event:allow-listen",
-    "core:event:allow-unlisten"
+    "core:event:allow-unlisten",
+    "allow-read-agent-session",
+    "allow-save-agent-session",
+    "allow-open-agent-signin",
+    "deep-link:default"
   ]
 }

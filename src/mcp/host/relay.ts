@@ -1,4 +1,4 @@
-import { readSession } from "@/publish/session";
+import { hostToken, saveHostCredential, type HostCredential } from "./credential";
 import type { Outcome } from "@/mcp/contracts";
 import type { Envelope } from "@/mcp/contracts";
 import { agentHost } from "./host";
@@ -42,6 +42,9 @@ export function startRelay(host: "web" | "desktop"): RelayController {
   let releaseLock: (() => void) | null = null;
   let lockRequested = false;
   let holding = false;
+  let connecting = false;
+  let generation = 0;
+  const lockAbort = new AbortController();
   const retired = new WeakSet<WebSocket>();
 
   const schedule = () => {
@@ -53,32 +56,42 @@ export function startRelay(host: "web" | "desktop"): RelayController {
   };
 
   async function connect() {
-    if (stopped || socket) return;
-    const session = readSession();
-    if (!session) {
+    if (stopped || socket || connecting) return;
+    clearTimeout(retry);
+    const current = generation;
+    const token = hostToken();
+    if (!token) {
       store().setRemote("signed_out");
       return;
     }
+    connecting = true;
     store().setRemote("connecting");
-    let ticket: { ticket?: string; grants?: number };
+    let ticket: { ticket?: string; grants?: number; credential?: HostCredential };
     try {
       const response = await fetch(`${MCP_ORIGIN}/relay/ticket`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.status === 401 || response.status === 403) {
+        await saveHostCredential(null);
         store().setRemote("signed_out");
         return;
       }
       if (!response.ok) throw new Error(String(response.status));
       ticket = await response.json();
     } catch {
-      store().setRemote("unavailable");
-      schedule();
+      if (!stopped && current === generation) {
+        store().setRemote("unavailable");
+        schedule();
+      }
       return;
+    } finally {
+      connecting = false;
     }
-    // No connected agents means nothing could ever call; stay offline and free.
-    if (!ticket.ticket || !ticket.grants) {
+    if (stopped || current !== generation) return;
+    if (ticket.credential) await saveHostCredential(ticket.credential);
+    // An authenticated host stays available for future grants; the idle socket hibernates.
+    if (!ticket.ticket) {
       store().setRemote("off");
       return;
     }
@@ -136,13 +149,16 @@ export function startRelay(host: "web" | "desktop"): RelayController {
       void connect();
       return;
     }
-    void navigator.locks.request("precipice-mcp-relay", () => {
-      holding = true;
-      void connect();
-      return new Promise<void>((resolve) => {
-        releaseLock = resolve;
-      });
-    });
+    void navigator.locks
+      .request("precipice-mcp-relay", { signal: lockAbort.signal }, () => {
+        if (stopped) return;
+        holding = true;
+        void connect();
+        return new Promise<void>((resolve) => {
+          releaseLock = resolve;
+        });
+      })
+      .catch(() => undefined);
   }
 
   const wake = () => {
@@ -154,9 +170,10 @@ export function startRelay(host: "web" | "desktop"): RelayController {
   };
   window.addEventListener("online", wake);
   document.addEventListener("visibilitychange", wake);
-  window.addEventListener("storage", (event) => {
-    if (event.key === "precipice.publishSession") wake();
-  });
+  const storage = (event: StorageEvent) => {
+    if (event.key === "precipice.publishSession" || event.key === "precipice.agent.grants") wake();
+  };
+  window.addEventListener("storage", storage);
 
   acquire();
 
@@ -173,11 +190,14 @@ export function startRelay(host: "web" | "desktop"): RelayController {
     },
     stop() {
       stopped = true;
+      generation += 1;
+      lockAbort.abort();
       clearTimeout(retry);
       socket?.close(1000, "stopped");
       socket = null;
       releaseLock?.();
       window.removeEventListener("online", wake);
+      window.removeEventListener("storage", storage);
       document.removeEventListener("visibilitychange", wake);
     },
   };

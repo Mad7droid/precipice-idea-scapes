@@ -9,6 +9,21 @@ Changes merged after the latest dated entry should be added here before or with
 the change to `main`. Move the entry to a dated section when a release or public
 milestone is published.
 
+### Added
+
+- Settings → Agents: hosted OAuth connector with the publishing invite gate, browser/desktop
+  library selection, scoped access, revocation, and persistent host connections.
+- macOS local MCP: one-click client setup, no ports or Node runtime, and background app launch.
+  Remote desktop sign-in uses the system browser, a PKCE callback, and Keychain storage.
+- Canvas review cards with per-agent trust, validated atomic batches, one-step undo, operation
+  outcomes, and serialized concurrent writes. A deployment-wide daily budget and kill switch
+  protect the hosted connector.
+
+### Security
+
+- The hosted connector refuses to sign relay tickets without a configured `TICKET_SECRET`.
+- Signing out of publishing on the web also revokes the tab's agent host credential.
+
 ### Changed
 
 - Buttons are one system again. Every action now comes from a single primitive

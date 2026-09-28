@@ -463,10 +463,16 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   // this instance loses the race. A server that reports the problem beats one that disappears.
   await server.connect(new StdioServerTransport());
   const boundPort = await bridge.listen();
+  // Claude Desktop may launch this stdio server more than once. Only the process that owns
+  // the loopback bridge can see browser pairing sessions; keeping a losing process alive makes
+  // Claude route tool calls to an instance that will always report fresh pairing codes as
+  // inactive. Exit cleanly so the host retries against the owning instance instead.
+  if (!boundPort) {
+    await server.close().catch(() => {});
+    process.exit(0);
+  }
   console.error(
-    boundPort
-      ? `Precipice MCP bridge listening on http://127.0.0.1:${boundPort}`
-      : `Precipice MCP tools are available, but port ${port} is held by another bridge, so no browser tab can pair with this one.`,
+    `Precipice MCP bridge listening on http://127.0.0.1:${boundPort}`,
   );
 }
 

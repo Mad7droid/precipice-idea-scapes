@@ -16,11 +16,13 @@ import { useAgentStore } from "./agentStore";
 
 export const LOCAL_MODE_KEY = "precipice.agent.localMode";
 
-export function localApplyMode(): Grant["mode"] {
+export function localApplyMode(clientName?: string): Grant["mode"] {
   try {
-    return localStorage.getItem(LOCAL_MODE_KEY) === "review" ? "review" : "direct";
+    if (clientName && localStorage.getItem(`precipice.agent.trust.${clientName}`) === "direct")
+      return "direct";
+    return localStorage.getItem(LOCAL_MODE_KEY) === "direct" ? "direct" : "review";
   } catch {
-    return "direct";
+    return "review";
   }
 }
 
@@ -71,10 +73,10 @@ export async function startDesktopLocalMcp(): Promise<() => void> {
         clientId: `local:${clientName}`,
         clientName,
         scapes: "all",
-        mode: localApplyMode(),
+        mode: localApplyMode(clientName),
         write: true,
       };
-      return agentHost().execute({ id: `local_${conn}_${Date.now()}`, tool, args, grant });
+      return agentHost().execute({ id: crypto.randomUUID(), tool, args, grant });
     });
     server.server.oninitialized = () => {
       clientName = server.server.getClientVersion()?.name ?? clientName;

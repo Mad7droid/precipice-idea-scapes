@@ -53,6 +53,11 @@ export function usePublication(
   }, [repository, scapeId]);
 
   useEffect(() => {
+    window.addEventListener("precipice-publication-changed", refresh);
+    return () => window.removeEventListener("precipice-publication-changed", refresh);
+  }, [refresh]);
+
+  useEffect(() => {
     setRow(undefined);
     refresh();
   }, [refresh]);

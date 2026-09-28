@@ -237,8 +237,8 @@ fn home() -> Result<PathBuf, &'static str> {
 
 /// Adds (or refreshes) only the `precipice` entry; every other server in the file is kept.
 fn merge_json_config(path: PathBuf, command: &str) -> Result<(), &'static str> {
-    let mut root: serde_json::Value = match std::fs::read_to_string(&path) {
-        Ok(text) if !text.trim().is_empty() => {
+    let mut root: serde_json::Value = match read_config(&path)? {
+        text if !text.trim().is_empty() => {
             serde_json::from_str(&text).map_err(|_| "The existing config file is not valid JSON")?
         }
         _ => serde_json::json!({}),
@@ -257,39 +257,39 @@ fn merge_json_config(path: PathBuf, command: &str) -> Result<(), &'static str> {
         std::fs::create_dir_all(dir).map_err(|_| "Could not create the config folder")?;
     }
     let text = serde_json::to_string_pretty(&root).map_err(|_| "Could not write config")?;
-    std::fs::write(&path, text + "\n").map_err(|_| "Could not write the config file")
+    write_config(&path, &(text + "\n"))
 }
 
-fn toml_string(value: &str) -> String {
-    serde_json::to_string(value).unwrap_or_else(|_| "\"\"".into())
+fn read_config(path: &PathBuf) -> Result<String, &'static str> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(_) => Err("Could not read the existing config file"),
+    }
+}
+
+fn write_config(path: &PathBuf, text: &str) -> Result<(), &'static str> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|_| "Could not create config folder")?;
+    }
+    let temporary = path.with_extension(format!("precipice-{}.tmp", std::process::id()));
+    std::fs::write(&temporary, text).map_err(|_| "Could not write config")?;
+    std::fs::set_permissions(&temporary, std::fs::Permissions::from_mode(0o600)).map_err(|_| "Could not protect config")?;
+    std::fs::rename(temporary, path).map_err(|_| "Could not replace config")
 }
 
 fn merge_codex_config(path: PathBuf, command: &str) -> Result<(), &'static str> {
-    let existing = std::fs::read_to_string(&path).unwrap_or_default();
-    let block = format!(
-        "[mcp_servers.precipice]\ncommand = {}\nargs = [\"--mcp\"]\n",
-        toml_string(command)
-    );
-    let mut out = String::new();
-    let mut skipping = false;
-    for line in existing.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with('[') {
-            skipping = trimmed == "[mcp_servers.precipice]";
-        }
-        if !skipping {
-            out.push_str(line);
-            out.push('\n');
-        }
-    }
-    if !out.is_empty() && !out.ends_with("\n\n") {
-        out.push('\n');
-    }
-    out.push_str(&block);
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|_| "Could not create the config folder")?;
-    }
-    std::fs::write(&path, out).map_err(|_| "Could not write the config file")
+    let existing = read_config(&path)?;
+    let mut document = existing.parse::<toml_edit::DocumentMut>().map_err(|_| "The existing config is not valid TOML")?;
+    let mut server = toml_edit::Table::new();
+    server["command"] = toml_edit::value(command);
+    let mut args = toml_edit::Array::new();
+    args.push("--mcp");
+    server["args"] = toml_edit::value(args);
+    if document.get("mcp_servers").is_none() { document["mcp_servers"] = toml_edit::Item::Table(toml_edit::Table::new()); }
+    let servers = document["mcp_servers"].as_table_mut().ok_or("mcp_servers is not a table")?;
+    servers.insert("precipice", toml_edit::Item::Table(server));
+    write_config(&path, &document.to_string())
 }
 
 #[tauri::command]
@@ -362,6 +362,6 @@ mod tests {
         assert!(text.contains("[mcp_servers.other]\ncommand = \"y\""));
         assert!(!text.contains("\"old\""));
         assert_eq!(text.matches("[mcp_servers.precipice]").count(), 1);
-        assert!(text.contains(r#"command = "/new \"path\"""#));
+        assert_eq!(text.parse::<toml_edit::DocumentMut>().unwrap()["mcp_servers"]["precipice"]["command"].as_str(), Some("/new \"path\""));
     }
 }

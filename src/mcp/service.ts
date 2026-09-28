@@ -43,6 +43,7 @@ export interface LiveScape {
     payloads: ActionPayload[],
     txId: string,
     layout: LayoutMode | null,
+    operation?: McpOperation,
   ): Promise<{ inverses: Action[] }>;
   focus(ids: ObjectId[]): void;
   selection(): ObjectId[];
@@ -77,6 +78,7 @@ export interface ServiceDeps {
   capabilities(): { type: string; hint: string; example: unknown }[];
   markdown(scape: Scape): string;
   now?: () => number;
+  publish?(scape: Scape, withdraw: boolean): Promise<Record<string, unknown>>;
 }
 
 const ok = (body: Record<string, unknown> = {}): Outcome => ({ status: "ok", ...body });
@@ -189,7 +191,12 @@ export function createCommandService(deps: ServiceDeps) {
     if (target.live) {
       const live = target.live;
       if (!live.canWrite()) throw new Error("read_only");
-      const { inverses } = await live.apply(payloads, txId, layout ?? (creates ? "LR" : null));
+      const { inverses } = await live.apply(
+        payloads,
+        txId,
+        layout ?? (creates ? "LR" : null),
+        operation,
+      );
       const state = live.current();
       const rev = await revision(state);
       const done = { ...operation, inverses, afterRevision: rev };
@@ -214,6 +221,12 @@ export function createCommandService(deps: ServiceDeps) {
     state = { ...state, updatedAt: now() };
     const rev = await revision(state);
     Object.assign(operation, { inverses, afterRevision: rev });
+    operation.result = {
+      status: "applied",
+      operation_id: operation.key,
+      revision: rev,
+      message: String(operation.command.args.__summary ?? "Applied."),
+    };
     await deps.library.commit(operation, state, actions);
     return { state, inverses, revision: rev };
   }
@@ -240,6 +253,7 @@ export function createCommandService(deps: ServiceDeps) {
       __summary: summary,
       __layout: layout,
       __client: envelope.grant.clientName,
+      __clientId: envelope.grant.clientId,
     };
     if (envelope.grant.mode === "review" || approvalTools.has(envelope.tool)) {
       operation.result = {
@@ -268,6 +282,14 @@ export function createCommandService(deps: ServiceDeps) {
     const operation = await deps.operations.get(key);
     if (!operation || operation.result.status !== "awaiting_review")
       return failure("not_found", "That request is no longer awaiting review.");
+    if (operation.expiresAt <= now()) {
+      operation.result = failure(
+        "expired",
+        "This review expired. Ask the agent to propose the change again.",
+      );
+      await deps.operations.put(operation);
+      return operation.result;
+    }
     if (!approve) {
       operation.result = {
         status: "rejected",
@@ -291,6 +313,19 @@ export function createCommandService(deps: ServiceDeps) {
       }
       const target = await load(operation.scapeId);
       if (!target) throw new Error("not_found: scape");
+      if (
+        operation.command.tool === "publish_scape" ||
+        operation.command.tool === "unpublish_scape"
+      ) {
+        if (!deps.publish) throw new Error("Publishing is unavailable on this host.");
+        const published = await deps.publish(
+          target.scape,
+          operation.command.tool === "unpublish_scape",
+        );
+        operation.result = { status: "applied", operation_id: key, ...published };
+        await deps.operations.put(operation);
+        return operation.result;
+      }
       // Re-validate against the document as it is now; the person may have edited meanwhile.
       const payloads = args.__payloads ?? [];
       const actions =
@@ -561,6 +596,22 @@ export function createCommandService(deps: ServiceDeps) {
         const copy = await deps.library.duplicate(scapeId);
         return ok({ scape_id: copy.id, name: copy.name });
       }
+      case "publish_scape":
+        return write(
+          envelope,
+          scapeId,
+          target,
+          [],
+          `Publish “${scape.name}” as a public, read-only snapshot. Anyone with the link can view it.`,
+        );
+      case "unpublish_scape":
+        return write(
+          envelope,
+          scapeId,
+          target,
+          [],
+          `Withdraw the public snapshot of “${scape.name}”.`,
+        );
       case "delete_scape":
         return write(envelope, scapeId, target, [], `Delete the scape “${scape.name}”.`);
       case "revert_operation": {
@@ -581,7 +632,18 @@ export function createCommandService(deps: ServiceDeps) {
     return failure("unknown_tool");
   }
 
-  return { execute, resolveReview };
+  // Both transports and review buttons share one queue, so concurrent snapshots cannot
+  // overwrite one another and simultaneous retries cannot execute the same key twice.
+  let tail: Promise<unknown> = Promise.resolve();
+  const serial = <T>(work: () => Promise<T>): Promise<T> => {
+    const next = tail.then(work, work);
+    tail = next.catch(() => undefined);
+    return next;
+  };
+  return {
+    execute: (envelope: Envelope) => serial(() => execute(envelope)),
+    resolveReview: (key: string, approve: boolean) => serial(() => resolveReview(key, approve)),
+  };
 }
 
 export type CommandService = ReturnType<typeof createCommandService>;

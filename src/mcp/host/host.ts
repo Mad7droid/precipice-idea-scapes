@@ -1,3 +1,4 @@
+import { publishFromAgent } from "./publish";
 import { allPlugins } from "@/core/registry";
 import type { Scape } from "@/core/types";
 import { summarize } from "@/core/registry";
@@ -83,6 +84,7 @@ function createService(): CommandService {
         example: plugin.defaults(),
       })),
     markdown: markdownOf,
+    publish: publishFromAgent,
   });
 }
 
@@ -164,7 +166,12 @@ export function createAgentHost(): AgentHost {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         waiting.delete(req);
-        resolve(failure("precipice_unavailable", "The Precipice tab holding this scape stopped responding."));
+        resolve(
+          failure(
+            "precipice_unavailable",
+            "The Precipice tab holding this scape stopped responding.",
+          ),
+        );
       }, 20_000);
       waiting.set(req, (message) => {
         if (message.kind !== "done") return;

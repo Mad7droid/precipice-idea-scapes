@@ -31,6 +31,11 @@ export const id = z
   .min(1)
   .max(128)
   .regex(/^[a-zA-Z0-9_-]+$/);
+const operationKey = z
+  .string()
+  .min(1)
+  .max(300)
+  .regex(/^[a-zA-Z0-9_:-]+$/);
 const title = z.string().max(1000);
 // One branch per object type, so `data` is validated against the plugin schema that matches
 // `objectType` rather than being accepted as an open record.
@@ -97,11 +102,13 @@ export const toolSchemas = {
     .strict(),
   duplicate_scape: z.object(mutation).strict(),
   delete_scape: z.object(mutation).strict(),
+  publish_scape: z.object(mutation).strict(),
+  unpublish_scape: z.object(mutation).strict(),
   export_scape: z.object({ ...scope, format: z.enum(["scape", "markdown"]) }).strict(),
-  get_operation: z.object({ operation_id: id }).strict(),
-  cancel_operation: z.object({ operation_id: id }).strict(),
+  get_operation: z.object({ operation_id: operationKey }).strict(),
+  cancel_operation: z.object({ operation_id: operationKey }).strict(),
   get_history: z.object({ ...scope, ...page }).strict(),
-  revert_operation: z.object({ ...mutation, operation_id: id }).strict(),
+  revert_operation: z.object({ ...mutation, operation_id: operationKey }).strict(),
 };
 export type ToolName = keyof typeof toolSchemas;
 export const titles: Record<ToolName, string> = {
@@ -121,6 +128,8 @@ export const titles: Record<ToolName, string> = {
   create_scape: "Create a scape",
   duplicate_scape: "Duplicate a scape",
   delete_scape: "Delete a scape",
+  publish_scape: "Publish a scape",
+  unpublish_scape: "Unpublish a scape",
   export_scape: "Export a scape",
   get_operation: "Get an operation's outcome",
   cancel_operation: "Cancel a pending operation",
@@ -128,6 +137,9 @@ export const titles: Record<ToolName, string> = {
   revert_operation: "Revert an operation",
 };
 export const descriptions: Record<ToolName, string> = {
+  publish_scape:
+    "Request an in-app confirmation to publish a bounded read-only snapshot. Never publishes without the person approving it.",
+  unpublish_scape: "Request an in-app confirmation to withdraw this scape's public snapshot.",
   get_capabilities:
     "Discover Precipice object types and their data schemas, limits, and supported change actions. Read this once before constructing content.",
   list_scapes:
@@ -170,11 +182,17 @@ export const writes = new Set<ToolName>([
   "create_scape",
   "duplicate_scape",
   "delete_scape",
+  "publish_scape",
+  "unpublish_scape",
   "cancel_operation",
   "revert_operation",
 ]);
 /** Tools that always wait for the person, regardless of the connection's apply mode. */
-export const approvalTools = new Set<ToolName>(["delete_scape"]);
+export const approvalTools = new Set<ToolName>([
+  "delete_scape",
+  "publish_scape",
+  "unpublish_scape",
+]);
 export const instructions = [
   "Precipice is a visual workspace. A scape is a canvas of objects (notes, journeys, wireframes and scape blocks) joined by relationships.",
   "Start with list_scapes, then get_scape (and get_capabilities once, for object data shapes) before editing.",
@@ -185,6 +203,7 @@ export const instructions = [
 ].join(" ");
 /** What the person agreed to when they connected this client. Enforced on every call. */
 export interface Grant {
+  host?: "web" | "desktop";
   clientId: string;
   clientName: string;
   /** `"all"`, or the only scape IDs this client may see. */
@@ -244,6 +263,8 @@ export function annotations(name: ToolName) {
       "apply_changes",
       "set_instructions",
       "delete_scape",
+      "publish_scape",
+      "unpublish_scape",
       "revert_operation",
     ].includes(name),
     openWorldHint: false,
