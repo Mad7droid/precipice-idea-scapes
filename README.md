@@ -6,6 +6,10 @@ Precipice is a visual workspace for turning product ideas into connected,
 editable artifacts. Start with a prompt or a blank scape, then shape the result
 with notes, journeys, wireframes, and relationships on an infinite canvas.
 
+Use it in the browser or the macOS desktop app. Scapi helps you ask questions and edit;
+external agents can work through MCP with review and undo. Publish a read-only snapshot
+when you want a link other people can open.
+
 > Precipice is an early-stage project. Expect active development, rough edges,
 > and occasional changes while the core workspace loop is being refined.
 
@@ -25,6 +29,9 @@ For a first look:
 6. Switch between Light, Dark, and System themes from the top-right theme control.
 7. Use **Export** in the top bar to download either a `.scape` file for reopening in Precipice or
    a PDF for sharing and printing.
+8. To share a web link, choose **Publish** and sign in with an invited account. Share the
+   resulting `https://precipice.pages.dev/p/<publication-id>` address. Later edits stay local
+   until you choose **Update public copy**; the link stays the same.
 
 The hosted version stores scapes locally in your browser. It is not a shared
 cloud workspace, so exporting a `.scape` file is the safest way to move work
@@ -57,6 +64,10 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - AI generation foundations with a stateless CORS proxy and recorded fixtures for development.
 - Invite-only publishing: read-only public and embeddable scape snapshots, Google sign-in,
   account-level storage and write limits, and administrator-managed invitations.
+- A macOS app with optional Keychain storage, system-browser sign-in, and portable library transfer.
+- Settings → Agents: built-in desktop MCP and a hosted OAuth connector. Agents can read, search,
+  create, edit, arrange, and export scapes through validated operations. Review cards, revision
+  checks, idempotent retries, and one-step undo keep changes inspectable.
 
 ## Screenshots
 
@@ -118,11 +129,12 @@ pnpm install
 pnpm dev
 ```
 
-### Local MCP bridge
+### Connect an agent
 
-Precipice can pair an open scape with a local Codex or Claude Desktop MCP connection. The bridge
-is loopback-only, shares no API key, and lets an agent propose or directly apply validated flow
-changes to the paired scape. See [Local MCP bridge](docs/mcp.md) for setup and the pairing flow.
+In the Mac app, open **Settings → Agents → On this Mac**, choose your client, and add Precipice.
+The client runs the installed app's built-in MCP helper: no Node server, TCP port, pairing code,
+or account is needed. Hosted connections use OAuth and explicit library/access consent.
+See [Agents and MCP](docs/mcp.md) for setup, review behavior, remote access, and troubleshooting.
 
 Useful checks:
 
@@ -134,7 +146,8 @@ pnpm build
 ### Production deployment
 
 Pushing to `main` runs the GitHub Actions deployment workflow, which tests and builds the app,
-applies publication database migrations, deploys both Workers, then deploys the Pages frontend.
+applies publication database migrations, deploys the AI and publication Workers, optionally
+deploys the MCP Worker, then deploys the Pages frontend.
 Configure these repository secrets before relying on that automation:
 
 - `CLOUDFLARE_ACCOUNT_ID`
@@ -143,6 +156,8 @@ Configure these repository secrets before relying on that automation:
 
 Also configure the public repository variables `VITE_PUBLICATION_API_URL` and
 `VITE_TURNSTILE_SITE_KEY`. The workflow stops before deployment when any value is missing.
+For the hosted connector, also set repository variable `VITE_MCP_URL` and secret
+`WRANGLER_MCP_CONFIG`. MCP deployment is conditional on `VITE_MCP_URL` being present.
 
 Use a scoped Cloudflare token with only the Workers and Pages permissions needed for this
 project. Never place either value in `wrangler.toml`, an `.env` file that is committed, an
@@ -162,6 +177,9 @@ For the full data-flow and Claude/Anthropic API-key model, see
   explicit, read-only snapshot to a separate service; it never syncs or exposes the browser's
   local scape library. Public links are unlisted rather than access-controlled, so do not publish
   confidential material.
+- Authorized MCP clients receive the scapes covered by their access. Hosted access relays
+  content while the selected browser or desktop host is available; it is not cloud backup.
+  Local desktop agents access the desktop library. Neither transport receives your Anthropic key.
 - After the first Scape is created, the app asks the browser to protect its local storage from
   automatic eviction where the browser supports that capability. This is best effort, not a
   substitute for exporting important work.
@@ -188,9 +206,10 @@ In the Cloudflare dashboard for `precipice-ai-proxy`, add a rate-limiting rule f
 
 ## Project status and contributing
 
-Precipice is being developed in small, testable phases. The current focus is
-the end-to-end workspace loop: create a scape, add or generate artifacts, edit
-them in place, and preserve the result locally.
+The current code includes the browser and Mac editor, Scapi, public snapshots, and local/hosted
+agent workflows. It remains pre-1.0: desktop distribution is not yet signed/notarized, there is
+no in-app updater or automatic library sync, and external-client acceptance checks are still
+required before a release. A successful build alone does not verify a deployed connector.
 
 Please record user-visible changes in [CHANGELOG.md](CHANGELOG.md) whenever a
 change is added to `main`. Bug reports and focused pull requests are welcome.
@@ -225,6 +244,7 @@ tokens, publication ownership, and app preferences are excluded.
 | `src/ai/` | Anthropic generation and Scapi |
 | `src/desktop/` | Desktop detection and credential UI/state |
 | `src-tauri/` | macOS window, restricted IPC, and Keychain access |
+| `src/mcp/`, `src/app/agents/`, `worker/mcp/` | Shared agent commands, review, local IPC, hosted OAuth and relay |
 | `worker/`, `src/publish/`, `src/viewer/` | Web proxy and optional published snapshots |
 
 Start with [the architecture guide](docs/codebase-architecture.md), then
@@ -232,3 +252,5 @@ Start with [the architecture guide](docs/codebase-architecture.md), then
 for both targets. Cloning this repository does not give access to anyone's browser
 library, local Keychain, or GitHub Actions secrets. Public screenshots show example
 workspaces; do not add screenshots of private work when contributing.
+
+See [the documentation index](docs/README.md) and [screenshot provenance](docs/screenshots/README.md).

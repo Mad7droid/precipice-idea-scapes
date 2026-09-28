@@ -3,6 +3,7 @@ import type { PublicationRecord, Scape, ScapeRepository } from "@/core/types";
 import { publicPath, type Publication } from "./contract";
 import { projectScape, projectionHash } from "./project";
 import { HOST_AUTH_EVENT, publishToken } from "@/mcp/host/credential";
+import { publicationUrl } from "@/publish/url";
 
 /**
  * What the top bar has to be able to say at a glance.
@@ -79,7 +80,7 @@ export function usePublication(
 
   const state = useMemo<PublicationState>(() => {
     if (!row) return { kind: "unpublished" };
-    const url = publicPath(row.publicationId);
+    const url = publicationUrl(publicPath(row.publicationId));
     if (row.status === "unpublished") return { kind: "withdrawn", record: row, url };
     // Unknown hash means "not yet computed", not "changed" — claiming an update is available
     // for a frame on every load would make the badge meaningless.

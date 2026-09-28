@@ -78,6 +78,20 @@ No billing upgrade is required or performed by this change.
 
 ## Developer bridge
 
+### Troubleshooting local setup
+
+- Confirm the client entry runs `/Applications/Precipice.app/Contents/MacOS/precipice-desktop`
+  with `--mcp` (adjust the path if installed elsewhere).
+- Replace older entries pointing to `node .../mcp/server.mjs` using **Add** in Agents. Those
+  entries reference the legacy bridge and can break when a development workspace is removed.
+- Restart the client after changing its configuration. Test a library read and then a reviewed
+  edit; merely seeing the server listed does not prove end-to-end connectivity.
+- Do not solve duplicate-client launches by killing whichever process loses a TCP-port race.
+  The built-in helper supports separate stdio clients connected to the same desktop app.
+- Keep private scape contents, client config credentials, and logs out of public bug reports.
+
+### Legacy harness
+
 Run `pnpm mcp`, or register `node /absolute/path/mcp/server.mjs` with a local MCP client.
 Development builds expose the legacy pairing panel under **Agents → Developer bridge**.
 Run `pnpm verify`, `pnpm test:mcp`, `pnpm check:worker`, and the macOS Rust/build checks before release.

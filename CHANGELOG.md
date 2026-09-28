@@ -22,6 +22,9 @@ milestone is published.
 
 ### Fixed
 
+- Published share links use the hosted Pages viewer even when copied from the Mac app;
+  existing publications no longer receive a `tauri://localhost` share address.
+
 - Desktop: Continue with Google now signs in through the system browser; it previously
   showed nothing because Google and Turnstile cannot run inside the app.
 - Desktop: agents stay connected when Precipice quits or restarts. Their next request reopens
@@ -35,6 +38,9 @@ milestone is published.
 - Signing out of publishing on the web also revokes the tab's agent host credential.
 
 ### Changed
+
+- Refreshed product, desktop, agent, publishing, architecture, and security documentation;
+  separated historical workstream plans from maintained guides and refreshed demo screenshots.
 
 - Buttons are one system again. Every action now comes from a single primitive
   (`src/design/Button.tsx`) with four roles — primary, secondary, ghost, destructive — so

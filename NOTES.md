@@ -1,5 +1,18 @@
 # Notes
 
+These are chronological implementation notes, not the current product specification. Earlier
+"not built" and frozen-scope statements describe the phase in which they were written.
+The macOS app, built-in local MCP, hosted agent access, Scapi, and publishing now exist.
+Start with [the maintained documentation](docs/README.md) for current behavior.
+
+## September 2026 documentation refresh
+
+Desktop clients use the installed executable with `--mcp` and a private Unix socket; the
+Node pairing-code bridge is development-only. Hosted agents use OAuth with explicit consent.
+Desktop sign-in uses the system browser and PKCE, with a host credential in Keychain.
+Published addresses use the hosted viewer origin, including when shared from desktop.
+Public screenshots are taken from a fictional demo library, never the working desktop library.
+
 Deviations and gaps worth flagging, not blockers.
 
 ---

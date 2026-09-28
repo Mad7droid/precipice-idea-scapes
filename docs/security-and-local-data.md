@@ -43,7 +43,7 @@ own Anthropic (Claude) API key.
 
 ## How the Claude/Anthropic key is handled
 
-1. You enter your own Anthropic API key in **Settings → General**.
+1. You enter your own Anthropic API key in **Settings → AI**.
 2. The app keeps it in `sessionStorage`, not IndexedDB or the repository. It is
    available to the current browser tab session and is cleared when that tab
    session ends.
@@ -106,7 +106,8 @@ Installing a build is the moment you extend trust, so treat it as a security ste
 - Production deployment credentials belong in GitHub Actions secrets or the
   local Wrangler credential store, not in source files. Use a scoped token with
   only the Workers and Pages permissions required for this project.
-- The public repository contains only the public proxy URL in `.env.example`.
+- `.env.example` contains placeholder public build settings, not credentials. `VITE_*` values
+  are compiled into the client bundle and must never contain secrets.
 - Keep Secret Scanning, push protection, and Dependabot enabled on the GitHub
   repository when available, including the non-provider pattern set and validity checks.
 - Pin every GitHub Action to a full commit SHA, not a tag. A tag is mutable, and these
@@ -122,7 +123,8 @@ Installing a build is the moment you extend trust, so treat it as a security ste
   suspension, or replacement by a newer sign-in.
 - Agent host credentials (90 days, extended on use) let a tab or the Mac app open its relay and
   manage publications, never account or admin APIs. Logout revokes web host credentials and
-  clears the browser copy; the Mac's Keychain credential ends with account deletion or expiry.
+  clears the browser copy. Desktop sign-out revokes this Mac's credential; account deletion,
+  suspension, and credential expiry also restrict access.
 
 ## Operational protections
 
@@ -168,3 +170,11 @@ snapshots. They cannot approve new OAuth grants, administer users, or access acc
 Agent publishing/unpublishing always requires in-app confirmation, even for trusted clients. Browser host credentials live in localStorage. They expire after
 90 days of inactivity, and account suspension is checked on use. Each grant selects browser
 or desktop, and the relay destinations are separate.
+
+## Public documentation and images
+
+Use a fresh, signed-out browser library and fictional fixtures for documentation. Never capture
+the personal desktop library, real publication IDs, pairing codes, OAuth callback URLs,
+credential fields, account menus, or client configuration containing secrets. An unlisted link
+can expose the snapshot even if no password is visible. Inspect screenshots visually and with
+OCR, and scan text changes for secrets. See [the screenshot workflow](screenshots/README.md).

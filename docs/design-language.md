@@ -7,6 +7,18 @@ canvas tool, not a chat app, and see that the system was extended rather than co
 This document is the *why*. `src/design/tokens.css` is the *what*. Components consume
 tokens; nobody writes a raw value.
 
+## Current implementation notes
+
+`src/design/Button.tsx` defines primary, secondary, ghost, and destructive roles. Filled primary
+actions use `--action-primary`; the brighter signal accent identifies selection, focus, and
+connections. Keep one primary action per surface. The visual references below explain the
+direction; the current tokens and components define exact values.
+
+Scapi shares its Ask/Edit composer and transcript across canvas and panel. Agent review cards
+and connection activity should remain readable without taking over the canvas. Settings uses
+General, AI, and Agents sections. Public share links must be usable hosted URLs, even on desktop.
+Use [sanitized product screenshots](screenshots/README.md) when documenting these surfaces.
+
 ---
 
 ## What actually makes Mistral's work read the way it does

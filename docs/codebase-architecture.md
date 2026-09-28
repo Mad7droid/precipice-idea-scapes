@@ -11,7 +11,7 @@ for example, the current wireframe vocabulary is defined by
 
 ## 1. Executive summary
 
-Precipice is intentionally split into four runtime surfaces:
+Precipice is split into six runtime surfaces:
 
 1. A React/Vite editor that owns the local document, canvas, inspectors, AI composer, and
    publishing controls.
@@ -21,6 +21,10 @@ Precipice is intentionally split into four runtime surfaces:
    an Anthropic key.
 4. An invite-only publication Worker backed by Cloudflare D1 for metadata/auth and R2 for
    immutable JSON snapshots.
+5. A Tauri macOS shell with Keychain credentials and a built-in `--mcp` stdio helper connected
+   to the application over a user-private Unix socket.
+6. A hosted MCP Worker with OAuth, scoped connections, and a live relay to a browser or desktop
+   library. The relay is not a durable cloud copy of private scapes.
 
 The central design choice is local-first state with explicit cloud publication. The browser is
 the source of truth for private scapes; publishing is an intentional, read-only projection of a
@@ -41,8 +45,8 @@ flowchart LR
 
 ### Why this is a good fit
 
-- **Private by default:** a new scape never leaves the browser unless the user exports or
-  publishes it.
+- **Private by default:** content is local until the user exports, publishes, sends context to
+  Scapi, or authorizes an agent to read it.
 - **Low operational complexity:** the editor does not need a continuously running application
   server or a synchronized document database.
 - **Strong UI responsiveness:** the canvas updates synchronously through a local reducer while
@@ -75,6 +79,9 @@ secret.
 | `src/viewer` | Read-only public rendering and hostile-input handling | `App.tsx`, `api.ts`, `publication.ts` |
 | `worker/index.ts` | Anthropic CORS relay | `wrangler.toml` |
 | `worker/publish` | Authenticated publication API and scheduled cleanup | `index.ts`, `migrations/` |
+| `src/mcp`, `src/app/agents` | Shared command contracts, revision/idempotency checks, review and host transports | `contracts.ts`, `host/`, `AgentsPanel.tsx` |
+| `worker/mcp` | OAuth, scoped grants, relay and request budgets | `index.ts` |
+| `src-tauri`, `src/desktop` | macOS shell, local MCP transport, Keychain and desktop detection | `src/mcp.rs`, `runtime.ts` |
 | `public` | Pages redirects, headers/CSP, service worker, branding | `_redirects`, `_headers`, `sw.js` |
 | `.conductor` | Local workspace setup/run/archive scripts | `settings.local.toml` |
 
@@ -83,7 +90,7 @@ The top-level `package.json` has one build graph and one test command:
 ```text
 pnpm build  = tsc --noEmit && vite build
 pnpm test   = vitest run
-pnpm verify = pnpm build && pnpm test
+pnpm verify = pnpm check:version && pnpm check:worker && pnpm build && pnpm test
 ```
 
 ## 3. Build and runtime boundaries
@@ -727,6 +734,10 @@ contract again and is authoritative.
 
 ### Publication storage model
 
+`src/publish/url.ts` resolves share paths against `https://precipice.pages.dev` independently
+of the editor origin. The desktop's local origin cannot serve a public link. Publication
+records cache IDs and hashes, so correcting the URL does not require recreating publications.
+
 | Data | Store | Reason |
 | --- | --- | --- |
 | users, invites, sessions, OAuth state | D1 | transactional metadata and auth |
@@ -754,6 +765,11 @@ Publishing uses invite-only Google sign-in:
    code in the URL fragment.
 6. The editor exchanges the code, immediately strips the fragment, and stores the resulting
    publication session in `localStorage`.
+
+The steps above describe browser publishing. Desktop sign-in instead opens `/host/start` in the
+system browser, returns a single-use PKCE-bound code to `precipice://auth/callback`, and stores a
+scoped host credential in Keychain. It can manage bounded publications and host the relay but
+cannot administer accounts. See [desktop authentication](desktop.md).
 
 The publication token and Anthropic key have different risk profiles. The publication token is
 scoped to Precipice, revocable by the server, and expires; localStorage avoids forcing a Google
@@ -965,7 +981,7 @@ always-online system.
 ## macOS target and library transfer
 
 `src-tauri/` packages the same Vite frontend as a macOS app. The restricted native
-bridge reads, saves, and removes one non-synchronizing Keychain credential.
+bridge manages separate non-synchronizing Keychain items for Anthropic and host credentials.
 `src/desktop/` handles opt-in credential state; web settings keep sessionStorage.
 The AI SDK uses the web proxy in a browser and Anthropic directly in the desktop.
 
@@ -974,3 +990,21 @@ of versioned `.scape` documents into `Precipice-library.json`. Import validates
 all documents and adds them with fresh IDs in one database transaction. It does
 not read settings, authentication, publications, or MCP receipts. File transfer
 is user initiated and local; it is not an automatic sync service.
+
+## Agent command and transport boundary
+
+The app starts its agent runtime at the application root, so hosts remain available from the
+library as well as an open editor. Local desktop clients use `--mcp`; hosted clients use
+Streamable HTTP with OAuth. Both reach the shared validated command service. See
+[Agents and MCP](mcp.md) for client setup and exact release checks.
+
+Commands validate inputs and revisions before applying changes through the reducer. Writes
+are serialized, retryable using idempotency keys, and grouped into undoable transactions.
+Pending review cards and operation outcomes live in the local library. Deletion and publication
+retain explicit review requirements. An offline host returns an unavailable outcome rather
+than silently queuing a write for later.
+
+Hosted grants select a browser or desktop destination and access scope; browser grants may
+select individual scapes. Connection revocation blocks later calls. Local desktop access trusts
+same-user processes via a private socket and a local review policy. Neither path sends the
+Anthropic key to an agent. The old Node bridge is a development harness, not the desktop setup.

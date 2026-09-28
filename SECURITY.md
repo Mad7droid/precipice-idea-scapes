@@ -61,6 +61,23 @@ for deletion, unsigned build limitations, and the manual verification checklist.
 
 ### Repository hygiene
 
+### Agent and publication access
+
+Publishing creates an unlisted, publicly readable snapshot. Hosted MCP instead uses OAuth and
+scoped grants to relay private content from an available host. The macOS local MCP transport
+uses a user-private Unix socket and trusts same-user clients. Agent access does not include the
+Anthropic key. Review requirements and revocation limits are documented in
+[Security and local data](docs/security-and-local-data.md) and [Agents and MCP](docs/mcp.md).
+
+### Documentation assets
+
+Screenshots must use fictional content from an isolated library, with no real account details,
+credentials, private scapes, or unlisted publication addresses. Follow
+[the screenshot workflow](docs/screenshots/README.md). Scan image text as well as source files;
+secret-pattern scanners cannot recognize every form of confidential business information.
+
+### Repository scanning
+
 GitHub secret scanning and push protection should remain enabled. The Secret scan
 workflow also scans Git history using a checksum-pinned Gitleaks release and
 redacted output. A clean scan is evidence against known secret patterns, not a
