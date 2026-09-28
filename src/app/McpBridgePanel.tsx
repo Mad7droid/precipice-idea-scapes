@@ -19,7 +19,7 @@ export function McpBridgePanel({
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 id="claude-mcp-heading" className={embedded ? "sr-only" : "text-sm text-fg"}>
-            Agent MCP
+            Agent connection
           </h3>
           <p className={embedded ? "text-xs text-fg-secondary" : "mt-1 text-xs text-fg-tertiary"}>
             Share this open scape with a local Codex or Claude connection. Nothing is uploaded or

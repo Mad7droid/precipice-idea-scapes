@@ -330,10 +330,23 @@ export function AgentsPanel() {
             />
             Ask me before applying their changes
           </label>
-          {localClients.length > 0 && (
-            <p className="mt-1.5 text-2xs text-fg-tertiary">
-              Connected now: {agentLabels(localClients).join(", ")}
-            </p>
+          {localClients.length > 0 ? (
+            <div
+              role="status"
+              className="mt-3 flex items-center gap-2.5 rounded-md border border-success bg-inset px-3 py-2.5"
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-success" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-fg">
+                  {agentLabels(localClients).join(", ")} connected
+                </p>
+                <p className="text-2xs text-fg-secondary">
+                  Ready to read and build on your scapes.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-2xs text-fg-tertiary">No agent connected yet.</p>
           )}
         </div>
       )}

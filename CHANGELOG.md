@@ -39,6 +39,8 @@ milestone is published.
 
 ### Changed
 
+- Settings → Agents: a connected agent now shows as a clear green status row, and agents that
+  report internal names (such as `local-agent-mode-precipice`) appear as their product name.
 - Refreshed product, desktop, agent, publishing, architecture, and security documentation;
   separated historical workstream plans from maintained guides and refreshed demo screenshots.
 
