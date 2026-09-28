@@ -19,6 +19,13 @@ milestone is published.
   outcomes, and serialized concurrent writes. A deployment-wide daily budget and kill switch
   protect the hosted connector.
 
+### Fixed
+
+- Desktop: Continue with Google now signs in through the system browser; it previously
+  showed nothing because Google and Turnstile cannot run inside the app.
+- Desktop: connected local agents (e.g. Claude) now show a quiet "connected" status on the
+  canvas while idle, with product names instead of package names.
+
 ### Security
 
 - The hosted connector refuses to sign relay tickets without a configured `TICKET_SECRET`.

@@ -18,6 +18,8 @@ import {
 } from "./client";
 import { projectScape } from "./project";
 import { clearSession } from "./session";
+import { isDesktop } from "@/desktop/runtime";
+import { startDesktopSignIn } from "@/mcp/host/desktopAuth";
 import { describeState, type PublicationView } from "./usePublication";
 
 /**
@@ -379,7 +381,29 @@ function SignedOut({ onSignIn }: { onSignIn: (turnstileToken: string) => Promise
         Nothing else in Precipice requires signing in.
       </p>
       <div className="mt-3">
-        {!showChallenge ? (
+        {isDesktop() ? (
+          // Google refuses sign-in inside embedded webviews, and Turnstile cannot load under the
+          // app's CSP, so the Mac signs in through the system browser and returns by deep link.
+          <>
+            <Primary
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void startDesktopSignIn().catch(() => {
+                  notify.error("Could not open your browser to sign in.");
+                  setBusy(false);
+                });
+              }}
+            >
+              Continue with Google
+            </Primary>
+            {busy && (
+              <p className="mt-2 text-xs text-fg-tertiary">
+                Finish signing in in your browser, then return here.
+              </p>
+            )}
+          </>
+        ) : !showChallenge ? (
           <Primary onClick={() => setShowChallenge(true)}>Continue with Google</Primary>
         ) : (
           <TurnstileChallenge disabled={busy} onToken={start} />

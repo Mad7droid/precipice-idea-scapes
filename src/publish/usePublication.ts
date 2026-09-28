@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicationRecord, Scape, ScapeRepository } from "@/core/types";
 import { publicPath, type Publication } from "./contract";
 import { projectScape, projectionHash } from "./project";
-import { readSession } from "./session";
+import { HOST_AUTH_EVENT, publishToken } from "@/mcp/host/credential";
 
 /**
  * What the top bar has to be able to say at a glance.
@@ -41,20 +41,24 @@ export function usePublication(
 ): PublicationView {
   const [row, setRow] = useState<PublicationRecord | undefined>();
   const [localHash, setLocalHash] = useState<string | null>(null);
-  const [signedIn, setSignedIn] = useState(() => readSession() !== null);
+  const [signedIn, setSignedIn] = useState(() => publishToken() !== null);
   const scapeId = scape?.id ?? null;
 
   const projection = useMemo(() => (scape ? projectScape(scape) : null), [scape]);
 
   const refresh = useCallback(() => {
-    setSignedIn(readSession() !== null);
+    setSignedIn(publishToken() !== null);
     if (!scapeId) return;
     void repository.publications.get(scapeId).then(setRow);
   }, [repository, scapeId]);
 
   useEffect(() => {
     window.addEventListener("precipice-publication-changed", refresh);
-    return () => window.removeEventListener("precipice-publication-changed", refresh);
+    window.addEventListener(HOST_AUTH_EVENT, refresh);
+    return () => {
+      window.removeEventListener("precipice-publication-changed", refresh);
+      window.removeEventListener(HOST_AUTH_EVENT, refresh);
+    };
   }, [refresh]);
 
   useEffect(() => {

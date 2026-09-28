@@ -156,3 +156,26 @@ it("desktop sign-in requires its PKCE verifier and never reuses a code", async (
   );
   expect(user).toMatchObject({ id: "u1", host: "desktop" });
 });
+
+it("desktop sign-out revokes only the credential that asks", async () => {
+  const { issueHost, hostUser } = await import("./hostAuth");
+  const mac = await issueHost(env, "u1", "desktop");
+  const other = await issueHost(env, "u1", "desktop");
+  const signOut = (token: string) =>
+    __app(
+      new Request("https://mcp.example/host/session", {
+        method: "DELETE",
+        headers: { Origin: "tauri://localhost", Authorization: `Bearer ${token}` },
+      }),
+      env,
+    );
+  expect((await signOut(mac.token)).status).toBe(204);
+  const probe = (token: string) =>
+    hostUser(
+      new Request("https://mcp.example/", { headers: { Authorization: `Bearer ${token}` } }),
+      env,
+    );
+  expect(await probe(mac.token)).toBeNull();
+  expect(await probe(other.token)).toMatchObject({ id: "u1" });
+  expect((await signOut(mac.token)).status).toBe(401);
+});
