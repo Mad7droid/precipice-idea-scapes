@@ -13,8 +13,10 @@ in that client's configuration. Restart the client or start a new session once a
 Claude Code has a copyable registration command.
 
 Clients run the app executable with `--mcp`. It starts Precipice in the background if necessary
-and connects through a user-private Unix socket. There are no TCP ports, pairing codes, Node
-installation, or accounts. The first local write asks for review. Choose **Always apply changes from this agent** for
+and connects through a user-private Unix socket. If Precipice quits, the helper keeps running;
+the agent's next message relaunches the app and replays the MCP handshake (under a private
+request id whose reply is dropped), so agents that never restart servers stay connected. There
+are no TCP ports, pairing codes, Node installation, or accounts. The first local write asks for review. Choose **Always apply changes from this agent** for
 subsequent writes, or configure the local review policy in Agents. Deleting a scape always
 requires review. Local access grants access to this device's library, not the browser library.
 

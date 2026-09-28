@@ -68,35 +68,121 @@ fn connect_or_launch() -> Option<UnixStream> {
     None
 }
 
-/// Runs the stdio ⇄ socket pipe until either side closes. Never starts the GUI.
-pub fn run_pipe() -> i32 {
-    let Some(stream) = connect_or_launch() else {
-        eprintln!("Precipice did not start. Open Precipice once, then retry.");
-        return 1;
-    };
-    let mut to_app = match stream.try_clone() {
-        Ok(stream) => stream,
-        Err(_) => return 1,
-    };
-    let from_app = stream;
-    let upstream = std::thread::spawn(move || {
-        let _ = std::io::copy(&mut std::io::stdin().lock(), &mut to_app);
-        let _ = to_app.shutdown(std::net::Shutdown::Write);
-    });
-    let mut reader = from_app;
-    let mut buffer = [0u8; 64 * 1024];
-    let mut stdout = std::io::stdout().lock();
-    loop {
-        match reader.read(&mut buffer) {
-            Ok(0) | Err(_) => break,
-            Ok(n) => {
-                if stdout.write_all(&buffer[..n]).and_then(|_| stdout.flush()).is_err() {
-                    break;
-                }
-            }
+/// Remembers the agent's MCP handshake so a restarted app can be brought up to date without the
+/// agent noticing. Agents such as Claude Desktop never restart a server that went away, so the
+/// pipe outlives the app instead: replayed requests carry private ids and their replies are
+/// dropped.
+#[derive(Default)]
+struct Handshake {
+    initialize: Option<serde_json::Value>,
+    initialized: Option<String>,
+    replays: u64,
+}
+
+fn method_of(line: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(line).ok()?;
+    value.get("method")?.as_str().map(str::to_owned)
+}
+
+impl Handshake {
+    fn observe(&mut self, line: &str) {
+        match method_of(line).as_deref() {
+            Some("initialize") => self.initialize = serde_json::from_str(line).ok(),
+            Some("notifications/initialized") => self.initialized = Some(line.to_owned()),
+            _ => {}
         }
     }
-    drop(upstream);
+
+    /// Lines to send first on a fresh connection, and the private id whose reply to drop.
+    fn replay(&mut self) -> Option<(Vec<String>, String)> {
+        let mut initialize = self.initialize.clone()?;
+        self.replays += 1;
+        let id = format!("precipice-replay-{}", self.replays);
+        initialize["id"] = serde_json::Value::String(id.clone());
+        let mut lines = vec![initialize.to_string()];
+        lines.extend(self.initialized.clone());
+        Some((lines, id))
+    }
+}
+
+fn is_reply_to(line: &str, id: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(line)
+        .map(|value| value.get("method").is_none() && value.get("id").and_then(|v| v.as_str()) == Some(id))
+        .unwrap_or(false)
+}
+
+struct Upstream {
+    stream: UnixStream,
+    alive: std::sync::Arc<AtomicBool>,
+}
+
+/// Connects (launching the app if needed) and forwards the app's lines to stdout.
+fn open_upstream(drop_reply: Option<String>) -> Option<Upstream> {
+    let stream = connect_or_launch()?;
+    let reader = stream.try_clone().ok()?;
+    let alive = std::sync::Arc::new(AtomicBool::new(true));
+    let flag = alive.clone();
+    std::thread::spawn(move || {
+        let mut drop_reply = drop_reply;
+        for line in BufReader::new(reader).lines() {
+            let Ok(line) = line else { break };
+            if drop_reply.as_deref().is_some_and(|id| is_reply_to(&line, id)) {
+                drop_reply = None;
+                continue;
+            }
+            let mut stdout = std::io::stdout().lock();
+            if writeln!(stdout, "{line}").and_then(|_| stdout.flush()).is_err() {
+                std::process::exit(0);
+            }
+        }
+        flag.store(false, Ordering::SeqCst);
+    });
+    Some(Upstream { stream, alive })
+}
+
+/// Runs the stdio ⇄ socket pipe until the agent closes stdin. Never starts the GUI itself; if
+/// the app quits, the next message relaunches it in the background and replays the handshake.
+pub fn run_pipe() -> i32 {
+    let mut handshake = Handshake::default();
+    let mut upstream: Option<Upstream> = None;
+    for line in std::io::stdin().lock().lines() {
+        let Ok(line) = line else { break };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let handshaking = matches!(
+            method_of(&line).as_deref(),
+            Some("initialize") | Some("notifications/initialized")
+        );
+        let mut delivered = false;
+        for _ in 0..2 {
+            if upstream.as_ref().map_or(true, |u| !u.alive.load(Ordering::SeqCst)) {
+                let replay = if handshaking { None } else { handshake.replay() };
+                let Some(mut next) = open_upstream(replay.as_ref().map(|(_, id)| id.clone())) else {
+                    eprintln!("Precipice did not start. Open Precipice once, then retry.");
+                    return 1;
+                };
+                for earlier in replay.map(|(lines, _)| lines).unwrap_or_default() {
+                    let _ = writeln!(next.stream, "{earlier}");
+                }
+                upstream = Some(next);
+            }
+            let current = upstream.as_mut().expect("connected above");
+            if writeln!(current.stream, "{line}").is_ok() {
+                delivered = true;
+                break;
+            }
+            current.alive.store(false, Ordering::SeqCst);
+        }
+        if !delivered {
+            eprintln!("Lost the connection to Precipice.");
+            return 1;
+        }
+        handshake.observe(&line);
+    }
+    if let Some(current) = upstream {
+        let _ = current.stream.shutdown(std::net::Shutdown::Both);
+    }
     0
 }
 
@@ -325,6 +411,22 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn handshake_replays_with_a_private_id_once_initialized() {
+        let mut handshake = Handshake::default();
+        assert!(handshake.replay().is_none());
+        handshake.observe(r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"clientInfo":{"name":"claude-ai"}}}"#);
+        handshake.observe(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#);
+        handshake.observe(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#);
+        let (lines, id) = handshake.replay().unwrap();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("claude-ai") && lines[0].contains(&id));
+        assert!(lines[1].contains("notifications/initialized"));
+        assert!(is_reply_to(&format!(r#"{{"jsonrpc":"2.0","id":"{id}","result":{{}}}}"#), &id));
+        assert!(!is_reply_to(r#"{"jsonrpc":"2.0","id":0,"result":{}}"#, &id));
+        assert_ne!(handshake.replay().unwrap().1, id);
     }
 
     #[test]
