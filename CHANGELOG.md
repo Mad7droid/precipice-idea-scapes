@@ -23,6 +23,8 @@ milestone is published.
 
 - Desktop: Continue with Google now signs in through the system browser; it previously
   showed nothing because Google and Turnstile cannot run inside the app.
+- Desktop: agents stay connected when Precipice quits or restarts. Their next request reopens
+  the app in the background and resumes the session; Claude Desktop no longer needs a restart.
 - Desktop: connected local agents (e.g. Claude) now show a quiet "connected" status on the
   canvas while idle, with product names instead of package names.
 
