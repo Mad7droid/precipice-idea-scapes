@@ -11,6 +11,7 @@ milestone is published.
 
 ### Added
 
+- Model picker: Claude Sonnet 5.5 and Claude Opus 5.5. The default stays Sonnet 5.
 - Settings → Agents: hosted OAuth connector with the publishing invite gate, browser/desktop
   library selection, scoped access, revocation, and persistent host connections.
 - macOS local MCP: one-click client setup, no ports or Node runtime, and background app launch.
