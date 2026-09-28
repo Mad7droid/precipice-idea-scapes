@@ -15,6 +15,7 @@ dist
 # Deployment-specific Worker identity and resource IDs. Keep the real file local; commit only
 # `wrangler.publish.example.toml` so GitHub never advertises the production Worker hostname.
 wrangler.publish.toml
+wrangler.mcp.toml
 
 # Machine-local Conductor config. `*.local` above does not match `settings.local.toml`.
 .conductor/settings.local.toml

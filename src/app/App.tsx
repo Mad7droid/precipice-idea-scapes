@@ -12,6 +12,10 @@ import { AuthErrorModal } from "@/publish/AuthErrorModal";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
 import { Link, match, navigate, scapeRoute, useRoute } from "./router";
+import { HostConsent } from "./agents/HostConsent";
+import { AgentDock } from "./agents/AgentDock";
+import { ConnectConsent } from "./agents/ConnectConsent";
+import { useAgentRuntime } from "@/mcp/host/runtime";
 import { ToastHost } from "./ToastHost";
 import { AppSettingsProvider } from "./useAppSettings";
 
@@ -54,11 +58,19 @@ export function App() {
 
   return (
     <AppSettingsProvider>
+      <AgentRuntime />
       <Routes />
+      <AgentDock />
       <ToastHost />
       {signIn.error && <AuthErrorModal error={signIn.error} onClose={signIn.dismissError} />}
     </AppSettingsProvider>
   );
+}
+
+/** Agent transports start with the app and run for its lifetime, on every route. */
+function AgentRuntime() {
+  useAgentRuntime();
+  return null;
 }
 
 /** The editor is the only side that writes the staged public copy into this browser's library. */
@@ -177,6 +189,12 @@ function Routes() {
       </DevRoute>
     );
   if (route.startsWith("/dev")) return <DevIndex route={route} />;
+
+  const hostChallenge = match("/host", route);
+  if (hostChallenge) return <HostConsent challenge={hostChallenge} />;
+
+  const connectId = match("/connect", route);
+  if (connectId) return <ConnectConsent requestId={connectId} />;
 
   const scapeId = match("/s", route);
   // Keyed so that navigating between two scapes remounts rather than trying to reconcile one

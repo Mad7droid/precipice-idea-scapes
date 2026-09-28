@@ -450,7 +450,7 @@ type TurnstileApi = {
   remove: (widgetId: string) => void;
 };
 
-function TurnstileChallenge({
+export function TurnstileChallenge({
   disabled,
   onToken,
 }: {

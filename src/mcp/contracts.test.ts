@@ -90,28 +90,29 @@ describe("changeSchema", () => {
 });
 
 describe("tool schemas", () => {
-  it("requires an idempotency key and an expected revision on every mutation", () => {
-    const parsed = toolSchemas.apply_changes.safeParse({
-      connection_id: "cx_1",
-      scape_id: "scp_1",
-      actions: [create()],
-    });
-    expect(parsed.success).toBe(false);
-
+  it("makes idempotency keys and expected revisions optional but validated", () => {
+    expect(
+      toolSchemas.apply_changes.safeParse({ scape_id: "scp_1", actions: [create()] }).success,
+    ).toBe(true);
     expect(
       toolSchemas.apply_changes.safeParse({
-        connection_id: "cx_1",
         scape_id: "scp_1",
         idempotency_key: "key_1",
         expected_revision: "abc",
         actions: [create()],
       }).success,
     ).toBe(true);
+    expect(
+      toolSchemas.apply_changes.safeParse({
+        scape_id: "scp_1",
+        idempotency_key: "not a key!",
+        actions: [create()],
+      }).success,
+    ).toBe(false);
   });
 
   it("bounds batch size and page size so one call cannot ask for the world", () => {
     const batch = (count: number) => ({
-      connection_id: "cx_1",
       scape_id: "scp_1",
       idempotency_key: "key_1",
       expected_revision: "abc",
@@ -123,7 +124,6 @@ describe("tool schemas", () => {
 
     const page = (limit: number) =>
       toolSchemas.search.safeParse({
-        connection_id: "cx_1",
         scape_id: "scp_1",
         query: "kyc",
         limit,
@@ -135,7 +135,6 @@ describe("tool schemas", () => {
 
   it("defaults pagination so a caller that omits it still gets a bounded page", () => {
     const parsed = toolSchemas.search.parse({
-      connection_id: "cx_1",
       scape_id: "scp_1",
       query: "kyc",
     });
@@ -144,13 +143,13 @@ describe("tool schemas", () => {
 
   it("requires explicit targeting on every scoped tool, so there is no implicit active scape", () => {
     const scoped = Object.entries(toolSchemas).filter(
-      ([name]) => name !== "get_capabilities" && name !== "list_connected_scapes",
+      ([name]) => name !== "get_capabilities" && name !== "list_scapes" && name !== "create_scape",
     );
     for (const [name, schema] of scoped) {
       expect(schema.safeParse({}).success, `${name} accepted an unscoped call`).toBe(false);
     }
     expect(toolSchemas.get_capabilities.safeParse({}).success).toBe(true);
-    expect(toolSchemas.list_connected_scapes.safeParse({}).success).toBe(true);
+    expect(toolSchemas.list_scapes.safeParse({}).success).toBe(true);
   });
 });
 
@@ -170,7 +169,6 @@ describe("tool metadata", () => {
       readOnlyHint: false,
       destructiveHint: true,
     });
-    expect(annotations("publish_scape").openWorldHint).toBe(true);
     expect(annotations("get_scape").openWorldHint).toBe(false);
   });
 

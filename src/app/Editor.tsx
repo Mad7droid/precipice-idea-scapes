@@ -41,6 +41,10 @@ import { TopBar, type ExportFormat } from "./TopBar";
 import { useAppSettings } from "./useAppSettings";
 import { useTheme } from "./theme";
 import { useMcpBridge } from "@/mcp/bridge";
+import { registerLiveScape } from "@/mcp/host/host";
+import { liveEditor } from "@/mcp/host/liveEditor";
+import { saveHostCredential } from "@/mcp/host/credential";
+import { isDesktop } from "@/desktop/runtime";
 
 // Markdown is sizeable and Scapi is optional. Keep it out of the editor's first paint.
 const ScapiPanel = lazy(() =>
@@ -146,6 +150,24 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const commands = useRef<CanvasCommands | null>(null);
   const inspector = useRef<HTMLElement | null>(null);
   const composerInput = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!booted || readOnly) return;
+    return registerLiveScape(
+      scapeId,
+      liveEditor({
+        scapeId,
+        canWrite: () => lease.current?.status() === "holder",
+        flush: async () => {
+          await autosave.current?.flush();
+        },
+        focus: (ids) => {
+          useScapeStore.getState().setSelection(ids);
+          if (ids[0]) commands.current?.focus(ids[0]);
+        },
+      }),
+    );
+  }, [scapeId, booted, readOnly]);
 
   const startPanelResize = (side: "left" | "right") => (event: React.PointerEvent) => {
     event.preventDefault();
@@ -1131,6 +1153,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 )
               : true;
             clearSession();
+            // The web agent host credential rides on this sign-in; the Mac keeps its own.
+            if (!isDesktop()) void saveHostCredential(null);
             publication.refresh();
             if (!revoked) {
               notify.info(

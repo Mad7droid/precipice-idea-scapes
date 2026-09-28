@@ -1,9 +1,16 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
+            "read_agent_session",
+            "save_agent_session",
+            "open_agent_signin",
             "read_api_key",
             "save_api_key",
             "remove_api_key",
+            "mcp_ready",
+            "mcp_send",
+            "mcp_install_client",
+            "mcp_helper_path",
         ]),
     ))
     .expect("failed to build desktop app");

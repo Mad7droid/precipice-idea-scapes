@@ -679,3 +679,25 @@ describe("the cron sweeper", () => {
     expect(row.current_bytes).toBe(new TextEncoder().encode(snapshot).byteLength);
   });
 });
+
+it("host credentials can publish from desktop but cannot access account or admin APIs", async () => {
+  const { userId } = await seedSession(h.db);
+  const token = "a".repeat(64);
+  await h.db.prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'desktop', ?)").bind(await sha256(token), userId, Date.now()+60000).run();
+  const response = await fetch(request("POST", "/publications", {token, body: {scape: scape()}, origin: "tauri://localhost"}));
+  expect(response.status).toBe(201);
+  expect(response.headers.get("Access-Control-Allow-Origin")).toBe("tauri://localhost");
+  expect((await fetch(request("DELETE", "/account", {token}))).status).toBe(401);
+  expect((await fetch(request("GET", "/admin/users", {token}))).status).toBe(401);
+});
+
+it("logout revokes web agent host credentials but keeps the Mac connected", async () => {
+  const { token, userId } = await seedSession(h.db);
+  const web = "b".repeat(64);
+  const mac = "c".repeat(64);
+  await h.db.prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'web', ?)").bind(await sha256(web), userId, Date.now()+60000).run();
+  await h.db.prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'desktop', ?)").bind(await sha256(mac), userId, Date.now()+60000).run();
+  expect((await fetch(request("POST", "/auth/logout", { token }))).status).toBe(204);
+  expect((await fetch(request("GET", "/publications", { token: web }))).status).toBe(401);
+  expect((await fetch(request("GET", "/publications", { token: mac }))).status).toBe(200);
+});

@@ -153,7 +153,7 @@ const CAPABILITY_HELP = {
   },
   agent: {
     title: "Connect a local agent",
-    body: "Open a scape and choose Connect an agent from its home action menu. In Settings, use Agent MCP to connect to your configured local bridge, then give the pairing code to your agent. Pairing only shares the open scape. Review proposed changes before applying them; immediate application is optional.",
+    body: "Open Settings → Agents and choose your client. On macOS, add a local agent with one click; no account or port is needed. For the cloud connector, copy the URL and authorize access with your invited account. Changes can be reviewed on the canvas and applied as one undo step.",
   },
   publishing: {
     title: "Publish a read-only snapshot",

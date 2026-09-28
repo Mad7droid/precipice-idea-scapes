@@ -5,7 +5,17 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const entry = (file: string) => fileURLToPath(new URL(file, import.meta.url));
 
-function publicationCsp(apiOrigin: string | undefined): Plugin {
+/** The MCP connector origin, allowed for HTTPS and for the relay's WebSocket. Optional. */
+function mcpOrigins(value: string | undefined): string {
+  if (!value) return "";
+  const parsed = new URL(value);
+  if (parsed.protocol !== "https:" || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error("VITE_MCP_URL must be an HTTPS origin with no path, query, or fragment.");
+  }
+  return `${parsed.origin} wss://${parsed.host}`;
+}
+
+function publicationCsp(apiOrigin: string | undefined, mcp = ""): Plugin {
   let origin = "https://publication.invalid";
   if (apiOrigin) {
     const parsed = new URL(apiOrigin);
@@ -20,13 +30,22 @@ function publicationCsp(apiOrigin: string | undefined): Plugin {
       const headers = entry("dist/_headers");
       const source = readFileSync(headers, "utf8");
       if (!source.includes("__PUBLICATION_API_ORIGIN__")) throw new Error("Publication CSP placeholder is missing.");
-      writeFileSync(headers, source.replaceAll("__PUBLICATION_API_ORIGIN__", origin));
+      writeFileSync(
+        headers,
+        source.replaceAll("__PUBLICATION_API_ORIGIN__", origin).replaceAll(" __MCP_ORIGINS__", mcp ? ` ${mcp}` : ""),
+      );
     },
   };
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), publicationCsp(loadEnv(mode, process.cwd(), "VITE_").VITE_PUBLICATION_API_URL)],
+  plugins: [
+    react(),
+    publicationCsp(
+      loadEnv(mode, process.cwd(), "VITE_").VITE_PUBLICATION_API_URL,
+      mcpOrigins(loadEnv(mode, process.cwd(), "VITE_").VITE_MCP_URL),
+    ),
+  ],
   build: {
     rollupOptions: {
       /**

@@ -135,3 +135,13 @@ quit/reopen and generate; remove, quit/reopen and confirm a key is requested. De
 Keychain access and verify the error and temporary-session flow. Use your own
 throwaway API key for paid generation checks. Confirm a `Precipice-library.json`
 transfer before moving important work from the browser.
+
+## Built-in local MCP
+
+Settings → Agents installs a client entry pointing at this app's executable with `--mcp`.
+The executable pipes JSON-RPC over a Unix socket to the running app, launching it using `open -g`
+if needed. Keep the installed app at a stable path. No user-managed port or Node runtime is
+needed. Local agents ask for review until trusted. Remote setup opens the system browser and returns
+through `precipice://auth/callback`, bound to the originating app with PKCE. Its scoped host
+credential is stored in Keychain. Select Desktop app when granting agent access; browser and
+desktop libraries have separate relay destinations.

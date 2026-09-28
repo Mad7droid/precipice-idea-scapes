@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:mcp": "node --test mcp/*.mcp-test.mjs",
     "mcp": "node mcp/server.mjs",
-    "verify": "pnpm check:version && pnpm build && pnpm test",
+    "verify": "pnpm check:version && pnpm check:worker && pnpm build && pnpm test",
+    "check:worker": "tsc -p tsconfig.worker.json",
     "check:version": "node scripts/check-version.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "tauri": "tauri",
@@ -21,6 +22,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.35",
+    "@tauri-apps/api": "^2.12.0",
+    "@tauri-apps/plugin-deep-link": "^2.5.0",
     "@xyflow/react": "^12.8.0",
     "ai": "^7.0.57",
     "dagre": "^0.8.5",
@@ -32,12 +35,13 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "zod": "^3.25.0",
-    "zustand": "^5.0.3",
-    "@tauri-apps/api": "^2.11.1"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-oauth-provider": "^1.1.0",
     "@cloudflare/workers-types": "^5.20260904.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/dagre": "^0.7.53",
     "@types/node": "^26.1.2",
     "@types/react": "^19.1.0",
@@ -53,7 +57,6 @@
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
     "vitest": "^4.1.11",
-    "wrangler": "4.120.0",
-    "@tauri-apps/cli": "^2.11.4"
+    "wrangler": "4.120.0"
   }
 }
