@@ -153,6 +153,30 @@ export function radialPositions(scape: Scape, size: SizeLookup): Positions {
       0,
     );
     radii[d] = Math.max(clearance, circumference / (2 * Math.PI));
+
+    // Sizing a ring from its cards' extents is only an estimate of where neighbours land: two
+    // wide cards in adjacent wedges can still meet at the corners. Push the ring out until
+    // nothing on it touches anything already placed, so the layout never overlaps.
+    const placed = byDepth.slice(0, d).flat();
+    const boxOf = (id: ObjectId, radius: number) => {
+      const s = size(id);
+      const a = angle.get(id) ?? 0;
+      const x = Math.cos(a) * radius - s.width / 2;
+      const y = Math.sin(a) * radius - s.height / 2;
+      return { x1: x, y1: y, x2: x + s.width, y2: y + s.height };
+    };
+    const touching = (radius: number) => {
+      const boxes = ring.map((id) => boxOf(id, radius));
+      const others = placed.map((id) => boxOf(id, radii[depth.get(id) ?? byDepth.length - 1] ?? 0));
+      const hit = (a: (typeof boxes)[number], b: (typeof boxes)[number]) =>
+        a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+      return boxes.some(
+        (box, i) =>
+          boxes.slice(i + 1).some((other) => hit(box, other)) ||
+          others.some((other) => hit(box, other)),
+      );
+    };
+    for (let guard = 0; guard < 400 && touching(radii[d]); guard++) radii[d] += 16;
   }
 
   const positions: Positions = {};

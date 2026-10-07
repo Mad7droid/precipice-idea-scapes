@@ -39,6 +39,9 @@ milestone is published.
 
 ### Changed
 
+- Canvas: notes, journeys, and scape blocks widen automatically when their content runs past
+  four lines. A width you drag a card to always wins; double-click the grip to return to the
+  automatic width.
 - Canvas: two-finger trackpad scroll now pans instead of zooming. Pinch and Cmd/Ctrl+scroll
   still zoom.
 - Settings → Agents: a connected agent now shows as a clear green status row, and agents that
