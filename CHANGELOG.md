@@ -39,6 +39,8 @@ milestone is published.
 
 ### Changed
 
+- Canvas: two-finger trackpad scroll now pans instead of zooming. Pinch and Cmd/Ctrl+scroll
+  still zoom.
 - Settings → Agents: a connected agent now shows as a clear green status row, and agents that
   report internal names (such as `local-agent-mode-precipice`) appear as their product name.
 - Refreshed product, desktop, agent, publishing, architecture, and security documentation;
