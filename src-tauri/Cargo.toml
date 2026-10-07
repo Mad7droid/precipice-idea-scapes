@@ -1,6 +1,6 @@
 [package]
 name = "precipice-desktop"
-version = "0.1.3"
+version = "0.1.4"
 description = "Precipice for macOS"
 edition = "2021"
 

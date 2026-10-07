@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { notify } from "@/core/notify";
 import { useScapeStore } from "@/core/store";
 import { starterFor } from "@/starters";
-import type { GenerationEvent, SkippedEvent } from "./generate";
+import type { GenerationEvent, SkippedEvent } from "./applier";
 import type { Scope } from "./prompt";
 import { CONNECT_TOOL_NAMES } from "./tools";
 

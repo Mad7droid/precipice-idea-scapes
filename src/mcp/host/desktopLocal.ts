@@ -4,6 +4,7 @@ import { buildMcpServer } from "@/mcp/server";
 import type { Grant } from "@/mcp/service";
 import { agentHost } from "./host";
 import { useAgentStore } from "./agentStore";
+import { localApplyMode } from "./localMode";
 
 /**
  * The desktop app's built-in MCP server.
@@ -13,18 +14,6 @@ import { useAgentStore } from "./agentStore";
  * running). The Rust side relays each line to this webview, where the MCP server runs against
  * the same command service as the hosted connector. No port, no account, no pairing.
  */
-
-export const LOCAL_MODE_KEY = "precipice.agent.localMode";
-
-export function localApplyMode(clientName?: string): Grant["mode"] {
-  try {
-    if (clientName && localStorage.getItem(`precipice.agent.trust.${clientName}`) === "direct")
-      return "direct";
-    return localStorage.getItem(LOCAL_MODE_KEY) === "direct" ? "direct" : "review";
-  } catch {
-    return "review";
-  }
-}
 
 class TauriLineTransport implements Transport {
   onclose?: () => void;

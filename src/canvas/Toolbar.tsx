@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useStore } from "@xyflow/react";
 import { allPlugins } from "@/core/registry";
 import type { EdgeMode } from "@/starters";
 
@@ -16,7 +17,6 @@ export interface ToolbarProps {
   onToggleType: (type: string) => void;
   /** Tidy is intentionally opinionated: it restores the readable left-to-right flow. */
   onTidy: () => void;
-  zoom: number;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -35,13 +35,20 @@ export interface ToolbarProps {
   readOnly?: boolean;
 }
 
+/**
+ * Reads the zoom straight from React Flow's store, rounded to a whole percent. Holding it in
+ * the canvas's own state re-rendered the entire canvas on every frame of a zoom gesture.
+ */
+function ZoomPercent() {
+  return <>{useStore((s) => Math.round(s.transform[2] * 100))}</>;
+}
+
 export function Toolbar({
   edgeMode,
   onEdgeModeChange,
   hiddenTypes,
   onToggleType,
   onTidy,
-  zoom,
   canUndo,
   canRedo,
   onUndo,
@@ -141,7 +148,7 @@ export function Toolbar({
           onClick={onZoomReset}
           className="mono px-1 py-1 text-center transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
         >
-          {Math.round(zoom * 100)}
+          <ZoomPercent />
         </button>
         <ToolButton label="Zoom out" onClick={onZoomOut}>
           <path d="M3.5 7h7" strokeLinecap="round" />

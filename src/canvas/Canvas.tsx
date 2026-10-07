@@ -213,7 +213,6 @@ function CanvasSurface({
   const scapeId = scape?.id ?? "";
 
   const [nodes, setNodes] = useState<Node<ObjectNodeData>[]>([]);
-  const [zoom, setZoom] = useState(scape?.viewState.zoom ?? 1);
   const [connectMenu, setConnectMenu] = useState<Anchor | null>(null);
   const [addMenu, setAddMenu] = useState<Anchor | null>(null);
   const [pendingConnection, setPendingConnection] = useState<PendingConnection | null>(null);
@@ -768,8 +767,8 @@ function CanvasSurface({
           setAddMenu(anchorFrom(event.clientX, event.clientY));
           setPendingConnection(null);
         }}
-        onMove={(_, viewport) => {
-          setZoom(viewport.zoom);
+        // Persist once the gesture settles, not on every frame of it.
+        onMoveEnd={(_, viewport) => {
           if (!readOnly) onViewportChange(viewport);
         }}
         // Our own handlers, wired to applyAction. React Flow's built-ins would mutate state
@@ -783,6 +782,8 @@ function CanvasSurface({
         maxZoom={MAX_ZOOM}
         // Two-finger trackpad scroll pans; pinch and Cmd/Ctrl+scroll still zoom.
         panOnScroll
+        // React Flow's default (0.5) moves half as far as the fingers; 1 tracks them one-to-one.
+        panOnScrollSpeed={1}
         // Fit only when the scape has no camera of its own yet; once the user has panned,
         // their viewport is persisted and overriding it on load would be a bug.
         //
@@ -825,7 +826,6 @@ function CanvasSurface({
           setLayoutMode("LR");
           relayout("LR");
         }}
-        zoom={zoom}
         canUndo={undoDepth > 0}
         canRedo={redoDepth > 0}
         onUndo={() => useScapeStore.getState().undo()}
