@@ -1,0 +1,235 @@
+import { actionSchema, describeAction, type Action } from "@/core/actions";
+import { newTxId } from "@/core/ids";
+import { getPlugin } from "@/core/registry";
+import type { ObjectId } from "@/core/types";
+import { isToolName, type ToolName } from "./tools";
+
+/*
+ * The apply loop and its event types, kept apart from `generate.ts` on purpose: the editor
+ * needs these at startup, and `generate.ts` imports the AI SDK, which must stay out of the
+ * initial bundle and load only when someone actually generates.
+ */
+
+/** Re-running Dagre on every action makes the canvas thrash; every third is invisible. */
+const LAYOUT_EVERY = 3;
+
+export interface AppliedEvent {
+  kind: "applied";
+  action: Action;
+  /** One mono line for the ribbon: `CreateObject · journey · "Verify identity"`. */
+  line: string;
+}
+
+export interface SkippedEvent {
+  kind: "skipped";
+  tool: string;
+  reason: string;
+  input: unknown;
+}
+
+export interface DoneEvent {
+  kind: "done";
+  txId: string;
+  applied: number;
+  skipped: number;
+  model: string;
+  cancelled: boolean;
+}
+
+export interface ErrorEvent {
+  kind: "error";
+  message: string;
+  detail: string;
+}
+
+export type GenerationEvent = AppliedEvent | SkippedEvent | DoneEvent | ErrorEvent;
+
+export interface ApplyOptions {
+  /** Injected so the apply loop is testable without a store, a canvas or a network. */
+  dispatch: (action: Action) => boolean;
+  onEvent: (event: GenerationEvent) => void;
+  /** Wired to the canvas by the app shell, so this module never imports src/canvas. */
+  requestLayout?: () => void;
+  txId?: string;
+  /**
+   * Object types this generation may create. Empty or absent means no constraint.
+   *
+   * The prompt already asks for the constraint, but asking is not enforcing — a model that
+   * creates a wireframe anyway would silently defeat the control, so the request is also
+   * enforced here and the offender lands in the "N actions skipped" count like any other
+   * invalid action.
+   */
+  allowedTypes?: string[];
+  /**
+   * The tools this generation is offered. Absent means all of them.
+   *
+   * Restricting the tool set is how a scoped action stays scoped: "suggest connections" is
+   * only ever going to add relationships because `CreateObject` was never on the table. The
+   * apply loop enforces it a second time, because a model can still name a tool it was not
+   * given and the boundary between a model and state is not the place to assume it will not.
+   */
+  allowedTools?: ToolName[];
+  /**
+   * Existing objects a selection-scoped generation may change or connect to. Objects it
+   * creates during the same generation are also permitted, so it can add supporting detail
+   * without reaching into the rest of the canvas.
+   */
+  allowedObjectIds?: ObjectId[];
+  /** Existing relationships a selection-scoped generation may remove. */
+  allowedRelationshipIds?: string[];
+}
+
+export interface Applier {
+  txId: string;
+  /** Returns the tool result string that goes back to the model. */
+  apply: (toolName: string, input: unknown) => string;
+  applied: () => number;
+  skipped: () => number;
+  createdIds: () => ObjectId[];
+  /** One last layout, so the final objects are not left stacked at the origin. */
+  finish: () => void;
+}
+
+/**
+ * The apply loop, extracted so a live generation and a recorded one exercise exactly the
+ * same code. A fixture that replays through a parallel implementation tests the fixture.
+ */
+export function createApplier(options: ApplyOptions): Applier {
+  const txId = options.txId ?? newTxId();
+  const created: ObjectId[] = [];
+  const createdRelationships = new Set<string>();
+  const scopedObjects = options.allowedObjectIds ? new Set(options.allowedObjectIds) : null;
+  const scopedRelationships = options.allowedRelationshipIds
+    ? new Set(options.allowedRelationshipIds)
+    : null;
+  let applied = 0;
+  let skipped = 0;
+
+  const skip = (toolName: string, reason: string, input: unknown): string => {
+    skipped += 1;
+    options.onEvent({ kind: "skipped", tool: toolName, reason, input });
+    return `Rejected: ${reason}`;
+  };
+
+  const apply = (toolName: string, input: unknown): string => {
+    if (!isToolName(toolName)) return skip(toolName, "not a known action", input);
+
+    const tools = options.allowedTools;
+    if (tools && !tools.includes(toolName)) {
+      return skip(toolName, "not available in this generation", input);
+    }
+
+    const candidate = { ...(input as object), type: toolName, txId, ts: Date.now() };
+
+    // Zod-parse every action, even though the tool schema already validated the input. This
+    // is the boundary where a model's output becomes state, and it is the reducer's schema —
+    // not the tool's — that decides what the reducer can actually accept.
+    const parsed = actionSchema.safeParse(candidate);
+    if (!parsed.success) {
+      return skip(
+        toolName,
+        parsed.error.issues
+          .map((i) => `${i.path.join(".") || "root"}: ${i.message.toLowerCase()}`)
+          .join("; "),
+        input,
+      );
+    }
+
+    const action = parsed.data;
+
+    // Scope is a capability boundary, not a model instruction. The selected existing objects
+    // and anything created in this generation are the only things this run can touch.
+    const canTouchObject = (id: ObjectId) =>
+      !scopedObjects || scopedObjects.has(id) || created.includes(id);
+    if (scopedObjects) {
+      if (action.type === "RenameScape") {
+        return skip(toolName, "renaming the scape is outside this selection", input);
+      }
+      if (
+        (action.type === "UpdateObject" || action.type === "DeleteObject") &&
+        !canTouchObject(action.id)
+      ) {
+        return skip(toolName, `${action.id} is outside this selection`, input);
+      }
+      if (
+        action.type === "ConnectObjects" &&
+        (!canTouchObject(action.from) || !canTouchObject(action.to))
+      ) {
+        return skip(toolName, "a relationship endpoint is outside this selection", input);
+      }
+      if (
+        action.type === "DisconnectObjects" &&
+        !createdRelationships.has(action.id) &&
+        !scopedRelationships?.has(action.id)
+      ) {
+        return skip(toolName, `${action.id} is outside this selection`, input);
+      }
+    }
+
+    // A CreateObject whose data does not satisfy the plugin's own schema would render as a
+    // broken card, so it is rejected here rather than later and more confusingly.
+    if (action.type === "CreateObject") {
+      const plugin = getPlugin(action.objectType);
+      if (!plugin) return skip(toolName, `unknown object type "${action.objectType}"`, input);
+
+      const allowed = options.allowedTypes ?? [];
+      if (allowed.length > 0 && !allowed.includes(action.objectType)) {
+        return skip(toolName, `${action.objectType} was excluded from this generation`, input);
+      }
+
+      const data = plugin.schema.safeParse(action.data ?? plugin.defaults());
+      if (!data.success) {
+        return skip(
+          toolName,
+          `data does not match the ${action.objectType} shape: ${data.error.issues
+            .map((i) => `${i.path.join(".") || "root"} ${i.message.toLowerCase()}`)
+            .join("; ")}`,
+          input,
+        );
+      }
+      action.data = data.data as Record<string, unknown>;
+    }
+
+    // The reducer is the final word: it drops an edge whose endpoints do not exist, and
+    // anything else that would be a no-op.
+    if (!options.dispatch(action)) {
+      return skip(
+        toolName,
+        action.type === "ConnectObjects"
+          ? "one or both endpoints do not exist"
+          : "no effect on the current scape",
+        input,
+      );
+    }
+
+    applied += 1;
+    if (action.type === "CreateObject") created.push(action.id);
+    if (action.type === "ConnectObjects") createdRelationships.add(action.id);
+    options.onEvent({
+      kind: "applied",
+      action,
+      line:
+        action.type === "UpdateObject" && action.patch.title !== undefined
+          ? `Renamed block to “${action.patch.title}”`
+          : action.type === "CreateObject"
+            ? `Added ${getPlugin(action.objectType)?.label.toLowerCase() ?? "block"}: ${action.title}`
+            : `${action.type} · ${describeAction(action)}`,
+    });
+
+    // Reflow every few actions rather than every one — the canvas would thrash otherwise.
+    if (created.length > 0 && applied % LAYOUT_EVERY === 0) options.requestLayout?.();
+
+    return "Applied.";
+  };
+
+  return {
+    txId,
+    apply,
+    applied: () => applied,
+    skipped: () => skipped,
+    createdIds: () => [...created],
+    finish: () => {
+      if (created.length > 0) options.requestLayout?.();
+    },
+  };
+}

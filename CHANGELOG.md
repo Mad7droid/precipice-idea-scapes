@@ -39,6 +39,10 @@ milestone is published.
 
 ### Changed
 
+- Canvas: two-finger scroll pans at full speed, tracking your fingers one-to-one.
+- Canvas: zooming is smoother — the canvas no longer re-renders on every frame of a zoom
+  gesture, and the camera is saved once a gesture ends. The editor also loads faster: the AI
+  and MCP SDKs now load only when they are used, cutting startup JavaScript by about a third.
 - Canvas: notes, journeys, and scape blocks widen automatically when their content runs past
   four lines. A width you drag a card to always wins; double-click the grip to return to the
   automatic width.

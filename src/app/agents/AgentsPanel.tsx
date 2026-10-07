@@ -6,7 +6,7 @@ import { hostToken } from "@/mcp/host/credential";
 import { startDesktopSignIn } from "@/mcp/host/desktopAuth";
 import { agentLabels, useAgentStore } from "@/mcp/host/agentStore";
 import { connectApi, type AgentConnection } from "@/mcp/host/connectApi";
-import { LOCAL_MODE_KEY, localApplyMode } from "@/mcp/host/desktopLocal";
+import { LOCAL_MODE_KEY, localApplyMode } from "@/mcp/host/localMode";
 import { MCP_ENDPOINT } from "@/mcp/host/relay";
 import { refreshAgentRelay } from "@/mcp/host/runtime";
 

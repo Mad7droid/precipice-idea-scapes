@@ -8,7 +8,7 @@ import { Composer } from "@/ai/Composer";
 import type { Scope } from "@/ai/prompt";
 import { Ribbon } from "@/ai/Ribbon";
 import { useGeneration } from "@/ai/useGeneration";
-import { createApplier } from "@/ai/generate";
+import { createApplier } from "@/ai/applier";
 import { useScapi } from "@/ai/scapi/useScapi";
 import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
 import { isToolName } from "@/ai/tools";

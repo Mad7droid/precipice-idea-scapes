@@ -4,7 +4,6 @@ import { restorePendingReviews } from "./host";
 import { startRelay, type RelayController } from "./relay";
 import { loadHostCredential } from "./credential";
 import { listenDesktopSignIn } from "./desktopAuth";
-import { startDesktopLocalMcp } from "./desktopLocal";
 
 /**
  * Starts every agent transport this app instance offers, once, at launch. Nothing here asks
@@ -43,8 +42,10 @@ export function useAgentRuntime(): void {
         cancelled ? stop() : (stopAuth = stop),
       );
     }
+    // Loaded on demand: the MCP SDK is large and only the desktop app runs a local server.
     if (desktop)
-      void startDesktopLocalMcp()
+      void import("./desktopLocal")
+        .then(({ startDesktopLocalMcp }) => startDesktopLocalMcp())
         .then((stop) => (cancelled ? stop() : (stopLocal = stop)))
         .catch(() => undefined);
     return () => {
