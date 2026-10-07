@@ -781,6 +781,8 @@ function CanvasSurface({
         nodesConnectable={!readOnly}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
+        // Two-finger trackpad scroll pans; pinch and Cmd/Ctrl+scroll still zoom.
+        panOnScroll
         // Fit only when the scape has no camera of its own yet; once the user has panned,
         // their viewport is persisted and overriding it on load would be a bug.
         //
