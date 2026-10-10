@@ -162,6 +162,26 @@ describe("flow preview UI", () => {
     expect(win.document.querySelectorAll(".node")).toHaveLength(3);
   });
 
+  it("fits the map to its viewport and asks the host, not a tool, to expand", async () => {
+    const { win, calls, button, deliver } = await host();
+    const init = calls.find((c) => c.method === "ui/initialize");
+    expect(init.params.appCapabilities.availableDisplayModes).toEqual(["inline", "fullscreen"]);
+    const svg = win.document.querySelector(".map svg") as SVGSVGElement;
+    expect(svg.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
+    expect(svg.style.width).toBe("");
+
+    const count = calls.filter((c) => c.method === "tools/call").length;
+    button("expand").click();
+    const request = calls.find((c) => c.method === "ui/request-display-mode");
+    expect(request.params).toEqual({ mode: "fullscreen" });
+    expect(calls.filter((c) => c.method === "tools/call")).toHaveLength(count);
+
+    deliver({ jsonrpc: "2.0", id: request.id, error: { code: -32601, message: "Unsupported" } });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(win.document.getElementById("status")?.textContent).toContain("expand control");
+  });
+
   it("inspects journeys and wireframes locally without any tool or model calls", async () => {
     const { win, calls, button } = await host();
     const count = calls.length;
