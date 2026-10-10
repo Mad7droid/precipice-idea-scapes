@@ -137,7 +137,7 @@ describe("MCP Apps server", () => {
       });
       expect(text).not.toContain("secret_ui_only");
       expect(text).not.toContain("Fictional signup brief");
-      expect(result._meta).toEqual(preview._meta);
+      expect(result._meta).toEqual({ ui: { resourceUri: FLOW_UI_URI }, ...preview._meta });
       expect(toolResult({ status: "failed", error: "forbidden" }).isError).toBe(true);
     } finally {
       await client.close();
