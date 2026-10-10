@@ -28,9 +28,15 @@ export type ToolCaller = (tool: ToolName, args: Record<string, unknown>) => Prom
 export function toolResult(outcome: Outcome) {
   const failed = outcome.status === "failed";
   const { _meta, ...summary } = outcome;
+  const uiMeta = outcome.status === "preview" ? { ui: { resourceUri: FLOW_UI_URI } } : {};
   return {
     content: [{ type: "text" as const, text: JSON.stringify(summary) }],
-    ...(_meta ? { structuredContent: summary, _meta: _meta as Record<string, unknown> } : {}),
+    ...(_meta
+      ? {
+          structuredContent: summary,
+          _meta: { ...uiMeta, ...(_meta as Record<string, unknown>) },
+        }
+      : {}),
     ...(failed ? { isError: true } : {}),
   };
 }
@@ -90,7 +96,11 @@ export function buildMcpServer(call: ToolCaller): McpServer {
           mimeType: FLOW_UI_MIME,
           text: FLOW_UI_HTML,
           _meta: {
-            ui: { csp: { connectDomains: [], resourceDomains: [] }, prefersBorder: true },
+            ui: {
+              csp: { connectDomains: [], resourceDomains: [] },
+              prefersBorder: true,
+              availableDisplayModes: ["inline", "fullscreen"],
+            },
             "openai/widgetDescription":
               "Inspect flow blocks, journeys and screens, then explicitly create in Precipice or share a read-only iframe preview.",
             "openai/widgetPrefersBorder": true,
