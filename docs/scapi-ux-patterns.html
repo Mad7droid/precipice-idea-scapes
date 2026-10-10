@@ -1,0 +1,3376 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A detailed, implementation-grounded guide to Scapi’s copilot experience in Precipice: Ask, Edit, context, streaming, actions, recovery, and interaction patterns."
+    />
+    <title>Scapi — UX patterns &amp; behavior reference</title>
+    <script>
+      (() => {
+        let preference = "system";
+        try {
+          const saved = localStorage.getItem("scapi-ux-theme");
+          if (["light", "dark", "system"].includes(saved)) preference = saved;
+        } catch {}
+        const system = window.matchMedia("(prefers-color-scheme: dark)");
+        document.documentElement.dataset.theme =
+          preference === "system" ? (system.matches ? "dark" : "light") : preference;
+        document.documentElement.dataset.themePreference = preference;
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #fcfbf9;
+        --ink: #2b2721;
+        --muted: #655c50;
+        --line: #dcd7cd;
+        --wash: #f0ede7;
+        --accent: #b02f06;
+        --green: #315e49;
+        --amber: #77540b;
+        --raised: #ffffff;
+        --figure: #f7f5f1;
+        --active: #e7e3db;
+        --strong-line: #9e958a;
+        --selected: #fff3eb;
+        --selected-line: #ffbe99;
+        --positive-bg: #e9f1eb;
+        --reference-bg: #edf1ef;
+        --guidance-bg: #eeeaf5;
+        --guidance-ink: #60457d;
+        --caveat-bg: #f8edce;
+        --action-bg: #b02f06;
+        --action-ink: #ffffff;
+        --note: #8a6a3d;
+        --journey: #4e8c86;
+        --wireframe: #5b6bae;
+        --document: #a85f5a;
+      }
+      @media screen {
+        :root[data-theme="dark"] {
+          color-scheme: dark;
+          --paper: #191613;
+          --ink: #f0ede7;
+          --muted: #c4bdb0;
+          --line: #51483e;
+          --wash: #2b2721;
+          --accent: #ff9760;
+          --green: #9acbad;
+          --amber: #ebcb82;
+          --raised: #221e1a;
+          --figure: #1e1b17;
+          --active: #423c34;
+          --strong-line: #9e958a;
+          --selected: #3e271d;
+          --selected-line: #a15f3d;
+          --positive-bg: #23372a;
+          --reference-bg: #24342d;
+          --guidance-bg: #332a40;
+          --guidance-ink: #d1b9eb;
+          --caveat-bg: #3b301a;
+          --action-bg: #ff9760;
+          --action-ink: #221e1a;
+          --note: #c6a268;
+          --journey: #6fb3ac;
+          --wireframe: #8794d4;
+          --document: #c98a85;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-padding-top: 24px;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          16px/1.7 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      a {
+        color: var(--accent);
+        text-underline-offset: 4px;
+      }
+      a:focus-visible,
+      button:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 4px;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        background: var(--ink);
+        color: white;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 16px;
+      }
+      .ui-recall {
+        margin: 28px 0;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #f7f5f1;
+        break-inside: avoid;
+      }
+      .ui-recall > h3 {
+        margin: 0 0 6px;
+        font-size: 17px;
+      }
+      .ui-recall .ui-label {
+        margin: 0 0 16px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .ui-recall figcaption {
+        margin-top: 15px;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .ui-pair,
+      .ui-trio {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ui-trio {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .ui-window {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: white;
+        padding: 15px;
+        font-size: 13px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .ui-window p {
+        margin: 8px 0;
+      }
+      .ui-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 9px;
+        margin-bottom: 12px;
+        font-size: 12px;
+      }
+      .ui-controls {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 10px;
+      }
+      .ui-control {
+        display: inline-block;
+        padding: 4px 9px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: white;
+        font-size: 12px;
+      }
+      .ui-control.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+      .ui-control.chosen {
+        background: #fff3eb;
+        border-color: #ffbe99;
+        color: var(--accent);
+      }
+      .ui-control.quiet {
+        border-color: transparent;
+        color: var(--muted);
+      }
+      .ui-control.inert {
+        background: var(--wash);
+        color: var(--muted);
+        border-style: dashed;
+      }
+      .ui-note {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        margin: 8px 0 0;
+      }
+      .ui-stack > * + * {
+        margin-top: 10px;
+      }
+      .ui-line {
+        border: 1px solid var(--line);
+        padding: 9px 12px;
+        border-radius: 7px;
+        background: #fcfbf9;
+        font-size: 12px;
+      }
+      .ui-selected {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .ui-canvas {
+        padding: 15px;
+        border-radius: 8px;
+        background: #f0ede7;
+      }
+      .ui-node {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-top: 3px solid #8a6a3d;
+        border-radius: 8px;
+        background: white;
+        font-size: 12px;
+      }
+      .ui-node.journey {
+        border-top-color: #4e8c86;
+      }
+      .ui-node.wireframe {
+        border-top-color: #5b6bae;
+      }
+      .ui-node.document {
+        border-top-color: #a85f5a;
+      }
+      .ui-node strong {
+        display: block;
+      }
+      .ui-link {
+        text-align: center;
+        color: var(--muted);
+        font-size: 11px;
+        margin: 9px 0;
+      }
+      .ui-screen {
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: #fcfbf9;
+        margin-top: 9px;
+      }
+      .ui-field {
+        border: 1px solid var(--line);
+        background: var(--wash);
+        padding: 5px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        margin: 7px 0;
+        color: var(--muted);
+      }
+      .ui-cta {
+        border: 1px solid #9e958a;
+        background: #e7e3db;
+        text-align: center;
+        border-radius: 3px;
+        padding: 4px 8px;
+        font-size: 11px;
+        margin-top: 8px;
+      }
+      .ui-type {
+        font-size: 10px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .ui-result-title {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .ui-summary {
+        padding: 10px;
+        border-left: 2px solid #4e8c86;
+        background: #edf1ef;
+        font-size: 12px;
+      }
+      .ui-alert {
+        padding: 10px;
+        border-left: 2px solid #b02f06;
+        background: #fff3eb;
+        font-size: 12px;
+      }
+      .ui-swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 1px solid var(--line);
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      .ui-keypath {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+      .ui-recall table {
+        font-size: 12px;
+        table-layout: fixed;
+      }
+      .ui-recall th,
+      .ui-recall td {
+        padding: 7px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 1050px) {
+        .ui-trio {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 700px) {
+        .ui-pair {
+          grid-template-columns: 1fr;
+        }
+        .ui-recall {
+          padding: 15px;
+        }
+      }
+      @media print {
+        .ui-recall {
+          padding: 12px;
+        }
+        .ui-pair {
+          grid-template-columns: 1fr 1fr;
+        }
+        .ui-trio {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 255px minmax(0, 1fr);
+        max-width: 1500px;
+        margin: auto;
+      }
+      nav {
+        padding: 36px 24px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        border-right: 1px solid var(--line);
+        font-size: 13px;
+      }
+      nav strong {
+        display: block;
+        font-size: 19px;
+        margin-bottom: 4px;
+      }
+      nav small {
+        color: var(--muted);
+      }
+      nav ol {
+        padding: 0;
+        list-style: none;
+        margin-top: 26px;
+      }
+      nav li {
+        margin: 0 0 10px;
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        display: block;
+      }
+      main {
+        min-width: 0;
+        padding: 64px clamp(24px, 5vw, 86px) 80px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--accent);
+      }
+      h1 {
+        font-size: clamp(44px, 6vw, 76px);
+        line-height: 1.04;
+        letter-spacing: -0.06em;
+        margin: 20px 0 26px;
+        max-width: 850px;
+      }
+      h2 {
+        font-size: 30px;
+        line-height: 1.2;
+        letter-spacing: -0.035em;
+        margin: 0 0 22px;
+      }
+      h3 {
+        font-size: 19px;
+        line-height: 1.4;
+        margin: 30px 0 10px;
+      }
+      p {
+        margin: 12px 0;
+      }
+      ul,
+      ol {
+        padding-left: 24px;
+      }
+      li {
+        margin: 7px 0;
+      }
+      .lead {
+        font-size: 22px;
+        line-height: 1.5;
+        max-width: 820px;
+        color: var(--muted);
+      }
+      .meta {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 26px 0;
+      }
+      .hero {
+        padding-bottom: 40px;
+        border-bottom: 1px solid var(--line);
+      }
+      section {
+        padding: 48px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .number {
+        font-size: 12px;
+        color: var(--accent);
+        font-weight: 750;
+        letter-spacing: 0.12em;
+        display: block;
+        margin-bottom: 12px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin: 22px 0;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 24px;
+        background: white;
+      }
+      .card h3 {
+        margin-top: 0;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border-radius: 30px;
+        padding: 3px 9px;
+        background: var(--wash);
+        color: var(--muted);
+      }
+      .implemented {
+        background: #e9f1eb;
+        color: var(--green);
+      }
+      .guidance {
+        background: #eeeaf5;
+        color: #60457d;
+      }
+      .caveat {
+        background: #f8edce;
+        color: var(--amber);
+      }
+      .callout {
+        padding: 18px 22px;
+        border-left: 3px solid var(--accent);
+        background: var(--wash);
+        margin: 24px 0;
+        border-radius: 0 8px 8px 0;
+      }
+      .callout p:first-child {
+        margin-top: 0;
+      }
+      .callout p:last-child {
+        margin-bottom: 0;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin: 20px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      th {
+        text-align: left;
+        background: var(--wash);
+        font-weight: 700;
+      }
+      th,
+      td {
+        padding: 13px 15px;
+        border: 1px solid var(--line);
+        vertical-align: top;
+      }
+      td:first-child {
+        font-weight: 600;
+      }
+      code,
+      kbd {
+        font:
+          12px/1.6 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+        background: var(--wash);
+        border-radius: 4px;
+        padding: 2px 5px;
+        overflow-wrap: anywhere;
+      }
+      blockquote {
+        margin: 18px 0;
+        padding: 15px 20px;
+        border-left: 2px solid var(--line);
+        color: var(--muted);
+      }
+      .source {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 24px;
+        overflow-wrap: anywhere;
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 24px 0;
+      }
+      .flow span {
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 8px;
+        padding: 10px 13px;
+        font-size: 13px;
+      }
+      .flow b {
+        color: var(--accent);
+      }
+      .mock {
+        background: #f7f5f1;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 24px;
+        margin: 24px 0;
+      }
+      .mock-label {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 18px;
+      }
+      .bubble {
+        margin-left: 20%;
+        padding: 12px 16px;
+        background: #e7e3db;
+        border-radius: 12px;
+        font-size: 14px;
+      }
+      .answer {
+        padding: 20px;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin: 14px 0;
+      }
+      .chip {
+        display: inline-block;
+        padding: 2px 9px;
+        background: #edf1ef;
+        border-radius: 20px;
+        font-size: 12px;
+        color: #315e49;
+      }
+      .mock-actions {
+        font-size: 12px;
+        color: var(--muted);
+        word-spacing: 3px;
+      }
+      .composer {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid #c4bdb0;
+        border-radius: 14px;
+        background: white;
+      }
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 14px;
+      }
+      .pills span {
+        border: 1px solid var(--line);
+        padding: 3px 9px;
+        border-radius: 30px;
+        font-size: 12px;
+      }
+      .pills .selected {
+        background: #fff3eb;
+        color: var(--accent);
+        border-color: #ffbe99;
+      }
+      .pills .send {
+        background: var(--accent);
+        color: white;
+        margin-left: auto;
+      }
+      .fine {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .action-index td:first-child {
+        width: 24%;
+      }
+      .source-list {
+        columns: 2;
+        column-gap: 32px;
+        font-size: 13px;
+      }
+      .source-list li {
+        break-inside: avoid;
+        margin-bottom: 14px;
+      }
+      footer {
+        padding-top: 30px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .no-break {
+        break-inside: avoid;
+      }
+      @media (max-width: 1000px) {
+        .layout {
+          grid-template-columns: 210px minmax(0, 1fr);
+        }
+        main {
+          padding: 40px 28px;
+        }
+        nav {
+          padding: 25px 18px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 700px) {
+        .layout {
+          display: block;
+        }
+        nav {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        nav ol {
+          columns: 2;
+          margin-bottom: 0;
+        }
+        main {
+          padding: 32px 20px;
+        }
+        h1 {
+          font-size: 48px;
+        }
+        .lead {
+          font-size: 19px;
+        }
+        h2 {
+          font-size: 26px;
+        }
+        section {
+          padding: 36px 0;
+        }
+        .source-list {
+          columns: 1;
+        }
+        th,
+        td {
+          padding: 10px;
+          min-width: 140px;
+        }
+        .bubble {
+          margin-left: 8%;
+        }
+        .mock {
+          padding: 15px;
+        }
+      }
+      @media print {
+        @page {
+          size: A4;
+          margin: 16mm;
+        }
+        body {
+          font-size: 10pt;
+          background: white;
+        }
+        .layout {
+          display: block;
+          max-width: none;
+        }
+        nav,
+        .print-button {
+          display: none;
+        }
+        main {
+          padding: 0;
+        }
+        h1 {
+          font-size: 42pt;
+        }
+        h2 {
+          font-size: 21pt;
+          break-after: avoid;
+        }
+        h3 {
+          break-after: avoid;
+        }
+        .lead {
+          font-size: 14pt;
+        }
+        .hero {
+          padding-bottom: 20px;
+        }
+        section {
+          padding: 25px 0;
+          break-before: auto;
+        }
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .card,
+        .callout,
+        .mock,
+        tr {
+          break-inside: avoid;
+        }
+        table {
+          font-size: 9pt;
+        }
+        .table-wrap {
+          overflow: visible;
+        }
+        .source {
+          font-size: 8pt;
+        }
+        a {
+          color: inherit;
+        }
+        button {
+          display: none;
+        }
+        .source-list {
+          columns: 1;
+        }
+      }
+      /* Shared theme tokens cover the document and every illustrative UI surface. */
+      button {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .ui-recall,
+      .mock {
+        background: var(--figure);
+      }
+      .ui-window,
+      .ui-control,
+      .ui-node,
+      .card,
+      .flow span,
+      .answer,
+      .composer {
+        background: var(--raised);
+      }
+      .ui-line,
+      .ui-screen {
+        background: var(--paper);
+      }
+      .ui-canvas {
+        background: var(--wash);
+      }
+      .bubble,
+      .ui-cta {
+        background: var(--active);
+      }
+      .ui-cta {
+        border-color: var(--strong-line);
+      }
+      .composer {
+        border-color: var(--line);
+      }
+      .ui-control.primary,
+      .pills .send {
+        background: var(--action-bg);
+        border-color: var(--action-bg);
+        color: var(--action-ink);
+      }
+      .ui-control.chosen,
+      .pills .selected {
+        background: var(--selected);
+        border-color: var(--selected-line);
+        color: var(--accent);
+      }
+      .ui-control.inert {
+        background: var(--wash);
+      }
+      .implemented {
+        background: var(--positive-bg);
+        color: var(--green);
+      }
+      .guidance {
+        background: var(--guidance-bg);
+        color: var(--guidance-ink);
+      }
+      .caveat {
+        background: var(--caveat-bg);
+        color: var(--amber);
+      }
+      .chip,
+      .ui-summary {
+        background: var(--reference-bg);
+        color: var(--green);
+      }
+      .ui-summary {
+        border-color: var(--journey);
+      }
+      .ui-alert {
+        background: var(--selected);
+        border-color: var(--accent);
+      }
+      .ui-node {
+        border-top-color: var(--note);
+      }
+      .ui-node.journey {
+        border-top-color: var(--journey);
+      }
+      .ui-node.wireframe {
+        border-top-color: var(--wireframe);
+      }
+      .ui-node.document {
+        border-top-color: var(--document);
+      }
+      .theme-control {
+        margin-top: 20px;
+      }
+      .theme-control label {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+      }
+      .theme-control select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--raised);
+        color: var(--ink);
+        font: inherit;
+      }
+      .theme-control select:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+      @media print {
+        .theme-control {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <nav aria-label="Document contents">
+        <strong>Scapi</strong><small>UX patterns &amp; behavior reference</small>
+        <div class="theme-control">
+          <label for="theme-choice">Appearance</label>
+          <select id="theme-choice">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <ol>
+          <li><a href="#overview">01 · Experience model</a></li>
+          <li><a href="#modes">02 · Ask versus Edit</a></li>
+          <li><a href="#surfaces">03 · Surfaces &amp; entry points</a></li>
+          <li><a href="#composer">04 · Composer behavior</a></li>
+          <li><a href="#scope">05 · Selection &amp; scope</a></li>
+          <li><a href="#ask">06 · Ask journey</a></li>
+          <li><a href="#answers">07 · Answer patterns</a></li>
+          <li><a href="#activity">08 · Activity &amp; streaming</a></li>
+          <li><a href="#research">09 · Research &amp; references</a></li>
+          <li><a href="#handoff">10 · Ask → Edit handoff</a></li>
+          <li><a href="#edit">11 · Edit journey</a></li>
+          <li><a href="#controls">12 · Types &amp; instructions</a></li>
+          <li><a href="#quick">13 · Contextual actions</a></li>
+          <li><a href="#recovery">14 · Stop, Undo &amp; errors</a></li>
+          <li><a href="#memory">15 · Memory &amp; persistence</a></li>
+          <li><a href="#visual">16 · Visual &amp; motion language</a></li>
+          <li><a href="#accessibility">17 · Keyboard &amp; accessibility</a></li>
+          <li><a href="#inventory">18 · Action inventory</a></li>
+          <li><a href="#gaps">19 · Current limitations</a></li>
+          <li><a href="#walkthroughs">20 · Demo walkthroughs</a></li>
+          <li><a href="#sources">21 · Source map &amp; verification</a></li>
+        </ol>
+      </nav>
+      <main>
+        <header class="hero">
+          <div class="eyebrow">Precipice / Product experience</div>
+          <h1>Scapi.<br />The copilot’s UX, in detail.</h1>
+          <p class="lead">
+            How people ask questions, explore their canvas, make changes, follow the work, and stay
+            in control.
+          </p>
+          <p class="meta">
+            Implementation snapshot · 7 October 2026 · Repository revision <code>7dc6f83</code
+            ><br />Audience: product, design, engineering, research, and stakeholders.
+          </p>
+          <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+          <div class="callout">
+            <p>
+              <strong>How to read this document.</strong> This is an inventory of the current
+              implementation, not a future feature specification.
+              <span class="badge implemented">Implemented</span> denotes behavior enforced in code.
+              <span class="badge guidance">Model guidance</span> denotes a requested response style,
+              which is not guaranteed. <span class="badge caveat">Current caveat</span> identifies
+              mismatches or limits visible in the source.
+            </p>
+            <p>
+              Illustrations below are simplified explanatory examples, not product screenshots. No
+              real user content is included. The HTML is self-contained and can be shared or opened
+              offline.
+            </p>
+          </div>
+        </header>
+
+        <section id="overview">
+          <span class="number">01 / EXPERIENCE MODEL</span>
+          <h2>A canvas copilot with two kinds of intent</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Two outputs from one composer</h3>
+            <p class="ui-label">Illustrative UI · fictional content · static examples</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-top"><strong>Ask</strong><span>Understand</span></div>
+                <div class="ui-result-title">Suggestions</div>
+                <p>Add a recovery route after failed verification.</p>
+                <span class="chip">Verify identity</span>
+                <div class="ui-controls">
+                  <span class="ui-control quiet">Copy</span
+                  ><span class="ui-control quiet">Turn into an edit</span>
+                </div>
+              </div>
+              <div class="ui-window">
+                <div class="ui-top"><strong>Edit</strong><span>Change</span></div>
+                <div class="ui-canvas">
+                  <div class="ui-node journey">
+                    <strong>Verify identity</strong>1. Submit details<br />2. Check result
+                  </div>
+                  <div class="ui-link">↓ on failure</div>
+                  <div class="ui-node"><strong>Recovery route</strong>Offer retry and support.</div>
+                </div>
+                <span class="ui-note">The canvas is the generated result.</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Remember:</strong> Ask produces an answer surface; Edit produces document
+              objects. The surrounding controls remain application-owned.
+            </figcaption>
+          </figure>
+          <p>
+            Scapi lives inside Precipice, a visual workspace made of objects and directed
+            relationships. The core experience separates understanding the work from changing the
+            work, while keeping both available through one composer. The canvas remains the working
+            artifact; the conversation helps people interpret or transform it.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <span class="badge implemented">Ask</span>
+              <h3>Understand the canvas</h3>
+              <p>
+                Ask questions, identify gaps, compare objects, find connections, and optionally
+                research the web. Responses appear as text. Ask has no document mutation tools.
+              </p>
+            </div>
+            <div class="card">
+              <span class="badge implemented">Edit</span>
+              <h3>Change the canvas</h3>
+              <p>
+                Describe an outcome. A generator creates, updates, deletes, renames, or connects
+                content as validated actions arrive. The user sees the result on the canvas and a
+                receipt of applied actions.
+              </p>
+            </div>
+          </div>
+          <h3>The recurring UX patterns</h3>
+          <ul>
+            <li>
+              <strong>Explicit intent:</strong> an Ask / Edit segmented control names the
+              consequence before submission.
+            </li>
+            <li>
+              <strong>One draft across surfaces:</strong> the canvas composer and side panel share
+              the same text, mode, and settings.
+            </li>
+            <li>
+              <strong>Results where the request began:</strong> canvas questions receive an inline
+              answer; panel questions receive a transcript; edits materialize on the canvas.
+            </li>
+            <li>
+              <strong>Progressive disclosure:</strong> approach, work details, generation steps, and
+              skipped actions are available without dominating the result.
+            </li>
+            <li>
+              <strong>Contextual assistance:</strong> current objects, selection, relationships, and
+              starter type shape the request.
+            </li>
+            <li>
+              <strong>Reversible execution:</strong> generation changes share a transaction; Stop
+              preserves applied work and Undo can reverse it.
+            </li>
+            <li>
+              <strong>Explicit trust boundaries:</strong> Ask cannot write, selection limits Edit’s
+              targets, and invalid generation actions are rejected.
+            </li>
+          </ul>
+          <p class="source">
+            Evidence: <code>src/app/Editor.tsx</code>, <code>src/ai/Composer.tsx</code>,
+            <code>src/ai/scapi/scapiTools.ts</code>, <code>src/ai/generate.ts</code>.
+          </p>
+        </section>
+
+        <section id="modes">
+          <span class="number">02 / INTENT</span>
+          <h2>Ask versus Edit: the complete contract</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Same draft, different capability</h3>
+            <p class="ui-label">Illustrative composer comparison</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <p>How should we improve this flow?</p>
+                <div class="ui-controls">
+                  <span class="ui-control chosen">Ask</span><span class="ui-control">Edit</span>
+                </div>
+                <div class="ui-controls">
+                  <span class="ui-control">Whole scape ▾</span
+                  ><span class="ui-control">☑ Search web</span
+                  ><span class="ui-control">Model ▾</span
+                  ><span class="ui-control primary">Ask ↑</span>
+                </div>
+                <span class="ui-note">Read and answer. No document write tools.</span>
+              </div>
+              <div class="ui-window">
+                <p>How should we improve this flow?</p>
+                <div class="ui-controls">
+                  <span class="ui-control">Ask</span><span class="ui-control chosen">Edit</span>
+                </div>
+                <div class="ui-controls">
+                  <span class="ui-control">Whole scape ▾</span
+                  ><span class="ui-control">All types ▾</span
+                  ><span class="ui-control">Instructions</span
+                  ><span class="ui-control">Model ▾</span
+                  ><span class="ui-control primary">Edit ↑</span>
+                </div>
+                <span class="ui-note">Apply validated changes as they arrive.</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> a mode switch changes capabilities and relevant controls
+              while preserving the text. The selected segment is softer than the primary action.
+            </figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dimension</th>
+                  <th>Ask</th>
+                  <th>Edit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>User intent</td>
+                  <td>Explain, evaluate, summarize, compare, locate, research.</td>
+                  <td>Create, refine, remove, rename, connect, expand.</td>
+                </tr>
+                <tr>
+                  <td>Default</td>
+                  <td>The editor initializes in Ask.</td>
+                  <td>Chosen explicitly or entered through an edit action.</td>
+                </tr>
+                <tr>
+                  <td>Primary action</td>
+                  <td>“Ask” with upward arrow.</td>
+                  <td>“Edit” with upward arrow.</td>
+                </tr>
+                <tr>
+                  <td>Document impact</td>
+                  <td>No write tools. Reading and answering only.</td>
+                  <td>Validated actions apply immediately, one by one.</td>
+                </tr>
+                <tr>
+                  <td>Controls</td>
+                  <td>Scope, Search web, Model.</td>
+                  <td>Scope, object types, Instructions, Model.</td>
+                </tr>
+                <tr>
+                  <td>Context</td>
+                  <td>
+                    Fresh canvas projection, selected objects, recent complete conversation turns.
+                  </td>
+                  <td>
+                    Current canvas projection, scope, starter constraints, standing instructions.
+                    Normal Edit does not receive Ask history.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Web search</td>
+                  <td>
+                    Enabled by default; user can opt out; account restrictions can disable it.
+                  </td>
+                  <td>No web-search tool in the generation tool set.</td>
+                </tr>
+                <tr>
+                  <td>Progress</td>
+                  <td>Working / Responding disclosure, optional Approach, streaming answer.</td>
+                  <td>
+                    Ribbon with applied actions and action count; canvas changes as work lands.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Completion</td>
+                  <td>Answer, optional references, Copy, latest-turn Retry, Turn into an edit.</td>
+                  <td>
+                    Collapsed action receipt, model identifier, steps, skipped actions, Undo,
+                    Dismiss.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Stop</td>
+                  <td>
+                    Preserves partial answer, labels it “stopped,” excludes it from future model
+                    history.
+                  </td>
+                  <td>
+                    Preserves actions already applied. The partial generation can still be undone.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Review</td>
+                  <td>
+                    No review needed to read. Converting a completed answer into an edit opens a
+                    proposal review.
+                  </td>
+                  <td>Direct Edit has no pre-application diff or approval stage.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Switching modes changes available controls without replacing the draft. Generation-only
+            controls disappear in Ask. The selected mode uses a warm surface, accent text, and a
+            hairline ring; the filled accent remains reserved for the primary action.
+          </p>
+          <div class="callout">
+            <p>
+              <strong>Important distinction:</strong> “Turn into an edit” is an explicit bridge from
+              advisory text to execution. Simply asking “change this” while in Ask does not give the
+              assistant write access.
+            </p>
+          </div>
+          <p class="source">
+            Evidence: <code>Composer.tsx</code>, <code>Editor.tsx</code>,
+            <code>scapiPrompt.ts</code>, <code>tools.ts</code>.
+          </p>
+        </section>
+
+        <section id="surfaces">
+          <span class="number">03 / SPATIAL PATTERNS</span>
+          <h2>Two surfaces, one conversation state</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Compact help → full conversation</h3>
+            <p class="ui-label">Spatial schematic · not a pixel-exact screen</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-top"><strong>Canvas surface</strong><span>Panel closed</span></div>
+                <div class="ui-canvas">
+                  <div class="ui-node"><strong>Onboarding brief</strong>Canvas stays visible.</div>
+                </div>
+                <div class="ui-line" style="margin-top: 12px">
+                  <strong>Scapi</strong> <span class="ui-control quiet">Open in Scapi</span>
+                  <p>Add a recovery route…</p>
+                </div>
+                <div class="ui-controls"><span class="ui-control">Ask about this scape…</span></div>
+              </div>
+              <div class="ui-window">
+                <div class="ui-top">
+                  <strong>Scapi panel</strong><span>Expand · Clear · ×</span>
+                </div>
+                <div class="bubble">What is missing?</div>
+                <div class="answer">
+                  Add a recovery route…
+                  <div class="ui-controls"><span class="chip">Verify identity</span></div>
+                </div>
+                <div class="ui-line">Shared draft and controls</div>
+                <span class="ui-note">The canvas composer is hidden while this panel is open.</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> start near the canvas; open the panel for history, rich
+              answers, and actions. This is a surface change, not a second conversation.
+            </figcaption>
+          </figure>
+          <h3>The canvas composer</h3>
+          <p>
+            A compact launcher sits at the bottom of the canvas. Activating it expands the full
+            composer and focuses the input. The expanded composer and result surfaces have a maximum
+            width of 720px. The canvas bar is hidden while the Scapi panel is open, so the user does
+            not see two simultaneous editors for one draft.
+          </p>
+          <p>
+            Asking from the canvas keeps the panel closed and shows the latest answer above the
+            composer. This preview scrolls within a maximum height of 38vh. “Open in Scapi” reveals
+            the richer transcript. “Dismiss answer” hides this preview without deleting the
+            conversation. Only the latest canvas-origin turn appears here.
+          </p>
+          <p>
+            Editing from the canvas keeps attention on the changed objects. The Ribbon appears above
+            the composer. When generation reaches the done state, the full canvas composer collapses
+            back into its compact launcher.
+          </p>
+          <h3>The Scapi side panel</h3>
+          <p>
+            The panel occupies the right-side region that otherwise hosts the inspector. It contains
+            a header, optional proposal review, scrollable transcript with generation activity, and
+            a fixed composer footer. The transcript is lazy-loaded on demand.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Header action</th>
+                  <th>Behavior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Expand / Narrow</td>
+                  <td>
+                    Switches between <code>min(420px, 65vw)</code> and
+                    <code>min(720px, 92vw)</code>. The wider state makes longer answers easier to
+                    read.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Clear</td>
+                  <td>
+                    Aborts an Ask request and removes Ask transcript and model history. Disabled
+                    when there are no Ask turns. It does not undo canvas edits.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Close</td>
+                  <td>
+                    Hides the panel. A running Ask or Edit continues. Reopening reveals the current
+                    state.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Entry points</h3>
+          <p>
+            The editor exposes Scapi in the top bar, the command palette (“Ask Scapi” / “Close
+            Scapi”), and the keyboard shortcut <kbd>⌘/Ctrl J</kbd>. “Open in Scapi” is the
+            escalation path from a short canvas answer to the full conversation. The command palette
+            can also expand and focus the canvas composer.
+          </p>
+          <p class="source">
+            Evidence: <code>Editor.tsx</code>, including shared state, keyboard handler, canvas
+            answer preview, and right-panel rendering.
+          </p>
+        </section>
+
+        <section id="composer">
+          <span class="number">04 / INPUT</span>
+          <h2>A shared, multiline, mode-aware composer</h2>
+          <div class="mock" aria-label="Illustrative Scapi composer">
+            <div class="mock-label">Illustrative UI · Ask mode</div>
+            <div class="composer">
+              What is missing from this onboarding flow?
+              <div class="pills">
+                <span class="selected">Ask</span><span>Edit</span><span>Selection (2)</span
+                ><span>☑ Search web</span><span>Model ▾</span><span class="send">Ask ↑</span>
+              </div>
+            </div>
+          </div>
+          <ul>
+            <li>
+              <strong>Multiline first:</strong> Enter inserts a newline. Command+Enter or
+              Control+Enter sends. The shortcut hint is shown when space allows.
+            </li>
+            <li>
+              <strong>Auto-growing input:</strong> the text area grows with the draft up to 168px,
+              then scrolls internally.
+            </li>
+            <li>
+              <strong>Focus as a container state:</strong> focusing the input emphasizes the
+              composer border and shadow, rather than drawing a separate inner field.
+            </li>
+            <li>
+              <strong>Submission guard:</strong> a blank or whitespace-only prompt cannot be sent.
+              Requests are trimmed before submission.
+            </li>
+            <li>
+              <strong>Draft continuity:</strong> changing mode or opening/closing the panel
+              preserves the shared draft. In the current editor, the controlled draft is also
+              retained after sending; the generic uncontrolled composer clears its own local value.
+            </li>
+            <li>
+              <strong>Busy state:</strong> Send becomes a neutral square Stop control, with a
+              working indicator. Mode, scope, model, and relevant configuration controls are
+              disabled for the active request.
+            </li>
+            <li>
+              <strong>Follow-up drafting:</strong> while the same mode is working, the text field
+              can remain editable, but submission is blocked. Switching away from the busy mode is
+              disabled through its mode control.
+            </li>
+            <li>
+              <strong>Adaptive placeholder:</strong> Ask about this scape / selection; describe a
+              change to this selection; or the starter-specific Edit prompt.
+            </li>
+          </ul>
+          <h3>Availability and credentials</h3>
+          <figure class="ui-recall">
+            <h3>UI recall · Composer state grammar</h3>
+            <p class="ui-label">Illustrative states</p>
+            <div class="ui-trio">
+              <div class="ui-window">
+                <strong>Ready</strong>
+                <p>Compare these two screens.</p>
+                <span class="ui-control primary">Ask ↑</span
+                ><span class="ui-note">⌘ / Ctrl + Enter sends.</span>
+              </div>
+              <div class="ui-window">
+                <strong>Working</strong>
+                <p>A follow-up can be drafted.</p>
+                <span class="ui-control">▦ working</span> <span class="ui-control">■ Stop</span
+                ><span class="ui-note">Sending is blocked until the active request ends.</span>
+              </div>
+              <div class="ui-window">
+                <strong>Key missing · panel</strong>
+                <p>Add an API key in settings to ask.</p>
+                <span class="ui-control inert">Ask ↑ unavailable</span
+                ><span class="ui-note">The field and submit action are disabled.</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> the action slot communicates readiness. Busy replaces Send
+              with Stop; missing credentials prevent input rather than suggesting a request can run.
+            </figcaption>
+          </figure>
+          <p>
+            The panel’s composer is disabled without a key and says “Add an API key in settings to
+            ask.” The canvas composer can reach the key guard, which reports “No API key” and opens
+            Settings. Normal Ask and Edit submissions are also blocked when the tab does not hold
+            the editing lease—even though Ask itself does not mutate the document.
+          </p>
+          <p class="source">
+            Evidence: <code>Composer.tsx</code>, <code>Editor.tsx</code>. The editor supplies the
+            shared Composer; the simpler fallback composer in <code>ScapiPanel.tsx</code> is not the
+            main editor surface.
+          </p>
+        </section>
+
+        <section id="scope">
+          <span class="number">05 / CONTEXT</span>
+          <h2>Selection provides focus; Edit scope provides a boundary</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Focus versus permission</h3>
+            <p class="ui-label">Illustrative selection-scoped edit</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-controls">
+                  <span class="ui-control chosen">Selection (1) ▾</span>
+                </div>
+                <div class="ui-canvas ui-stack" style="margin-top: 12px">
+                  <div class="ui-node journey ui-selected">
+                    <strong>Verify identity</strong>Selected existing object
+                  </div>
+                  <div class="ui-node">
+                    <strong>Billing</strong>Outside the selected edit target
+                  </div>
+                </div>
+              </div>
+              <div class="ui-window">
+                <strong>Allowed in this Edit run</strong>
+                <p>
+                  ✓ Refine Verify identity<br />✓ Create supporting recovery content<br />✓ Connect
+                  selected and newly created objects
+                </p>
+                <div class="ui-line">Rejected: updating the existing Billing object.</div>
+                <span class="ui-note">New objects and layout changes are still possible.</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Remember:</strong> selection outlines identify context. Edit enforces target
+              restrictions; Ask uses selected objects as a relevance hint and still receives broader
+              canvas context.
+            </figcaption>
+          </figure>
+          <p>
+            When objects are selected, scope defaults to Selection. With no selection, it defaults
+            to Whole scape. A user override is associated with the exact selected IDs; changing the
+            selection recalculates the default. The Selection option includes the current object
+            count and is only offered when something is selected.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <h3>Ask: selection is a relevance hint</h3>
+              <p>
+                At send time, Scapi reads the current canvas and current selection. Selected objects
+                are named in the question context, with guidance to treat the question as about
+                those objects unless the question clearly says otherwise. The full canvas projection
+                is still supplied.
+              </p>
+              <p>
+                No explicit pinning or @mention picker is implemented in the inspected composer. The
+                internal “pinned” field currently captures selection.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Edit: selection restricts action targets</h3>
+              <p>
+                The apply layer permits changes to selected existing objects and objects created
+                during that generation. It rejects updates or deletions targeting other existing
+                objects, connections to outside endpoints, removal of outside relationships, and
+                scape renaming.
+              </p>
+              <p>
+                Creating supporting objects remains allowed. Selection scope is not a promise that
+                object count or global layout will remain unchanged.
+              </p>
+            </div>
+          </div>
+          <div class="callout">
+            <p>
+              <span class="badge caveat">Current caveat</span> Ask’s visible scope control is not
+              passed into <code>useScapi.send</code>. Choosing Whole scape with objects still
+              selected changes the placeholder but does not remove the selection hint from the Ask
+              request. Edit does honor Whole scape in both prompt construction and action
+              enforcement.
+            </p>
+          </div>
+          <h3>Context limits that affect expectations</h3>
+          <p>
+            Ask uses a roughly 12,000-token projection budget. Object bodies are capped at 1,200
+            characters each, with relationships allocated up to 20% of the budget. When content is
+            too large, middle portions can be omitted while retaining both ends. Canvas search
+            returns up to 12 matches; object reads accept up to eight IDs per call.
+          </p>
+          <p>
+            The object-read helper uses the same 1,200-character body renderer. Consequently, the
+            activity phrase “reading … in full” should not be interpreted as a guarantee that
+            arbitrarily long object bodies reach the model. Edit uses a smaller, roughly 4,000-token
+            projection with detail concentrated around selected and nearby objects.
+          </p>
+          <p class="source">
+            Evidence: <code>Editor.tsx</code>, <code>useScapi.ts</code>,
+            <code>scapiPrompt.ts</code>, <code>context.ts</code>, <code>scapiTools.ts</code>,
+            <code>generate.ts</code>.
+          </p>
+        </section>
+
+        <section id="ask">
+          <span class="number">06 / ASK JOURNEY</span>
+          <h2>From an empty conversation to a grounded answer</h2>
+          <div class="flow" aria-label="Ask sequence">
+            <span>Choose context</span><b>→</b><span>Write or choose a question</span><b>→</b
+            ><span>Read / reason / research</span><b>→</b><span>Stream answer</span><b>→</b
+            ><span>Follow up or act</span>
+          </div>
+          <h3>Empty-state invitation</h3>
+          <blockquote>
+            Ask about this scape.<br />Scapi can read every object on the canvas. Ask answers
+            questions without changing your work. Choose Edit to make changes.
+          </blockquote>
+          <p>
+            The empty state provides up to three question suggestions derived from the current
+            document. They are action buttons: clicking one submits that question, rather than only
+            filling the draft.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Canvas condition</th>
+                  <th>Candidate suggestion, in priority order</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>At least one unconnected object</td>
+                  <td>“Which objects aren't connected to anything?”</td>
+                </tr>
+                <tr>
+                  <td>More than one wireframe</td>
+                  <td>“Compare the wireframes and explain the trade-offs.”</td>
+                </tr>
+                <tr>
+                  <td>At least one object</td>
+                  <td>“What's missing from this scape?”</td>
+                </tr>
+                <tr>
+                  <td>Always</td>
+                  <td>“Summarise the flow in five lines.”</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Suggestions are deduplicated and capped at three, so the summary question can be
+            displaced by the more contextual options. If an Edit activity ribbon is present, the
+            standard empty conversation state is suppressed.
+          </p>
+          <h3>Turn anatomy</h3>
+          <p>
+            Each question is a right-aligned bubble capped at 85% of the available width. Beneath
+            it, Scapi may show Approach, working activity, an intent label, the answer card,
+            response actions, references, and an error or stopped state. Not every turn needs every
+            element.
+          </p>
+          <div class="mock">
+            <div class="mock-label">Illustrative turn · Fictional content</div>
+            <div class="bubble">What is missing from this onboarding flow?</div>
+            <p class="fine">Suggestions</p>
+            <div class="answer">
+              <p><strong>Add a recovery path after identity verification fails.</strong></p>
+              <p>
+                <span class="chip">Verify identity</span> leads to success, but the canvas does not
+                show a retry or support route.
+              </p>
+            </div>
+            <div class="mock-actions">Copy &nbsp; Retry &nbsp; Turn into an edit</div>
+          </div>
+          <p class="source">
+            Evidence: <code>suggestions.ts</code>, <code>ScapiPanel.tsx</code>,
+            <code>reducer.ts</code>.
+          </p>
+        </section>
+
+        <section id="answers">
+          <span class="number">07 / RESPONSE DESIGN</span>
+          <h2>The question determines the shape of the answer</h2>
+          <h3>Gen UI pattern · Adaptive content inside fixed components</h3>
+          <p>
+            In Ask, the model generates Markdown content and references. The application supplies
+            the answer card, intent label, table wrapper, object chips, source list, and actions.
+            The label is inferred from the question; it is not a model-generated component
+            specification. This is a constrained, adaptive answer surface, not arbitrary generated
+            HTML or an interactive app embedded in chat.
+          </p>
+          <figure class="ui-recall">
+            <h3>UI recall · Three answer shapes</h3>
+            <p class="ui-label">Illustrative model content inside existing renderers</p>
+            <div class="ui-trio">
+              <div class="ui-window">
+                <div class="ui-result-title">Summary</div>
+                <p><strong>The flow covers success but omits recovery.</strong></p>
+                <ul>
+                  <li>Identity check is central.</li>
+                  <li>Failure has no next step.</li>
+                </ul>
+              </div>
+              <div class="ui-window">
+                <div class="ui-result-title">Comparing</div>
+                <p><strong>Screen B asks for less upfront.</strong></p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Aspect</th>
+                      <th>Comparison</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Effort</td>
+                      <td>A: 5 fields<br />B: 2 fields</td>
+                    </tr>
+                    <tr>
+                      <td>Trade-off</td>
+                      <td>B defers detail.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ui-window">
+                <div class="ui-result-title">Finding</div>
+                <span class="chip">Recovery note</span>
+                <p>This object has no relationships.</p>
+                <div class="ui-line">Clicking the chip selects and focuses its canvas object.</div>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> prose, comparisons, and object references adapt to the
+              question. Copy, Retry, and the Edit handoff remain predictable application controls.
+            </figcaption>
+          </figure>
+          <p>
+            <span class="badge guidance">Model guidance</span> Scapi is prompted to lead with the
+            answer, avoid filler, use sentence case, and prefer short paragraphs or a few complete
+            bullets. Ordinary replies are requested to stay under 120 words unless expansion or
+            troubleshooting is requested. These are writing instructions, not a hard UI validator.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Intent / visible label</th>
+                  <th>Requested response structure</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Summarize / Summary</td>
+                  <td>
+                    One direct sentence plus at most four bullets; group related objects; generally
+                    name no more than three object IDs.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Expand / Expanded</td>
+                  <td>More depth in short, useful headed sections.</td>
+                </tr>
+                <tr>
+                  <td>Simplify / Simplified</td>
+                  <td>Plain words, short sentences, jargon defined in place.</td>
+                </tr>
+                <tr>
+                  <td>Compare / Comparing</td>
+                  <td>
+                    Deciding difference first; a narrow two-column Aspect / Comparison table, or
+                    sections for three or more options.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Troubleshoot / Troubleshooting</td>
+                  <td>
+                    Most likely diagnosis, canvas evidence, smallest ordered resolution steps.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Suggest / Suggestions</td>
+                  <td>
+                    Recommended next move, then up to three prioritized suggestions tied to
+                    evidence.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Locate / Finding</td>
+                  <td>Relevant object IDs first, then a short reason for each.</td>
+                </tr>
+                <tr>
+                  <td>How-to / Working through it</td>
+                  <td>A concise numbered procedure; prerequisites only when material.</td>
+                </tr>
+                <tr>
+                  <td>Research / Researching</td>
+                  <td>
+                    Practical conclusion first, canvas facts distinguished from web findings,
+                    sources in their source block.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Direct / Scapi</td>
+                  <td>One or two sentences; up to three bullets only when useful.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Intent is inferred through ordered keyword rules on the question. It is a presentation
+            hint, not a user-selected response template. A question matching multiple categories
+            receives the first matching category; the body is still freeform Markdown.
+          </p>
+          <h3>Answer rendering</h3>
+          <ul>
+            <li>
+              Markdown paragraphs, headings, lists, emphasis, quotes, links, code, and GFM tables
+              render inside one bordered, raised answer card.
+            </li>
+            <li>
+              Markdown heading levels are normalized to the panel’s hierarchy; they do not become
+              oversized page titles.
+            </li>
+            <li>
+              Tables sit inside a horizontal scroller with “Comparison” and “Scroll sideways to see
+              all columns.” That wrapper appears for any rendered table, not only true comparisons.
+            </li>
+            <li>
+              Existing object IDs in code spans become clickable title chips. Unknown IDs remain
+              styled code.
+            </li>
+            <li>External answer links open in a new tab with <code>noopener noreferrer</code>.</li>
+            <li>
+              Completed Markdown blocks are memoized; the active fragment can update without
+              re-parsing the whole conversation.
+            </li>
+          </ul>
+          <p class="source">
+            Evidence: <code>answerFormat.ts</code>, <code>scapiPrompt.ts</code>,
+            <code>ScapiPanel.tsx</code>, <code>ObjectChip.tsx</code>.
+          </p>
+        </section>
+
+        <section id="activity">
+          <span class="number">08 / WAITING &amp; STREAMING</span>
+          <h2>Make waiting legible, then let the answer take over</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Evidence yields to the answer</h3>
+            <p class="ui-label">Illustrative before / during / complete states</p>
+            <div class="ui-trio">
+              <div class="ui-window">
+                <strong>Before prose</strong>
+                <div class="ui-line" style="margin-top: 10px">
+                  Approach −
+                  <p>Compare the two screens’ required steps.</p>
+                </div>
+                <div class="ui-line" style="margin-top: 10px">
+                  Working… −
+                  <p>✓ reading the canvas: 6 objects<br />▦ reading 2 objects in full</p>
+                </div>
+              </div>
+              <div class="ui-window">
+                <strong>Answer begins</strong>
+                <div class="ui-line" style="margin-top: 10px">Approach +</div>
+                <div class="ui-line" style="margin-top: 10px">Responding +</div>
+                <p>Screen B reduces the initial…</p>
+                <span class="ui-note">The answer becomes the main reading surface.</span>
+              </div>
+              <div class="ui-window">
+                <strong>Complete</strong><span class="ui-note">2 objects read</span>
+                <div class="answer">
+                  Screen B reduces the initial effort by deferring optional details.
+                </div>
+                <span class="ui-control quiet">Copy</span
+                ><span class="ui-control quiet">Retry</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> expandable evidence supports waiting; automatic collapse
+              supports reading. The finished work trail becomes a compact summary, not a permanent
+              expanded log.
+            </figcaption>
+          </figure>
+          <h3>Approach and Working are separate disclosures</h3>
+          <p>
+            Approach contains provider-supplied summarized reasoning when it exists. Working
+            contains an activity trail, its current step, and any available research references.
+            Both initially expand before answer text appears and automatically collapse when the
+            answer begins. The user can reopen them.
+          </p>
+          <p>
+            The working header changes from “Working…” to “Responding” once body text exists.
+            Completed activity rows have checkmarks; the current row uses a 3×3 dot matrix. Before
+            an activity exists, the label is “connecting.” After 700ms without a body or
+            activity-length change, the label becomes “preparing the next part.” That timer
+            indicates a pause in visible updates, not a measured backend phase.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity supported by the view</th>
+                  <th>Visible copy / source status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Canvas projection</td>
+                  <td>“reading the canvas: N objects”; emitted before the provider request.</td>
+                </tr>
+                <tr>
+                  <td>Reasoning begins</td>
+                  <td>“thinking it through”; emitted on the first reasoning delta.</td>
+                </tr>
+                <tr>
+                  <td>Canvas search</td>
+                  <td>“searching the canvas for ‘query’”; emitted by the read tool.</td>
+                </tr>
+                <tr>
+                  <td>Object read</td>
+                  <td>
+                    “reading N objects in full”; emitted by the read tool, subject to body
+                    truncation.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Writing begins</td>
+                  <td>“writing the answer”; emitted on the first text delta.</td>
+                </tr>
+                <tr>
+                  <td>Web search / source count</td>
+                  <td>
+                    UI supports search-query and “read N sources” events, but the inspected Ask
+                    stream adapter does not emit these event kinds. URL sources are handled
+                    separately.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Calm streaming</h3>
+          <p>
+            Incoming text is buffered and painted in readable pieces using animation frames. The
+            implementation uses a 50ms minimum-paint interval in its buffering logic, a
+            120-character buffering threshold, and a 56-character per-paint target for suitable
+            plain-text runs. These are heuristics, not a fixed-speed typewriter.
+          </p>
+          <p>
+            Incomplete links, inline code, fences, emphasis, and trailing table runs can be held
+            until stable. Completion and Stop flush buffered content. A final cleanup removes some
+            dangling emphasis and empty bullet syntax. Large unfinished Markdown structures can
+            therefore delay visible text even while output is arriving.
+          </p>
+          <h3>Reading position belongs to the user</h3>
+          <p>
+            The transcript follows growth while the user is within 32px of the bottom. Scrolling
+            upward stops automatic following. “Jump to latest” appears above the composer inside the
+            transcript region; activating it returns to the bottom and resumes following. Browser
+            scroll anchoring is disabled to avoid competing with this behavior.
+          </p>
+          <p>
+            After completion, meaningful activity becomes a compact summary such as canvas searches
+            or objects read. A routine canvas-read-and-answer turn shows no extra summary. The live
+            working disclosure is replaced; its full trail is not retained as a browsable finished
+            disclosure.
+          </p>
+          <p class="source">
+            Evidence: <code>ScapiPanel.tsx</code>, <code>useScapi.ts</code>, <code>ask.ts</code>,
+            <code>DotMatrix.tsx</code>.
+          </p>
+        </section>
+
+        <section id="research">
+          <span class="number">09 / EVIDENCE</span>
+          <h2>Connect answers to objects and external sources</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Two kinds of reference</h3>
+            <p class="ui-label">Illustrative evidence anatomy · source title is fictional</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-result-title">Canvas reference</div>
+                <p><span class="chip">Verify identity</span> has no failure route.</p>
+                <div class="ui-line">Chip → select object → focus canvas</div>
+                <span class="ui-note"
+                  >An internal reference helps the user inspect local evidence.</span
+                >
+              </div>
+              <div class="ui-window">
+                <div class="ui-result-title">Sources</div>
+                <div class="ui-line">
+                  1 &nbsp; Designing account recovery<br /><span class="ui-note">example.org</span>
+                </div>
+                <div class="ui-line" style="margin-top: 10px">
+                  Source link → external browser tab
+                </div>
+                <span class="ui-note"
+                  >No source preview or citation-hover card is implemented.</span
+                >
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> an object chip navigates the workspace; a source entry
+              navigates outside it. They use different visual forms because they have different
+              destinations.
+            </figcaption>
+          </figure>
+          <h3>Object references are navigation</h3>
+          <p>
+            An object chip shows a colored dot for its type and the object’s current title,
+            truncated when needed. Its tooltip includes title and ID. Clicking clears edge
+            selection, selects the referenced object, and asks the canvas to focus it. It does not
+            automatically close the conversation or edit the object.
+          </p>
+          <h3>Web search is optional</h3>
+          <p>
+            Search web is initially on. Ask can use the provider’s web search tool, with a maximum
+            of three uses in an Ask run. The full Ask loop is limited to six model steps. Enabling
+            search allows research; it does not guarantee that every question will trigger a search.
+          </p>
+          <p>
+            If an error is classified as web search being unavailable, Scapi retries without search
+            and disables the toggle for the current hook session. The main shared composer explains
+            the unavailable state in the control’s tooltip. The simpler fallback composer has a
+            fuller message directing users to the Anthropic Console; that message is not rendered by
+            the main editor’s injected composer.
+          </p>
+          <h3>Sources arrive independently of prose</h3>
+          <p>
+            URL source events are deduplicated by source ID. While working, sources can appear under
+            Research before answer prose exists. Once an answer has finished and has a body, Sources
+            appears below the actions. Each entry has a number, title, and hostname, and opens
+            externally. There is no source-preview panel or citation-hover interaction in this
+            implementation.
+          </p>
+          <div class="callout">
+            <p>
+              <strong>Trust pattern:</strong> Ask tools can search and read, but cannot call the
+              document mutation path. Canvas data is framed as untrusted reference material in the
+              prompt. This protects the document from direct Ask-side writes; it does not guarantee
+              factual accuracy.
+            </p>
+          </div>
+          <p class="source">
+            Evidence: <code>ObjectChip.tsx</code>, <code>Editor.tsx</code>, <code>ask.ts</code>,
+            <code>scapiTools.ts</code>, <code>ScapiPanel.tsx</code>.
+          </p>
+        </section>
+
+        <section id="handoff">
+          <span class="number">10 / TRANSITION TO ACTION</span>
+          <h2>“Turn into an edit” creates a reviewable proposal</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · The permission boundary is visible</h3>
+            <p class="ui-label">Illustrative staged proposal</p>
+            <div class="ui-window">
+              <div class="ui-top"><strong>Review before editing</strong><span>Scapi</span></div>
+              <div class="ui-line">
+                Add a recovery note after Verify identity and connect it with a failure
+                relationship.
+              </div>
+              <p>
+                This edit can change the whole scape. The generator will interpret the proposal
+                above. You can undo the result.
+              </p>
+              <div class="ui-controls">
+                <span class="ui-control primary">Apply proposed edit</span
+                ><span class="ui-control quiet">Cancel</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> a completed answer becomes staged prose before it becomes
+              canvas actions. This panel is a review surface, not an exact diff or an editable
+              generated form.
+            </figcaption>
+          </figure>
+          <div class="flow">
+            <span>Completed Ask answer</span><b>→</b><span>Turn into an edit</span><b>→</b
+            ><span>Review before editing</span><b>→</b><span>Apply proposed edit</span><b>→</b
+            ><span>Live generation + Undo</span>
+          </div>
+          <ol>
+            <li>
+              <strong>Choose an answer.</strong> A completed Ask turn with a body offers “Turn into
+              an edit.” Cancelled or errored turns do not offer it.
+            </li>
+            <li>
+              <strong>Stage the proposal.</strong> The editor combines the original question and
+              complete answer into a generator request. No canvas mutation happens at this point.
+            </li>
+            <li>
+              <strong>Review in place.</strong> A region above the transcript says “Review before
+              editing,” shows the answer text in a scrollable area, and describes the current scope.
+            </li>
+            <li>
+              <strong>Understand interpretation.</strong> The copy explicitly states: “The generator
+              will interpret the proposal above. You can undo the result.” This is prose review, not
+              an exact action diff.
+            </li>
+            <li>
+              <strong>Apply or cancel.</strong> Apply validates the lease and key, clears the
+              proposal, switches into the Edit execution path, and shows the generation Ribbon.
+              Cancel only drops the staged proposal.
+            </li>
+          </ol>
+          <p>
+            Changing selection or scope invalidates the staged proposal, preventing an old proposal
+            from remaining staged under a changed target scope. Applying is disabled during an Ask
+            or Edit stream and in a read-only tab.
+          </p>
+          <p>
+            The staged text is not itself an editable proposal field. To alter its substance, the
+            user can ask a follow-up or compose a different Edit request. The generator also
+            receives the current model choice, allowed types, scope, and standing instructions.
+          </p>
+          <p class="source">
+            Evidence: <code>Editor.tsx</code> proposal state, selection/scope effect, review region,
+            and <code>onTurnIntoEdit</code>; <code>ScapiPanel.tsx</code> response actions.
+          </p>
+        </section>
+
+        <section id="edit">
+          <span class="number">11 / EXECUTION</span>
+          <h2>Edit makes its result visible as it happens</h2>
+          <h3>Gen UI pattern · Structured objects rendered by the product</h3>
+          <p>
+            Edit generates typed object data through a fixed tool vocabulary. Registered renderers
+            turn that data into native canvas cards. The model chooses content and supported
+            structure; the application owns component code, validation, editing controls, and canvas
+            layout. Generated objects remain ordinary document content that people can inspect and
+            refine.
+          </p>
+          <figure class="ui-recall">
+            <h3>UI recall · The generated canvas vocabulary</h3>
+            <p class="ui-label">Illustrative object bodies · fictional onboarding example</p>
+            <div class="ui-pair">
+              <div class="ui-node">
+                <span class="ui-type">Note · concise content</span
+                ><strong>Recovery principle</strong>
+                <p>Keep entered details when verification fails. Explain how to retry.</p>
+              </div>
+              <div class="ui-node journey">
+                <span class="ui-type">Journey · ordered steps</span><strong>Recover access</strong>
+                <p>1. Identify the issue<br /><small>Explain what failed.</small></p>
+                <p>2. Retry verification<br /><small>Preserve earlier input.</small></p>
+              </div>
+              <div class="ui-node document">
+                <span class="ui-type">Scape block · longer document</span
+                ><strong>Recovery brief</strong>
+                <p><b>Goal</b><br />Make failure recoverable.</p>
+                <p><b>Acceptance criteria</b><br />Retry is visible and support is reachable.</p>
+              </div>
+              <div class="ui-node wireframe">
+                <span class="ui-type">Wireframe · screen composition</span
+                ><strong>Retry verification</strong>
+                <div class="ui-screen">
+                  <div class="ui-type">Recovery</div>
+                  <b>Check your details</b>
+                  <div class="ui-field">Email address</div>
+                  <div class="ui-field">Verification code</div>
+                  <div class="ui-cta">Try again</div>
+                </div>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> choose a representation suited to the information: note for
+              an idea, journey for sequence, document for depth, wireframe for a screen. These are
+              illustrations of existing object types, not new UI templates.
+            </figcaption>
+          </figure>
+          <h3>Generated wireframes: bounded visual composition</h3>
+          <p>
+            Wireframes are low-fidelity screen representations built from 13 supported primitives:
+            section, heading, text, box, image, avatar, input, button, checkbox, toggle, badge,
+            list, and divider. They use a 4-, 6-, or 12-column grid, defaulting to 12. Primitives
+            can carry labels, spans, alignment, and applicable size hints; section headers span the
+            full row.
+          </p>
+          <p>
+            Labels make the screen meaningful at a glance. Missing text can render as placeholder
+            bars; images are placeholder graphics. Input, button, checkbox, and toggle shapes are
+            presentational elements inside the wireframe, not working form controls. Scapi does not
+            generate executable screen behavior, arbitrary components, or deployed applications
+            through this path.
+          </p>
+          <p>
+            People can refine the generated wireframe through its inspector, including content
+            primitives and layout settings. A generated note exposes editable title/body fields, a
+            journey shows step labels and details, and a document block separates selecting the card
+            from entering text editing. This keeps the AI result connected to the product’s normal
+            editing model.
+          </p>
+          <p class="source">
+            Additional Gen UI evidence: <code>src/objects/wireframe/schema.ts</code>,
+            <code>src/objects/wireframe/Body.tsx</code>,
+            <code>src/objects/wireframe/Inspector.tsx</code>, and <code>Body.tsx</code> in the note,
+            journey, and scape object folders.
+          </p>
+          <p>
+            Direct Edit submission begins execution immediately. Model tool calls are validated,
+            applied to the document, and announced one at a time. There is no “accept all” stage at
+            the end. The same transaction ID groups the generation’s actions for Undo.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Capability</th>
+                  <th>User-visible result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Create object</td>
+                  <td>
+                    Adds a supported object with title, body data, optional tags and accent. The
+                    engine assigns layout.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Update object</td>
+                  <td>
+                    Changes supplied fields such as title, data, tags, or accent. Empty tags/accent
+                    can clear those marks.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Delete object</td>
+                  <td>Removes the object and its attached relationships.</td>
+                </tr>
+                <tr>
+                  <td>Connect objects</td>
+                  <td>
+                    Creates a directed relationship between existing endpoints, optionally labeled.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Disconnect objects</td>
+                  <td>Removes a relationship by ID.</td>
+                </tr>
+                <tr>
+                  <td>Rename scape</td>
+                  <td>Changes the document title, subject to scope rules.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            There is no generator MoveObject tool and no coordinate input on CreateObject. Layout is
+            an application responsibility. Once objects have been created, layout can run every
+            third applied action and again at completion.
+          </p>
+          <h3>The generation Ribbon</h3>
+          <figure class="ui-recall">
+            <h3>UI recall · Live work becomes a receipt</h3>
+            <p class="ui-label">Illustrative generation states</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-top">
+                  <strong>During generation</strong><span>Live actions</span>
+                </div>
+                <p>Added note: Recovery route<br />Added journey: Retry verification</p>
+                <div class="ui-top">
+                  <span>▦ 2 actions</span><span class="ui-control">Stop</span>
+                </div>
+              </div>
+              <div class="ui-window">
+                <div class="ui-top">
+                  <strong>After generation</strong><span>Collapsed receipt</span>
+                </div>
+                <p>▸ 3 changes applied · model ID · <span class="ui-control quiet">undo</span> ×</p>
+                <div class="ui-line">Optional: 1 skipped → action name and rejection reason</div>
+                <span class="ui-note">The step list is available on expansion.</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> show what landed, then compress the history. The receipt
+              explains the canvas changes and keeps reversal close to the result.
+            </figcaption>
+          </figure>
+          <ul>
+            <li>
+              <strong>Before the first action:</strong> a dot matrix accompanies time-based phrases:
+              “Reading the scape…”, “Planning the shape…”, “Writing objects…”, advancing every 2.6
+              seconds. These are waiting copy, not provider-reported milestones.
+            </li>
+            <li>
+              <strong>During generation:</strong> an ordered, auto-scrolling list shows applied
+              actions, capped at 132px tall, with action count, optional skipped count, and Stop.
+            </li>
+            <li>
+              <strong>Friendly receipts:</strong> creation can read “Added note: …”; a title update
+              can read “Renamed block to …”. Other actions may retain an action-name prefix.
+            </li>
+            <li>
+              <strong>After completion:</strong> a single action can use its descriptive line;
+              multiple actions show “N changes applied.” Expandable steps, model ID, skipped
+              details, Undo, and Dismiss remain available.
+            </li>
+            <li>
+              <strong>Skipped actions:</strong> a bounded, scrollable panel gives tool name, short
+              subject if available, and rejection reason. It does not dump the raw action payload
+              into the UI.
+            </li>
+          </ul>
+          <p>
+            In the side panel, the current Ribbon is appended after the Ask turns and scrolls with
+            the transcript. It is not a persisted Edit message per generation: a later generation
+            replaces the current generation state.
+          </p>
+          <p class="source">
+            Evidence: <code>tools.ts</code>, <code>generate.ts</code>,
+            <code>useGeneration.ts</code>, <code>Ribbon.tsx</code>, <code>Editor.tsx</code>.
+          </p>
+        </section>
+
+        <section id="controls">
+          <span class="number">12 / CONFIGURATION</span>
+          <h2>Constraints are close to the prompt, details stay tucked away</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Pills summarize, popovers explain</h3>
+            <p class="ui-label">Static illustration of existing expanded controls</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-top"><strong>Object types</strong><span>Note + Journey</span></div>
+                <p>☑ Note<br />☑ Journey<br />☐ Wireframe<br />☐ Scape</p>
+                <span class="ui-note"
+                  >Choices depend on the current starter. The label summarizes the constraint.</span
+                >
+              </div>
+              <div class="ui-window">
+                <div class="ui-top"><strong>● Instructions</strong><span>Scape-specific</span></div>
+                <p>How AI should work in this scape</p>
+                <div class="ui-field">Keep notes to three bullets. Lead with the risk.</div>
+                <span class="ui-note"
+                  >Applied to every generation here, and saved with the scape.</span
+                >
+                <div class="ui-controls">
+                  <span>Your settings instructions also apply.</span
+                  ><span class="ui-control quiet">Edit those</span>
+                </div>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> compact controls expose active constraints without expanding
+              the whole configuration. The instruction draft commits on click-away; Escape abandons
+              it.
+            </figcaption>
+          </figure>
+          <h3>Object-type picker</h3>
+          <p>
+            Edit exposes a pill whose label summarizes the permitted creation types. The menu uses
+            checkboxes and filters its choices through the current starter. An unconstrained generic
+            canvas shows “All types”; a constrained starter shows its actual available type names. A
+            partial selection uses joined type names.
+          </p>
+          <p>
+            Internally, an empty selection means all available types. Turning on all types, or
+            unticking the last type, returns to that unconstrained state. The menu closes on outside
+            click or Escape. Excluded creation types are rejected at the apply layer as well as
+            discouraged by the prompt.
+          </p>
+          <h3>Standing instructions</h3>
+          <p>
+            Edit’s Instructions pill opens a popover titled “How AI should work in this scape.” An
+            accent dot signals nonempty scape instructions. The field includes an example about
+            British English, short notes, and leading with risk. A remaining-character counter
+            appears only in the final quarter of the limit.
+          </p>
+          <ul>
+            <li>
+              Clicking away or closing with the pill commits the draft as one document change.
+            </li>
+            <li>Escape abandons the draft.</li>
+            <li>Saving or clearing produces a confirmation toast.</li>
+            <li>
+              Scape instructions are saved with the document and travel with its exported document
+              content.
+            </li>
+            <li>
+              Global instructions come from Settings. The popover indicates whether they exist and
+              offers “Edit those,” which commits the local draft and opens Settings.
+            </li>
+            <li>
+              The generation hook applies both global and scape instructions to normal generation
+              and connection generation.
+            </li>
+          </ul>
+          <p>
+            <span class="badge caveat">Current boundary</span> These standing instructions are
+            generation inputs. Ask hides the Instructions control and does not add these instruction
+            fields to its system prompt.
+          </p>
+          <h3>Model selection</h3>
+          <p>
+            The same model preference is shared by Ask and Edit and disabled during the active
+            request. The repository’s catalog at this revision labels its options Sonnet 5, Sonnet
+            5.5, Opus 5, and Opus 5.5, defaulting to the first. This documents local UI
+            configuration; it does not verify external availability, pricing, or model claims in
+            catalog hints.
+          </p>
+          <p class="source">
+            Evidence: <code>Composer.tsx</code>, <code>Instructions.tsx</code>,
+            <code>useGeneration.ts</code>, <code>models.ts</code>, <code>Editor.tsx</code>.
+          </p>
+        </section>
+
+        <section id="quick">
+          <span class="number">13 / CONTEXTUAL ACCELERATORS</span>
+          <h2>Small actions translate selection into an immediate request</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Action chips beside the compact composer</h3>
+            <p class="ui-label">Illustrative selection context</p>
+            <div class="ui-window">
+              <div class="ui-controls">
+                <span class="ui-control">Ask about this selection…</span
+                ><span class="ui-control">Connect these</span><span class="ui-control">Expand</span>
+              </div>
+              <div class="ui-pair" style="margin-top: 14px">
+                <div class="ui-line">
+                  <strong>Connect these</strong><br />Relationship tools only; may connect to the
+                  rest of the scape.
+                </div>
+                <div class="ui-line">
+                  <strong>Expand</strong><br />Normal Edit request for detail and supporting
+                  connections.
+                </div>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> a short action label stands in for a longer, predefined
+              prompt. These actions execute; they are not passive recommendations.
+            </figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Intent and implementation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Connect this / Connect these</td>
+                  <td>
+                    Available beside the compact canvas composer when objects are selected and Edit
+                    is not streaming. Requests connections between those objects and the rest of the
+                    scape.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Expand</td>
+                  <td>
+                    Submits a predefined Edit brief asking for missing detail and connections around
+                    the selected object(s). Uses the normal Edit path and current scope.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Connect loose objects</td>
+                  <td>
+                    The outline can invoke connection generation for supplied IDs. The generator
+                    prioritizes relationships missing from the graph.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Connection generation exposes only ConnectObjects and DisconnectObjects. It cannot
+            create, rename, update, or delete objects. It runs with Whole scape scope so it can
+            connect selected objects to the broader graph. It requires at least two objects in the
+            document; otherwise it reports “Not enough to connect” and asks the user to add another
+            object.
+          </p>
+          <p>
+            Despite the language of “suggest” in some paths, connection generation applies
+            relationships live. It is not an uncommitted proposal list. Its output shares one undo
+            transaction.
+          </p>
+          <p class="source">
+            Evidence: <code>Editor.tsx</code> contextual actions and outline callback,
+            <code>useGeneration.ts</code> connect, <code>tools.ts</code>, <code>prompt.ts</code>.
+          </p>
+        </section>
+
+        <section id="recovery">
+          <span class="number">14 / CONTROL &amp; RECOVERY</span>
+          <h2>Stop, hide, dismiss, clear, and undo are different actions</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Preserve work and explain recovery</h3>
+            <p class="ui-label">Illustrative outcomes</p>
+            <div class="ui-trio">
+              <div class="ui-window">
+                <strong>Ask stopped</strong>
+                <div class="answer">The flow is missing a recovery path after…</div>
+                <span class="ui-note">stopped</span><span class="ui-control quiet">Copy</span
+                ><span class="ui-control quiet">Retry</span>
+              </div>
+              <div class="ui-window">
+                <strong>Edit stopped</strong>
+                <div class="ui-node" style="margin-top: 10px">
+                  <strong>Recovery route</strong>Already-added content stays.
+                </div>
+                <p>▸ 1 change · model ID · <span class="ui-control quiet">undo</span></p>
+                <span class="ui-note">Stop does not revert.</span>
+              </div>
+              <div class="ui-window">
+                <strong>Ask error before text</strong>
+                <div class="ui-alert" style="margin-top: 10px">
+                  <strong>Could not reach Anthropic</strong>
+                  <p>Check your connection and try again.</p>
+                </div>
+                <span class="ui-note"
+                  >Current caveat: no body means no response-action row or Retry button.</span
+                >
+              </div>
+            </div>
+            <figcaption>
+              <strong>Remember:</strong> Stop controls future work; Undo reverses applied work. An
+              error explains failure but does not automatically discard partial results.
+            </figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>What changes</th>
+                  <th>What remains</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Stop Ask</td>
+                  <td>Aborts the stream; flushes buffered output; marks the turn cancelled.</td>
+                  <td>
+                    Partial answer stays visible with “stopped.” It is not added to model history.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Stop Edit</td>
+                  <td>Aborts remaining generation.</td>
+                  <td>
+                    Already-applied changes stay and remain grouped for Undo. The Ribbon uses the
+                    done presentation, not a special stopped label.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Close Scapi</td>
+                  <td>Hides the panel.</td>
+                  <td>Requests keep running; draft and conversation state remain.</td>
+                </tr>
+                <tr>
+                  <td>Dismiss answer</td>
+                  <td>Hides the latest canvas answer preview.</td>
+                  <td>The Ask turn remains in the panel transcript.</td>
+                </tr>
+                <tr>
+                  <td>Dismiss Ribbon</td>
+                  <td>Clears the current generation UI state.</td>
+                  <td>Applied document changes remain.</td>
+                </tr>
+                <tr>
+                  <td>Clear</td>
+                  <td>Aborts Ask and removes transcript and model context.</td>
+                  <td>Canvas content and generation changes remain.</td>
+                </tr>
+                <tr>
+                  <td>Undo generation</td>
+                  <td>
+                    Reverses the generation if its transaction is still at the top of the undo
+                    stack.
+                  </td>
+                  <td>
+                    If later work exists, nothing is reversed and the app explains that something
+                    else changed.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Answer actions</h3>
+          <p>
+            Copy writes the raw Markdown body to the clipboard, then shows “Copied” for 1.4 seconds.
+            Clipboard failure leaves the button unchanged. Retry is wired only to the latest
+            non-streaming turn and replaces that display turn with a fresh request for the same
+            question. It reads the current canvas, selection, model, and search state again.
+          </p>
+          <p>
+            The response-action row is nested under a nonempty body. A failed response with no body
+            therefore has an error card but no visible Retry button. A completed turn’s provider
+            history is not removed when Retry replaces its display card, so the previous successful
+            exchange can still be part of model context.
+          </p>
+          <h3>Error vocabulary</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Failure</th>
+                  <th>Message / next step</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Missing key</td>
+                  <td>“No API key” · Add an Anthropic API key in settings.</td>
+                </tr>
+                <tr>
+                  <td>Authentication</td>
+                  <td>“Scapi could not connect” · Check the API key.</td>
+                </tr>
+                <tr>
+                  <td>Rate limit</td>
+                  <td>“Scapi is temporarily busy” · Wait a moment and retry.</td>
+                </tr>
+                <tr>
+                  <td>Unavailable model</td>
+                  <td>“Model unavailable” · Choose a supported model.</td>
+                </tr>
+                <tr>
+                  <td>Provider overload</td>
+                  <td>“Scapi is temporarily busy” · Try again in a few seconds.</td>
+                </tr>
+                <tr>
+                  <td>Network</td>
+                  <td>“Could not reach Anthropic” · Check the connection.</td>
+                </tr>
+                <tr>
+                  <td>Unknown provider failure</td>
+                  <td>“Something went wrong” · Response could not complete; try again.</td>
+                </tr>
+                <tr>
+                  <td>Ask could not initialize</td>
+                  <td>
+                    “Scapi could not start” · Last-resort startup failure path can display the
+                    caught error detail.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Ask errors use an inline alert, preserving any partial text. Generation errors use a
+            failed Ribbon with Dismiss. Partially applied edits are not rolled back automatically;
+            the error Ribbon does not expose its own Undo control, so standard document Undo is the
+            available recovery path.
+          </p>
+          <p>
+            A rejected internal provider tool history can trigger one retry with fresh model
+            context, provided no answer text has appeared. The visible transcript is retained, but
+            no dedicated history-reset notice is surfaced for this recovery.
+          </p>
+          <p class="source">
+            Evidence: <code>useScapi.ts</code>, <code>reducer.ts</code>,
+            <code>ScapiPanel.tsx</code>, <code>useGeneration.ts</code>, <code>Ribbon.tsx</code>,
+            <code>provider.ts</code>, <code>ask.ts</code>.
+          </p>
+        </section>
+
+        <section id="memory">
+          <span class="number">15 / CONTINUITY</span>
+          <h2>Visible history and model memory are deliberately different</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · A restored transcript needs an explicit boundary</h3>
+            <p class="ui-label">Illustrative panel after reload</p>
+            <div class="ui-window">
+              <div class="ui-line">
+                Earlier answers are shown for reference. This conversation starts fresh from here.
+              </div>
+              <div class="answer">
+                <span class="ui-note">Earlier answer</span>
+                <p>Add a recovery route after verification fails.</p>
+              </div>
+              <div class="ui-controls"><span class="ui-control">Ask about this scape…</span></div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> preserved content is visually available while the notice
+              resets expectations about conversational memory. Old cards do not mean the model
+              remembers them.
+            </figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Lifetime and consequence</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Ask display transcript</td>
+                  <td>
+                    Stored per scape in tab session storage. Up to the last 10 turns are persisted.
+                    Streaming turns are filtered out when restoring.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Provider conversation history</td>
+                  <td>
+                    Memory only. The last six complete exchanges are sent on follow-up requests.
+                    Questions and provider replies are kept together.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Cancelled / errored turns</td>
+                  <td>Can remain visible, but are excluded from completed model history.</td>
+                </tr>
+                <tr>
+                  <td>Restored answers</td>
+                  <td>
+                    Shown with: “Earlier answers are shown for reference. This conversation starts
+                    fresh from here.” They do not recreate provider context.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Canvas snapshot</td>
+                  <td>
+                    Rebuilt at the start of every Ask. The prompt declares the current canvas
+                    authoritative over older conversation content.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Draft, mode, panel width</td>
+                  <td>
+                    Shared in editor component state. They survive surface switching, not a
+                    guaranteed full reload.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Search toggle / availability</td>
+                  <td>
+                    Hook state. Initially enabled / unknown; not persisted as transcript data.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Generation receipt</td>
+                  <td>
+                    Current hook state, replaced by later generations or Dismiss; not a durable
+                    multi-generation conversation log.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Storage failures do not block the live conversation. When saving hits quota, the
+            implementation retries with fewer turns. The former Scapey storage key is migrated to
+            the Scapi key when present.
+          </p>
+          <h3>Data and credential expectations</h3>
+          <p>
+            Local-first document storage does not mean AI runs locally. Ask and Edit send projected
+            canvas content to the configured Anthropic model. In the browser, requests use the app’s
+            proxy transport; desktop requests go directly to Anthropic. Browser credentials are
+            session-scoped; desktop credential support can use macOS Keychain. Web research is
+            provider-hosted when enabled.
+          </p>
+          <p>
+            The transcript uses tab-session storage, not a cross-device chat account. Do not
+            describe it as permanent chat history or imply that reloading preserves conversational
+            understanding.
+          </p>
+          <p class="source">
+            Evidence: <code>useScapi.ts</code>, <code>types.ts</code>, <code>ask.ts</code>,
+            <code>scapiPrompt.ts</code>, <code>provider.ts</code>,
+            <code>src/persistence/settings.ts</code>, <code>docs/security-and-local-data.md</code>.
+          </p>
+        </section>
+
+        <section id="visual">
+          <span class="number">16 / VISUAL LANGUAGE</span>
+          <h2>Quiet surfaces, a clear primary action, and compact evidence</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · Visual hierarchy at a glance</h3>
+            <p class="ui-label">Illustrative component grammar</p>
+            <div class="ui-pair">
+              <div class="ui-window">
+                <div class="ui-controls">
+                  <span class="ui-control primary">Ask ↑</span
+                  ><span class="ui-control chosen">Ask selected</span
+                  ><span class="ui-control">■ Stop</span>
+                </div>
+                <p>
+                  <span class="ui-swatch" style="background: var(--action-bg)"></span>Primary
+                  action<br /><span class="ui-swatch" style="background: var(--selected)"></span
+                  >Selection<br /><span class="ui-swatch" style="background: var(--wash)"></span
+                  >Quiet supporting surface
+                </p>
+              </div>
+              <div class="ui-window">
+                <div class="ui-result-title">Suggestions · intent label</div>
+                <p>
+                  <strong>Add the missing recovery path.</strong><br />Answer text carries the main
+                  reading weight.
+                </p>
+                <span class="chip">Verify identity</span
+                ><span class="ui-note">2 objects read · compact evidence</span>
+              </div>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> action emphasis, selection emphasis, and informational
+              emphasis are distinct. Color supports text and shape rather than replacing them.
+            </figcaption>
+          </figure>
+          <ul>
+            <li>
+              <strong>Warm neutrals:</strong> the product token system uses an ash palette, with
+              layered surface, raised, and inset backgrounds. Hairline borders separate regions
+              without heavy framing.
+            </li>
+            <li>
+              <strong>Orange as action emphasis:</strong> the primary Ask/Edit button uses the
+              strong accent. Selected mode is a softer treatment. Stop is neutral.
+            </li>
+            <li>
+              <strong>Rounded hierarchy:</strong> pill controls for compact settings, a large
+              rounded composer, smaller rounded disclosures, and a raised answer card.
+            </li>
+            <li>
+              <strong>Typography by job:</strong> readable sans-serif for answers and prompts;
+              monospace styling for activity, counts, and compact metadata. The app’s base text
+              token, not a separate chat typography system, drives answer text.
+            </li>
+            <li>
+              <strong>Object colors carry type:</strong> note, journey, wireframe, and scape chips
+              inherit type hues, connecting conversational references to the canvas vocabulary.
+            </li>
+            <li>
+              <strong>Bounded density:</strong> tables, proposal text, activity lists, and long
+              inputs scroll within their own regions rather than forcing unrestricted page growth.
+            </li>
+          </ul>
+          <h3>Existing motion behaviors</h3>
+          <p>
+            Product components use brief color/focus transitions, a width transition for the side
+            region, grid-row and opacity transitions for disclosures, entry animation on suggestions
+            and Ribbon lines, and a small dot-wave indicator. These emphasize state changes and
+            ongoing work. The global reduced-motion rule reduces animation and transition duration
+            to 1ms and limits animation iteration.
+          </p>
+          <p>
+            The dot matrix is accompanied by textual activity where supplied; users do not need to
+            infer progress from the animation. Closing a disclosure reduces visual prominence while
+            preserving access to its content.
+          </p>
+          <p class="source">
+            Evidence: <code>src/design/tokens.css</code>, <code>Composer.tsx</code>,
+            <code>ScapiPanel.tsx</code>, <code>Ribbon.tsx</code>, <code>DotMatrix.tsx</code>,
+            <code>Editor.tsx</code>. This document describes existing motion; it does not add
+            product animation.
+          </p>
+        </section>
+
+        <section id="accessibility">
+          <span class="number">17 / ACCESSIBILITY</span>
+          <h2>Keyboard paths and semantic state</h2>
+          <figure class="ui-recall">
+            <h3>UI recall · The key sequence to remember</h3>
+            <p class="ui-label">Keyboard mnemonic · not a simulated interactive control</p>
+            <div class="ui-window">
+              <div class="ui-keypath">
+                <kbd>⌘ / Ctrl J</kbd><span>Open Scapi →</span><span>Write a question →</span
+                ><kbd>⌘ / Ctrl Enter</kbd><span>Send</span>
+              </div>
+              <div class="ui-line" style="margin-top: 14px">Enter alone = new line</div>
+              <p class="ui-note">
+                Working status is announced politely. Icon actions have names; mode selection and
+                disclosure state are exposed semantically.
+              </p>
+            </div>
+            <figcaption>
+              <strong>Pattern:</strong> multiline entry is the safe default. Submission uses an
+              explicit modifier shortcut.
+            </figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Input</th>
+                  <th>Behavior / qualification</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Enter in composer</td>
+                  <td>Insert a newline.</td>
+                </tr>
+                <tr>
+                  <td>⌘ / Ctrl + Enter</td>
+                  <td>Submit when the composer can send.</td>
+                </tr>
+                <tr>
+                  <td>⌘ / Ctrl + J</td>
+                  <td>Toggle Scapi, including when focus is in an input.</td>
+                </tr>
+                <tr>
+                  <td>⌘ / Ctrl + K</td>
+                  <td>Open the command palette.</td>
+                </tr>
+                <tr>
+                  <td>Escape</td>
+                  <td>
+                    Close Scapi when the global handler is not inside an editable field.
+                    Instructions uses Escape to discard its local draft; type picker uses it to
+                    close.
+                  </td>
+                </tr>
+                <tr>
+                  <td>⌘ / Ctrl + Z</td>
+                  <td>Document Undo outside editable fields, unless the tab is read-only.</td>
+                </tr>
+                <tr>
+                  <td>⌘ / Ctrl + Shift + Z</td>
+                  <td>Document Redo under the same conditions.</td>
+                </tr>
+                <tr>
+                  <td>?</td>
+                  <td>Open the shortcut reference outside editable fields.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The mode control uses a labeled group and <code>aria-pressed</code>. Disclosures expose
+            <code>aria-expanded</code>. Icon actions have accessible names. The transcript has a
+            visually hidden, polite, atomic live region that announces major status changes rather
+            than every text token. Errors use an alert role. The proposal review is a labeled
+            region.
+          </p>
+          <p>
+            <span class="badge caveat">Review needed</span> The inspected Scapi panel does not
+            implement a dedicated focus trap or explicit focus-return contract on close. The stopped
+            state’s visible text is clearer than its generic live-status fallback. Source handling,
+            horizontal table access, focus order, and small-screen behavior deserve interactive
+            accessibility testing before claiming conformance.
+          </p>
+          <p class="source">
+            Evidence: <code>Editor.tsx</code> keyboard handler, <code>Composer.tsx</code>,
+            <code>ScapiPanel.tsx</code>, <code>Instructions.tsx</code>.
+          </p>
+        </section>
+
+        <section id="inventory">
+          <span class="number">18 / ACTION REFERENCE</span>
+          <h2>Everything a user can do in the copilot surfaces</h2>
+          <div class="table-wrap">
+            <table class="action-index">
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Availability</th>
+                  <th>Effect</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Open composer</td>
+                  <td>Compact canvas launcher / command</td>
+                  <td>Expands and focuses the prompt.</td>
+                </tr>
+                <tr>
+                  <td>Open / close Scapi</td>
+                  <td>Top bar, command, shortcut, close button</td>
+                  <td>Toggles the panel without cancelling work.</td>
+                </tr>
+                <tr>
+                  <td>Expand / Narrow</td>
+                  <td>Panel header</td>
+                  <td>Changes reading width.</td>
+                </tr>
+                <tr>
+                  <td>Choose Ask / Edit</td>
+                  <td>Shared composer, when not busy</td>
+                  <td>Changes intent, controls, placeholder, and primary label.</td>
+                </tr>
+                <tr>
+                  <td>Choose scope</td>
+                  <td>Shared composer</td>
+                  <td>Whole scape or selection; actual Ask and Edit semantics differ.</td>
+                </tr>
+                <tr>
+                  <td>Choose model</td>
+                  <td>Shared composer, when not busy</td>
+                  <td>Changes model for subsequent requests.</td>
+                </tr>
+                <tr>
+                  <td>Toggle Search web</td>
+                  <td>Ask, if available and not busy</td>
+                  <td>Allows or removes web-search capability.</td>
+                </tr>
+                <tr>
+                  <td>Choose object types</td>
+                  <td>Edit</td>
+                  <td>Restricts types that can be created.</td>
+                </tr>
+                <tr>
+                  <td>Edit instructions</td>
+                  <td>Edit</td>
+                  <td>Stages and commits scape instructions; links to global Settings.</td>
+                </tr>
+                <tr>
+                  <td>Submit prompt</td>
+                  <td>Nonempty enabled composer</td>
+                  <td>Starts Ask or live Edit.</td>
+                </tr>
+                <tr>
+                  <td>Choose suggested question</td>
+                  <td>Empty Ask panel</td>
+                  <td>Immediately asks the contextual question.</td>
+                </tr>
+                <tr>
+                  <td>Stop</td>
+                  <td>Active request</td>
+                  <td>Aborts future output; preserves received text or applied changes.</td>
+                </tr>
+                <tr>
+                  <td>Expand Approach / Working</td>
+                  <td>When available</td>
+                  <td>Reveals summarized reasoning or activity evidence.</td>
+                </tr>
+                <tr>
+                  <td>Jump to latest</td>
+                  <td>Transcript scrolled away, with turns</td>
+                  <td>Returns to bottom and resumes following.</td>
+                </tr>
+                <tr>
+                  <td>Click object reference</td>
+                  <td>Known object ID in answer code</td>
+                  <td>Selects and focuses the object.</td>
+                </tr>
+                <tr>
+                  <td>Open source / answer link</td>
+                  <td>Rendered link</td>
+                  <td>Opens an external tab.</td>
+                </tr>
+                <tr>
+                  <td>Copy</td>
+                  <td>Non-streaming answer with body</td>
+                  <td>Copies Markdown, briefly confirms.</td>
+                </tr>
+                <tr>
+                  <td>Retry</td>
+                  <td>Latest non-streaming answer with body</td>
+                  <td>Replaces the display turn and asks again using current context.</td>
+                </tr>
+                <tr>
+                  <td>Turn into an edit</td>
+                  <td>Completed answer with body</td>
+                  <td>Stages a proposal for review.</td>
+                </tr>
+                <tr>
+                  <td>Apply / Cancel proposal</td>
+                  <td>Review region</td>
+                  <td>Starts interpreted generation or discards proposal.</td>
+                </tr>
+                <tr>
+                  <td>Show generation steps</td>
+                  <td>Completed Ribbon with action lines</td>
+                  <td>Reveals the receipt of applied actions.</td>
+                </tr>
+                <tr>
+                  <td>Inspect skipped actions</td>
+                  <td>Completed Ribbon with skips</td>
+                  <td>Shows subjects and validation reasons.</td>
+                </tr>
+                <tr>
+                  <td>Undo generation</td>
+                  <td>Completed Ribbon</td>
+                  <td>Reverses it if still the newest undo transaction.</td>
+                </tr>
+                <tr>
+                  <td>Dismiss Ribbon</td>
+                  <td>Done / error Ribbon</td>
+                  <td>Removes activity UI without reverting document content.</td>
+                </tr>
+                <tr>
+                  <td>Dismiss answer preview</td>
+                  <td>Canvas answer</td>
+                  <td>Hides preview only.</td>
+                </tr>
+                <tr>
+                  <td>Clear conversation</td>
+                  <td>Panel with Ask turns</td>
+                  <td>Aborts Ask and clears its visible and model histories.</td>
+                </tr>
+                <tr>
+                  <td>Connect / Expand selection</td>
+                  <td>Compact composer’s contextual actions</td>
+                  <td>Starts a constrained connection run or a predefined Edit request.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="gaps">
+          <span class="number">19 / IMPLEMENTATION REALITY</span>
+          <h2>Limits to communicate accurately</h2>
+          <div class="callout">
+            <p>
+              <strong>Gen UI boundary:</strong> Ask renders generated content inside fixed answer
+              components. Edit renders validated object data through registered canvas components.
+              Neither path currently produces arbitrary executable UI, custom chat widgets, live
+              generated forms, or a runnable application from a wireframe.
+            </p>
+          </div>
+          <p>
+            These are observations from the implementation, not proposed features or a ranked defect
+            backlog. They prevent the intended UX from being mistaken for guarantees that the code
+            does not currently make.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Current reality / implication</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Ask scope</td>
+                  <td>
+                    Whole scape does not suppress selected-object hints. Do not present Ask scope as
+                    a strict read boundary.
+                  </td>
+                </tr>
+                <tr>
+                  <td>“Read in full”</td>
+                  <td>
+                    Object tool output remains capped at 1,200 body characters. Long-document
+                    completeness is not guaranteed.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Read-only tab</td>
+                  <td>
+                    Normal Ask is gated by the editing lease. Being read-only at the capability
+                    level does not mean it is available in a follower tab.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Selection side effects</td>
+                  <td>
+                    New objects are permitted; layout can reflow the canvas. Deleting a selected
+                    object also removes attached relationships, including relationships reaching
+                    outside selection.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Draft after send</td>
+                  <td>
+                    The editor retains the controlled draft. Do not demonstrate automatic draft
+                    clearing as a current behavior.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Canvas answer richness</td>
+                  <td>
+                    The inline preview is plain preformatted text. It does not render Markdown,
+                    sources, object chips, error details, Copy, or Retry; open Scapi for those.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Empty-body failure</td>
+                  <td>
+                    No response-action row means no Retry button on an answer that failed before
+                    producing body text.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Research trail</td>
+                  <td>
+                    The view supports web-query activity, but the stream adapter does not currently
+                    emit it. Sources can still arrive.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Search unavailable guidance</td>
+                  <td>
+                    The main composer offers a disabled toggle and tooltip; the fuller Console
+                    instruction belongs to the fallback composer.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Concurrency coverage</td>
+                  <td>
+                    Main Ask/Edit submission paths prevent overlap. The connection shortcut uses a
+                    separate path without the same Ask-streaming guard, so universal mutual
+                    exclusion should not be claimed.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Review fidelity</td>
+                  <td>
+                    Proposal review shows prose, not exact structured changes. The generator
+                    interprets it on Apply.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Edit transcript</td>
+                  <td>
+                    Only current generation activity is held. There is no durable sequence of Edit
+                    turns interleaved with Ask history.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Failure after partial Edit</td>
+                  <td>
+                    Changes remain, but the error Ribbon only exposes Dismiss. Standard Undo is
+                    needed.
+                  </td>
+                </tr>
+                <tr>
+                  <td>History recovery</td>
+                  <td>
+                    Automatic provider-history reset does not announce loss of model context. Reload
+                    does show a restored-history notice.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Answer sizing</td>
+                  <td>
+                    Format-specific token preferences are all raised to at least 1,024 tokens for
+                    adaptive thinking. Shortness is chiefly prompt guidance, not a strict
+                    short-answer output cap.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Missing interaction families</td>
+                  <td>
+                    No implemented @mention selector, attachment upload, per-turn question editor,
+                    answer rating, chat-history browser, source preview, or exact Edit diff in these
+                    copilot surfaces.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="source">
+            Evidence: cross-check of rendered editor paths against <code>useScapi.ts</code>,
+            <code>ask.ts</code>, <code>context.ts</code>, <code>answerFormat.ts</code>,
+            <code>generate.ts</code>, and <code>Ribbon.tsx</code>.
+          </p>
+        </section>
+
+        <section id="walkthroughs">
+          <span class="number">20 / SHOWING THE EXPERIENCE</span>
+          <h2>Five walkthroughs for a product review</h2>
+          <p>
+            Use a fictional canvas with two wireframes, several journey steps, and at least one
+            unconnected note. Live answers and exact generated objects will vary with the model.
+          </p>
+          <h3>1. Understand before acting</h3>
+          <ol>
+            <li>Open Scapi and choose a canvas-derived suggestion about missing content.</li>
+            <li>Observe the question bubble, initial work state, and optional Approach.</li>
+            <li>Read the recommendation and click an object reference to locate its evidence.</li>
+            <li>Confirm the canvas content has not been edited.</li>
+          </ol>
+          <h3>2. Move from advice to an edit</h3>
+          <ol>
+            <li>On a completed answer, select Turn into an edit.</li>
+            <li>Review the proposal and scope copy.</li>
+            <li>Apply it and watch the canvas changes and Ribbon.</li>
+            <li>
+              Expand the receipt, then Undo while that generation is still the latest transaction.
+            </li>
+          </ol>
+          <h3>3. Make a focused direct edit</h3>
+          <ol>
+            <li>Select an object and open the canvas composer.</li>
+            <li>Choose Edit and confirm Selection scope.</li>
+            <li>Ask for a title refinement or extra supporting detail.</li>
+            <li>
+              Inspect the changed object and any new supporting objects; explain that selection
+              scope permits additions.
+            </li>
+          </ol>
+          <h3>4. Retain control during a longer answer</h3>
+          <ol>
+            <li>Ask for a detailed comparison.</li>
+            <li>Scroll upward while output is arriving; the transcript should stop following.</li>
+            <li>Use Jump to latest to rejoin the stream.</li>
+            <li>
+              Close and reopen Scapi to demonstrate that visibility and cancellation are separate.
+            </li>
+            <li>Stop if still running, and show the preserved partial answer.</li>
+          </ol>
+          <h3>5. Explain continuity honestly</h3>
+          <ol>
+            <li>Complete an Ask exchange and ask a follow-up in the same session.</li>
+            <li>Reload the editor and reopen Scapi.</li>
+            <li>Point out the earlier answers and the “starts fresh” notice.</li>
+            <li>
+              Start a new question that states the necessary context rather than relying on restored
+              model memory.
+            </li>
+          </ol>
+          <div class="callout">
+            <p>
+              <strong>Demo hygiene:</strong> use fictional data and an isolated library. Do not
+              imply that model wording, source availability, progress timing, or exact generated
+              changes are deterministic. The examples in this document are explanatory, not captured
+              production results.
+            </p>
+          </div>
+        </section>
+
+        <section id="sources">
+          <span class="number">21 / EVIDENCE &amp; MAINTENANCE</span>
+          <h2>Where these behaviors live</h2>
+          <p>
+            The UI recall figures are static, simplified illustrations based on these components.
+            Their example copy is fictional. They are not screenshots, interactive replicas, or
+            claims that exact model output is deterministic.
+          </p>
+          <p>
+            For the generated-object examples, see
+            <a href="../src/objects/wireframe/schema.ts">wireframe primitives and schema</a>,
+            <a href="../src/objects/wireframe/Body.tsx">wireframe rendering</a>,
+            <a href="../src/objects/wireframe/Inspector.tsx">wireframe editing</a>,
+            <a href="../src/objects/note/Body.tsx">note rendering</a>,
+            <a href="../src/objects/journey/Body.tsx">journey rendering</a>, and
+            <a href="../src/objects/scape/Body.tsx">document block rendering</a>.
+          </p>
+          <p>
+            The behavior inventory was assembled from the working source at revision
+            <code>7dc6f83</code>. Rendered paths and request wiring take precedence over historical
+            comments. Relative links below work when this HTML remains in the repository’s
+            <code>docs</code> directory; the document itself needs no repository access to read.
+          </p>
+          <ol class="source-list">
+            <li>
+              <a href="../src/app/Editor.tsx">Editor.tsx</a><br />Surfaces, shared state, modes,
+              scope, proposal review, shortcuts, lease/key gates.
+            </li>
+            <li>
+              <a href="../src/ai/Composer.tsx">Composer.tsx</a><br />Input, settings pills, mode
+              control, busy state, submission.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/ScapiPanel.tsx">ScapiPanel.tsx</a><br />Transcript,
+              disclosures, actions, sources, scroll behavior, Markdown.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/useScapi.ts">useScapi.ts</a><br />Ask lifecycle, streaming
+              buffer, retry, cancellation, session storage.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/ask.ts">ask.ts</a><br />Provider stream, tools, search
+              fallback, history recovery.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/scapiPrompt.ts">scapiPrompt.ts</a><br />Read-only identity,
+              context framing, answer guidance.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/scapiTools.ts">scapiTools.ts</a><br />Canvas search and
+              object reads.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/answerFormat.ts">answerFormat.ts</a><br />Intent labels,
+              response guidance, output budget.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/suggestions.ts">suggestions.ts</a><br />Contextual
+              empty-state questions.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/ObjectChip.tsx">ObjectChip.tsx</a><br />Object reference
+              presentation.
+            </li>
+            <li>
+              <a href="../src/ai/scapi/reducer.ts">reducer.ts</a> /
+              <a href="../src/ai/scapi/types.ts">types.ts</a><br />Turn statuses and display/model
+              representations.
+            </li>
+            <li>
+              <a href="../src/ai/context.ts">context.ts</a><br />Canvas projections, budgets,
+              object-body truncation.
+            </li>
+            <li>
+              <a href="../src/ai/generate.ts">generate.ts</a><br />Action validation, scope
+              enforcement, execution, layout.
+            </li>
+            <li>
+              <a href="../src/ai/useGeneration.ts">useGeneration.ts</a><br />Generation lifecycle,
+              connection action, Undo.
+            </li>
+            <li>
+              <a href="../src/ai/Ribbon.tsx">Ribbon.tsx</a><br />Progress, receipts, skipped
+              actions, errors.
+            </li>
+            <li>
+              <a href="../src/ai/tools.ts">tools.ts</a> / <a href="../src/ai/prompt.ts">prompt.ts</a
+              ><br />Generation capabilities and writing constraints.
+            </li>
+            <li>
+              <a href="../src/ai/Instructions.tsx">Instructions.tsx</a><br />Instruction editing and
+              commit/cancel contract.
+            </li>
+            <li>
+              <a href="../src/ai/provider.ts">provider.ts</a> /
+              <a href="../src/ai/models.ts">models.ts</a><br />Configured transport, error copy,
+              model menu.
+            </li>
+            <li>
+              <a href="../src/ai/DotMatrix.tsx">DotMatrix.tsx</a> /
+              <a href="../src/design/tokens.css">tokens.css</a><br />Waiting indicator, visual
+              tokens, reduced motion.
+            </li>
+            <li>
+              <a href="security-and-local-data.md">Security and local data</a><br />Product data and
+              credential boundaries.
+            </li>
+          </ol>
+          <h3>Existing automated coverage consulted</h3>
+          <p>
+            The repository includes Scapi tests for read-only tools, canvas projection, selection
+            framing, source deduplication, turn states, provider-history integrity, storage
+            restoration and migration, cancellation, Markdown buffering, intent hints, contextual
+            suggestions, and panel rendering. These provide useful evidence of intended invariants;
+            they do not establish real-provider answer quality or complete browser accessibility.
+          </p>
+          <p class="fine">
+            Maintenance rule: update this document when changing mode contracts, scope enforcement,
+            transcript persistence, proposal review, provider activity events, composer state, or
+            generation recovery. Avoid copying an aspirational comment into a shipped-behavior claim
+            without following its actual call path.
+          </p>
+        </section>
+        <footer>
+          Scapi · UX patterns &amp; behavior reference · Precipice<br />Prepared from implementation
+          evidence. Self-contained HTML, responsive reading layout, and print styling.
+        </footer>
+      </main>
+    </div>
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const choice = document.getElementById("theme-choice");
+        const system = window.matchMedia("(prefers-color-scheme: dark)");
+        choice.value = root.dataset.themePreference || "system";
+        const apply = () => {
+          root.dataset.themePreference = choice.value;
+          root.dataset.theme =
+            choice.value === "system" ? (system.matches ? "dark" : "light") : choice.value;
+        };
+        choice.addEventListener("change", () => {
+          apply();
+          try {
+            localStorage.setItem("scapi-ux-theme", choice.value);
+          } catch {}
+        });
+        system.addEventListener("change", apply);
+      })();
+    </script>
+  </body>
+</html>

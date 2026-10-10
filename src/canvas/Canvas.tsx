@@ -597,12 +597,7 @@ function CanvasSurface({
       const quickType = { n: "note", j: "journey", w: "wireframe", s: "scape" }[
         event.key.toLowerCase()
       ];
-      if (
-        !readOnly &&
-        !meta &&
-        quickType &&
-        (starter.types.length === 0 || starter.types.includes(quickType))
-      ) {
+      if (!readOnly && !meta && quickType) {
         event.preventDefault();
         addObject(quickType);
         return;
@@ -709,7 +704,6 @@ function CanvasSurface({
       resetZoom,
       selectedEdgeId,
       setSelection,
-      starter.types,
     ],
   );
 
@@ -843,7 +837,7 @@ function CanvasSurface({
         <AddPalette
           x={addMenu.screenX}
           y={addMenu.screenY}
-          availableTypes={starter.types}
+          availableTypes={[]}
           connectingFrom={addMenu.from}
           onPick={(type) => {
             createAt(type, { x: addMenu.flowX, y: addMenu.flowY }, addMenu.from);

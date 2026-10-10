@@ -1,9 +1,16 @@
+import type { RefObject } from "react";
 import { Composer } from "@/ai/Composer";
 import { STARTERS, getStarter } from "@/starters";
 import { useAppSettings } from "../useAppSettings";
+import { StarterMark } from "./StarterMark";
 
-export const HOME_BUTTON =
-  "rounded-md border border-subtle bg-surface px-3 py-2 text-sm text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover active:bg-selected disabled:opacity-50 disabled:cursor-wait";
+/**
+ * Where a new scape starts: one question, one prompt, one row of templates.
+ *
+ * Everything else a template decides — the blocks it focuses on, its layout, what an empty start
+ * holds — is on the Templates page. Home shows only what is needed to begin, so the first glance
+ * has one obvious thing to do.
+ */
 export function CreationPanel({
   firstUse,
   starterId,
@@ -13,6 +20,7 @@ export function CreationPanel({
   busy,
   onCreate,
   onSettings,
+  inputRef,
 }: {
   firstUse: boolean;
   starterId: string;
@@ -22,85 +30,115 @@ export function CreationPanel({
   busy: boolean;
   onCreate: (prompt: string | null) => void;
   onSettings: () => void;
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { apiKey, modelId, setModelId, types, setTypes } = useAppSettings();
   const starter = getStarter(starterId);
+  const hasKey = !!apiKey.trim();
+
+  // Arrow keys move between templates, as in any radio group; Tab leaves the group in one stop.
+  const onTemplateKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const index = STARTERS.findIndex((s) => s.id === starterId);
+    const next = STARTERS[(index + step + STARTERS.length) % STARTERS.length];
+    onStarterChange(next.id);
+    event.currentTarget.querySelector<HTMLElement>(`[data-starter="${next.id}"]`)?.focus();
+  };
+
   return (
-    <section
-      aria-label="Create a scape"
-      className={`rounded-xl border border-subtle bg-surface p-4 ${firstUse ? "sm:p-5" : ""}`}
-    >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-fg">Start something new</h2>
-        <span className="text-xs text-fg-tertiary">
-          {apiKey.trim() ? (
-            "API key configured"
-          ) : (
+    <section aria-labelledby="create-heading" className="mx-auto w-full max-w-3xl">
+      <h1 id="create-heading" className="text-center font-pixel text-2xl text-fg sm:text-3xl">
+        What are you working on?
+      </h1>
+      {firstUse && (
+        <p className="mx-auto mt-3 max-w-xl text-center text-base text-fg-secondary">
+          Describe an idea and Precipice drafts it as connected notes, journeys, screens and
+          documents on one canvas. Everything stays editable, and saved on this device.
+        </p>
+      )}
+
+      <div className="mt-6">
+        <Composer
+          inputRef={inputRef}
+          value={draft}
+          onValueChange={onDraftChange}
+          onSend={onCreate}
+          onCancel={() => {}}
+          busy={false}
+          disabled={busy}
+          sendLabel={busy ? "Creating…" : "Generate"}
+          modelId={modelId}
+          onModelChange={setModelId}
+          scope="scape"
+          onScopeChange={() => {}}
+          types={types}
+          onTypesChange={setTypes}
+          selectionCount={0}
+          placeholder={starter.placeholder}
+          controls={{ scope: false, types: false }}
+        />
+      </div>
+
+      <div
+        role="radiogroup"
+        aria-label="Template"
+        onKeyDown={onTemplateKey}
+        className="mt-4 flex flex-wrap justify-center gap-2"
+      >
+        {STARTERS.map((item) => {
+          const active = starterId === item.id;
+          return (
             <button
               type="button"
-              onClick={onSettings}
-              className="text-fg-accent underline underline-offset-4"
+              key={item.id}
+              data-starter={item.id}
+              role="radio"
+              aria-checked={active}
+              tabIndex={active ? 0 : -1}
+              disabled={busy}
+              title={item.blurb}
+              onClick={() => onStarterChange(item.id)}
+              className={
+                "inline-flex items-center gap-2 rounded-full border py-1.5 pl-2.5 pr-3.5 text-sm transition-colors duration-fast ease-out disabled:cursor-wait " +
+                (active
+                  ? "border-focus bg-selected text-fg"
+                  : "border-subtle bg-surface text-fg-secondary hover:border-default hover:text-fg")
+              }
             >
-              Add API key to generate
+              <StarterMark starter={item} active={active} />
+              {item.label}
             </button>
-          )}
-        </span>
+          );
+        })}
       </div>
-      <div
-        className={
-          firstUse ? "mb-4 grid grid-cols-2 gap-2 lg:grid-cols-5" : "mb-3 flex flex-wrap gap-2"
-        }
-        role="group"
-        aria-label="Starting shape"
-      >
-        {STARTERS.map((item) => (
+
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-fg-tertiary">
+        {!draft.trim() && (
           <button
             type="button"
-            key={item.id}
             disabled={busy}
-            aria-pressed={starterId === item.id}
-            onClick={() => onStarterChange(item.id)}
-            className={`${HOME_BUTTON} text-left ${starterId === item.id ? "border-focus bg-selected text-fg" : ""}`}
+            onClick={() => onDraftChange(starter.example)}
+            className="hover:text-fg"
           >
-            <span className="block">{item.label}</span>
-            {firstUse && (
-              <span className="mt-2 block text-xs font-normal leading-5 text-fg-tertiary">
-                {item.blurb}
-              </span>
-            )}
+            Try an example
           </button>
-        ))}
-      </div>
-      {!firstUse && <p className="sr-only">{starter.blurb}</p>}
-      <Composer
-        value={draft}
-        onValueChange={onDraftChange}
-        onSend={onCreate}
-        onCancel={() => {}}
-        busy={false}
-        disabled={busy}
-        sendLabel={busy ? "Creating…" : "Generate"}
-        modelId={modelId}
-        onModelChange={setModelId}
-        scope="scape"
-        onScopeChange={() => {}}
-        types={types}
-        onTypesChange={setTypes}
-        availableTypes={starter.types}
-        selectionCount={0}
-        placeholder={starter.placeholder}
-        controls={{ scope: false, types: false }}
-      />
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-fg-tertiary">{starter.blurb}</p>
+        )}
         <button
           type="button"
           disabled={busy}
           onClick={() => onCreate(null)}
-          className={HOME_BUTTON}
+          title={`Starts with ${starter.startsWith.toLowerCase()}`}
+          className="hover:text-fg"
         >
-          Create without AI <span aria-hidden>↗</span>
+          Start empty
         </button>
+        {!hasKey && (
+          <button type="button" onClick={onSettings} className="text-fg-accent hover:underline">
+            Add API key to generate
+          </button>
+        )}
       </div>
     </section>
   );

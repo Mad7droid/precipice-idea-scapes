@@ -5,11 +5,36 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
-Changes merged after the latest dated entry should be added here before or with
-the change to `main`. Move the entry to a dated section when a release or public
-milestone is published.
+No pending changes.
+
+## 2026-10-10 — 0.1.5
+
+Released to the hosted app, MCP connector, and local Mac installation. See the
+[release record](docs/releases/0.1.5.md) for verification and client acceptance status.
 
 ### Added
+
+- MCP flow previews: inspect connected flows, journey steps, notes, and wireframe screens
+  inside supported Claude and ChatGPT chats before creating them. Confirm or discard the exact
+  draft from chat without another model call. Explicitly share a read-only hosted preview and
+  copy iframe code before adding the flow to the local library; shared previews can be withdrawn.
+
+- Home: a sidebar (Home, Templates, Published, Agents, Instructions, plus Import, Back up
+  library, Settings and Help) and a prompt-first home with one question, one composer and one
+  row of templates. Templates explains what each template creates; Published lists live and
+  reserved links with copy, view and manage; Agents and Instructions are full pages.
+- Library: pinned scapes sort first, filters show counts, list/gallery toggle, `/` to search,
+  grouped card menus and template-aware empty thumbnails. "Export library" is now
+  "Back up library".
+- Templates replace the old starters: Blank, Product concept, User journey, Screen flow and
+  Research synthesis. Mind map scapes open as Research synthesis and Product brief scapes as
+  Product concept.
+
+### Changed
+
+- A template no longer locks which blocks a scape can hold. Every scape can add notes,
+  journeys, wireframes and documents from the palette, shortcuts and composer; the template
+  only focuses what AI drafts when no types are picked.
 
 - Model picker: Claude Sonnet 5.5 and Claude Opus 5.5. The default stays Sonnet 5.
 - Settings → Agents: hosted OAuth connector with the publishing invite gate, browser/desktop
@@ -21,6 +46,13 @@ milestone is published.
   protect the hosted connector.
 
 ### Fixed
+
+- Chat previews disable cancelled drafts and clear withdrawn links when refreshing status.
+- macOS bundles explicitly use ad-hoc signing and must pass full signature verification before
+  installation or artifact upload. This fixes an unsealed bundle with only a linker-signed executable.
+- Mac installation permits idle MCP stdio helpers while protecting a running editor.
+- Deployment checks the release version and verifies the live bundle, iframe route policies,
+  OAuth metadata, and unavailable public snapshots after deployment.
 
 - Published share links use the hosted Pages viewer even when copied from the Mac app;
   existing publications no longer receive a `tauri://localhost` share address.

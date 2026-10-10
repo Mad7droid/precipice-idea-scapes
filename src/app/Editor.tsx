@@ -223,15 +223,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const starter = starterFor(scape);
 
   /**
-   * What this generation may create: the starter's constraint, narrowed by the user's own
-   * pick. A mind map cannot be talked into a wireframe by unticking a box.
+   * What this generation may create. A starter steers, it never locks: an explicit pick in the
+   * composer wins outright, and the starter's focus applies only when nothing is picked.
    */
-  const allowedTypes = useMemo(() => {
-    if (starter.types.length === 0) return types;
-    if (types.length === 0) return starter.types;
-    const narrowed = types.filter((t) => starter.types.includes(t));
-    return narrowed.length > 0 ? narrowed : starter.types;
-  }, [starter.types, types]);
+  const allowedTypes = useMemo(
+    () => (types.length > 0 ? types : starter.types),
+    [starter.types, types],
+  );
 
   /** Enter / double-click on a node land here — the inspector is already open via selection,
    * so the useful thing left to do is jump focus straight into its first editable field. */
@@ -581,19 +579,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
     : [
         // Registry-driven, so a new object type reaches the palette by existing rather than by
         // being remembered here.
-        ...allPlugins()
-          .filter(
-            (candidate) => starter.types.length === 0 || starter.types.includes(candidate.type),
-          )
-          .map((candidate) => ({
-            id: `add-${candidate.type}`,
-            label: `Add ${candidate.label.toLowerCase()}`,
-            hint: "Create at canvas centre",
-            ...(BLOCK_SHORTCUTS[candidate.type]
-              ? { shortcut: BLOCK_SHORTCUTS[candidate.type] }
-              : {}),
-            run: () => commands.current?.addObject(candidate.type),
-          })),
+        ...allPlugins().map((candidate) => ({
+          id: `add-${candidate.type}`,
+          label: `Add ${candidate.label.toLowerCase()}`,
+          hint: "Create at canvas centre",
+          ...(BLOCK_SHORTCUTS[candidate.type] ? { shortcut: BLOCK_SHORTCUTS[candidate.type] } : {}),
+          run: () => commands.current?.addObject(candidate.type),
+        })),
         {
           id: "tidy",
           label: "Tidy layout",
@@ -677,10 +669,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
               onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
             />
             {!leftPanelCollapsed && !readOnly && (
-              <BlockNav
-                availableTypes={starter.types}
-                onAdd={(type) => commands.current?.addObject(type)}
-              />
+              <BlockNav availableTypes={[]} onAdd={(type) => commands.current?.addObject(type)} />
             )}
           </div>
           {!leftPanelCollapsed && (
@@ -798,7 +787,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   onScopeChange={setScope}
                   types={types}
                   onTypesChange={setTypes}
-                  availableTypes={starter.types}
+                  availableTypes={[]}
                   selectionCount={selection.length}
                   inputRef={composerInput}
                   placeholder={composerPlaceholder}
@@ -1017,7 +1006,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           onScopeChange={setScope}
                           types={types}
                           onTypesChange={setTypes}
-                          availableTypes={starter.types}
+                          availableTypes={[]}
                           selectionCount={selection.length}
                           placeholder={
                             apiKey.trim()

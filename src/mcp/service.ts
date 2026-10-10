@@ -1,6 +1,7 @@
 import type { Action, ActionPayload } from "@/core/actions";
 import { applyAction } from "@/core/reducer";
-import { newTxId } from "@/core/ids";
+import { newTxId, newScapeId } from "@/core/ids";
+import { emptyScape } from "@/core/fixtures";
 import type { ObjectId, Scape, ScapeSummary } from "@/core/types";
 import { layoutAction } from "@/canvas/layout";
 import type { LayoutMode } from "@/starters";
@@ -79,6 +80,11 @@ export interface ServiceDeps {
   markdown(scape: Scape): string;
   now?: () => number;
   publish?(scape: Scape, withdraw: boolean): Promise<Record<string, unknown>>;
+  sharePreview?(
+    scape: Scape,
+    existing?: string,
+    withdraw?: boolean,
+  ): Promise<Record<string, unknown>>;
 }
 
 const ok = (body: Record<string, unknown> = {}): Outcome => ({ status: "ok", ...body });
@@ -224,6 +230,7 @@ export function createCommandService(deps: ServiceDeps) {
     operation.result = {
       status: "applied",
       operation_id: operation.key,
+      scape_id: operation.scapeId,
       revision: rev,
       message: String(operation.command.args.__summary ?? "Applied."),
     };
@@ -372,6 +379,142 @@ export function createCommandService(deps: ServiceDeps) {
   async function run(envelope: Envelope, args: Record<string, any>): Promise<Outcome> {
     const { tool, grant } = envelope;
 
+    if (tool === "preview_flow") {
+      if (args.scape_id ? !allowedScape(grant, args.scape_id) : grant.scapes !== "all")
+        return failure("not_found", "This connection cannot preview that target.");
+      const target = args.scape_id ? await load(args.scape_id) : null;
+      if (args.scape_id && !target) return failure("not_found", "No such scape.");
+      const base = target?.scape ?? {
+        ...emptyScape(newScapeId(), args.name),
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      const { actions, state } = validateChanges(base, args.actions);
+      const laidOut = actions.some((a) => a.type === "CreateObject")
+        ? applyAction(
+            state,
+            actionSchema.parse({ ...layoutAction(state, "LR"), txId: "preview", ts: now() }),
+          ).state
+        : state;
+      const key = operationId();
+      const token = operationId();
+      const operation = receipt(envelope, base.id, key, await digest(actions), {
+        status: "preview",
+        operation_id: key,
+        scape_id: base.id,
+        message: summarizeChanges(actions),
+      });
+      operation.expiresAt = now() + LIMITS.reviewMs;
+      operation.command.args = {
+        __payloads: actions,
+        __base: args.scape_id ? undefined : base,
+        __revision: await revision(base),
+        __preview: laidOut,
+        __token: token,
+        __clientId: grant.clientId,
+        __host: grant.host,
+        __summary: summarizeChanges(actions),
+      };
+      const preview = {
+        name: laidOut.name,
+        target: args.scape_id ? "existing" : "new",
+        objects: laidOut.objectOrder.map((id) => {
+          const o = laidOut.objects[id];
+          return { id: o.id, type: o.type, title: o.title, data: o.data, x: o.x, y: o.y };
+        }),
+        relationships: Object.values(laidOut.relationships),
+      };
+      if (byteLength(preview) > LIMITS.bytes)
+        return failure("too_large", "This preview is too large for chat. Use smaller batches.");
+      await deps.operations.put(operation);
+      return {
+        ...operation.result,
+        objects: preview.objects.length,
+        relationships: preview.relationships.length,
+        // UI-only metadata: never duplicate flow content or the capability in model context.
+        _meta: {
+          preview,
+          confirmation_token: token,
+          expires_at: operation.expiresAt,
+          can_write: grant.write,
+        },
+      };
+    }
+
+    if (tool === "confirm_flow" || tool === "share_flow_preview") {
+      const op = await deps.operations.get(args.preview_id);
+      if (
+        !op ||
+        op.command.tool !== "preview_flow" ||
+        op.scapeId !== args.scape_id ||
+        op.command.args.__clientId !== grant.clientId ||
+        op.command.args.__host !== grant.host ||
+        op.command.args.__token !== args.confirmation_token ||
+        !allowedScape(grant, op.scapeId) ||
+        (op.command.args.__base && grant.scapes !== "all")
+      )
+        return failure("not_found", "No matching preview for this connection.");
+      const data = op.command.args;
+      if (tool === "share_flow_preview") {
+        // Withdrawal remains available after the creation draft expires.
+        if (!args.withdraw && op.expiresAt <= now())
+          return failure("expired", "Preview expired. Ask for a fresh preview.");
+        if (!args.withdraw && op.result.status === "cancelled")
+          return failure("cancelled", "This preview was discarded.");
+        if (!deps.sharePreview)
+          return failure("unavailable", "Preview sharing is unavailable on this host.");
+        if (!args.withdraw && data.__share) return ok(data.__share);
+        if (args.withdraw && !data.__share)
+          return ok({ message: "This preview is already private." });
+        const shared = await deps.sharePreview(
+          data.__preview,
+          data.__share?.publication_id ?? data.__publicationId,
+          args.withdraw,
+        );
+        data.__publicationId =
+          shared.publication_id ?? data.__share?.publication_id ?? data.__publicationId;
+        data.__share = args.withdraw ? undefined : shared;
+        await deps.operations.put(op);
+        return ok(shared);
+      }
+      if (op.result.status !== "preview") return op.result;
+      if (op.expiresAt <= now())
+        return failure("expired", "Preview expired. Ask for a fresh preview.");
+      if (!args.approve) {
+        op.result = {
+          status: "cancelled",
+          operation_id: op.key,
+          message: "Preview discarded. Nothing was created.",
+        };
+        await deps.operations.put(op);
+        return op.result;
+      }
+      const target = data.__base
+        ? { scape: data.__base as Scape, live: null }
+        : await load(op.scapeId);
+      if (!target) return failure("not_found", "The target scape was removed.");
+      if ((await revision(target.scape)) !== data.__revision)
+        return failure(
+          "revision_conflict",
+          "The scape changed after this preview. Ask for a fresh preview before creating it.",
+        );
+      if (data.__base && (await deps.library.get(op.scapeId)))
+        return failure("revision_conflict", "This target already exists.");
+      const { actions } = validateChanges(target.scape, data.__payloads);
+      // A UI-only capability confirms exactly this bounded content batch. It cannot confirm
+      // publishing/deletion requests or accept replacement actions from the caller.
+      const done = await commitPayloads(target, actions, op, null);
+      op.result = {
+        status: "applied",
+        operation_id: op.key,
+        scape_id: op.scapeId,
+        revision: done.revision,
+        message: data.__summary,
+      };
+      await deps.operations.put(op);
+      return op.result;
+    }
+
     if (tool === "get_capabilities")
       return ok({
         object_types: deps.capabilities(),
@@ -406,13 +549,21 @@ export function createCommandService(deps: ServiceDeps) {
       const operation = await deps.operations.get(args.operation_id);
       if (!operation || !allowedScape(grant, operation.scapeId))
         return failure("not_found", "No such operation.");
+      if (
+        operation.command.tool === "preview_flow" &&
+        (operation.command.args.__clientId !== grant.clientId ||
+          operation.command.args.__host !== grant.host)
+      )
+        return failure("not_found", "No matching preview for this connection.");
       if (tool === "cancel_operation") {
         if (operation.result.status !== "awaiting_review")
           return failure("not_cancellable", `The operation is already ${operation.result.status}.`);
         operation.result = { status: "cancelled", operation_id: operation.key };
         await deps.operations.put(operation);
       }
-      return operation.result;
+      return operation.command.tool === "preview_flow"
+        ? { ...operation.result, _meta: { share: operation.command.args.__share ?? null } }
+        : operation.result;
     }
 
     if (tool === "fetch") {

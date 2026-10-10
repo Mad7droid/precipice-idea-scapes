@@ -9,7 +9,8 @@ import { newObjectId } from "@/core/ids";
  * Composing the three existing object types this way is what lets the home page offer a menu
  * of things to make without the object model growing a branch per menu item.
  *
- * Everything a starter decides is advisory. An unrecognised starter id falls back to BLANK,
+ * Everything a starter decides is advisory — including `types`, which focuses a generation but
+ * never limits what the canvas can hold. An unrecognised starter id falls back to BLANK,
  * so a scape written by a newer build still opens here.
  *
  * This module is deliberately pure data with no JSX and no React: the canvas reads `layout`,
@@ -33,8 +34,21 @@ export interface Starter {
   label: string;
   /** One line, under the label. Says what you get, not how we feel about it. */
   blurb: string;
-  /** Object types a generation may create. Empty means every registered type. */
+  /**
+   * What the canvas holds the moment it is created without a brief. Mirrors `seed`, in words,
+   * so the home page can say exactly what "Create" will do before anyone presses it.
+   */
+  startsWith: string;
+  /**
+   * The object types an AI generation focuses on when the person has not picked any. Guidance,
+   * never a lock: every type can still be added by hand, by Scapi on request, or by an agent.
+   * Empty means no focus.
+   */
   types: string[];
+  /** When to reach for this starter, in one line, for the templates page. */
+  useWhen: string;
+  /** A complete brief that shows the format off. One click puts it in the composer. */
+  example: string;
   layout: LayoutMode;
   edgeMode: EdgeMode;
   /** Appended to the system prompt. Empty for Blank — no starter, no steer. */
@@ -51,98 +65,36 @@ export interface Starter {
 
 export const BLANK: Starter = {
   id: "blank",
-  label: "All-in-one",
-  blurb: "A flexible canvas with every block type available.",
+  label: "Blank",
+  blurb: "An open canvas with no structure. Use any block.",
+  useWhen: "You already know the shape of the work, or want to explore freely.",
+  startsWith: "An empty canvas",
   types: [],
   layout: "LR",
   edgeMode: "all",
   promptHint: "",
-  placeholder: "Tell AI what to do in this scape…",
+  placeholder: "Describe what you are working on…",
+  example: "Plan the launch of a habit-tracking app: audience, key flows and risks.",
 };
 
-const JOURNEY_MAP: Starter = {
-  id: "journey-map",
-  label: "Journey map",
-  blurb: "Flows and the thinking around them, read left to right.",
-  types: ["journey", "note", "scape"],
-  layout: "LR",
-  edgeMode: "all",
-  promptHint:
-    "This scape is a journey map. Build it around ordered flows: each journey object is one " +
-    "path a person takes, and the notes around it carry the constraints, the evidence and " +
-    "the open questions that shape it. Connect a journey to the notes that constrain it, and " +
-    "connect one journey to another where a person can move between them.",
-  placeholder: 'Try: "Map how a new customer opens an account and makes a first deposit."',
-  seed: (title) => [
-    {
-      type: "CreateObject",
-      id: newObjectId(),
-      objectType: "journey",
-      title: title || "New journey",
-      data: { steps: [] },
-    },
-  ],
-};
-
-const MIND_MAP: Starter = {
-  id: "mind-map",
-  label: "Mind map",
-  blurb: "Ideas radiating from one centre. Notes and connections only.",
-  types: ["note"],
-  layout: "radial",
-  edgeMode: "all",
-  promptHint:
-    "This scape is a mind map. Create one central note that names the subject, then branch " +
-    "outward: every other note connects back to the centre or to another branch, so the whole " +
-    "scape is one connected tree. Keep each note short — a title and a sentence or two. The " +
-    "shape of the connections is the content here, so connect every note you create.",
-  placeholder: 'Try: "Everything that affects whether someone trusts a new banking app."',
-  seed: (title) => [
-    {
-      type: "CreateObject",
-      id: newObjectId(),
-      objectType: "note",
-      title: title || "Centre",
-      data: { body: "" },
-    },
-  ],
-};
-
-const SCREEN_FLOW: Starter = {
-  id: "screen-flow",
-  label: "Screens",
-  blurb: "Low-fidelity screens laid out as a contact sheet.",
-  types: ["wireframe", "note", "scape"],
-  layout: "grid",
-  edgeMode: "selected",
-  promptHint:
-    "This scape is a set of screens. Every screen is a wireframe object with real labels — " +
-    "the words that actually appear on the screen, not placeholder names for the elements. " +
-    "Connect screens in the order a person moves through them, and label those relationships " +
-    "with the action that causes the move. Use notes sparingly, for a rule or a state that " +
-    "no single screen can show.",
-  placeholder: 'Try: "The screens for signing up, verifying identity and adding a card."',
-  seed: (title) => [
-    {
-      type: "CreateObject",
-      id: newObjectId(),
-      objectType: "wireframe",
-      title: title || "New screen",
-      data: { primitives: [] },
-    },
-  ],
-};
-
-const PRODUCT_BRIEF: Starter = {
-  id: "product-brief",
-  label: "Product brief",
-  blurb: "A structured document for the problem, goals, and requirements.",
-  types: ["scape", "note"],
+const PRODUCT_CONCEPT: Starter = {
+  id: "product-concept",
+  label: "Product concept",
+  blurb: "A brief linked to the journeys, screens and open questions behind it.",
+  useWhen: "You have an idea and want to see it as a whole product, end to end.",
+  startsWith: "A brief with Problem, Audience, Goals, Requirements and Open questions",
+  types: ["scape", "journey", "wireframe", "note"],
   layout: "TB",
   edgeMode: "selected",
   promptHint:
-    "Create a product brief as a Scape block with Markdown sections for Problem, Audience, Goals, Requirements, and Open questions. Distinguish assumptions from known requirements.",
-  placeholder: "Write a product brief for a tool that helps small teams plan their week…",
+    "This scape is a product concept. Start with one Scape block that is the brief, written in " +
+    "Markdown with sections for Problem, Audience, Goals, Requirements and Open questions; " +
+    "separate assumptions from known requirements. Then create the two or three journeys that " +
+    "matter most, the key screens as wireframes, and a note for each open question or risk. " +
+    "Connect every journey, screen and note to the brief or to the journey it belongs to, so " +
+    "the whole concept reads as one connected picture.",
+  placeholder: "Describe the product idea and who it is for…",
+  example: "A tool that helps small teams plan their week together in ten minutes on Monday.",
   seed: (title) => [
     {
       type: "CreateObject",
@@ -156,17 +108,123 @@ const PRODUCT_BRIEF: Starter = {
   ],
 };
 
+const JOURNEY_MAP: Starter = {
+  id: "journey-map",
+  label: "User journey",
+  blurb: "The steps a person takes, with the evidence and pain points around them.",
+  useWhen: "You need to understand or improve how someone gets something done.",
+  startsWith: "One empty journey",
+  types: ["journey", "note"],
+  layout: "LR",
+  edgeMode: "all",
+  promptHint:
+    "This scape is a journey map. Build it around ordered flows: each journey object is one " +
+    "path a person takes, and the notes around it carry the constraints, the evidence and " +
+    "the open questions that shape it. Connect a journey to the notes that constrain it, and " +
+    "connect one journey to another where a person can move between them.",
+  placeholder: "Describe who is trying to do what…",
+  example: "How a new customer opens an account and makes a first deposit.",
+  seed: (title) => [
+    {
+      type: "CreateObject",
+      id: newObjectId(),
+      objectType: "journey",
+      title: title || "New journey",
+      data: { steps: [] },
+    },
+  ],
+};
+
+const SCREEN_FLOW: Starter = {
+  id: "screen-flow",
+  label: "Screen flow",
+  blurb: "Low-fidelity screens, linked in the order people move through them.",
+  useWhen: "You want to sketch an interface before anyone opens a design tool.",
+  startsWith: "One blank screen",
+  types: ["wireframe", "note"],
+  layout: "grid",
+  edgeMode: "selected",
+  promptHint:
+    "This scape is a set of screens. Every screen is a wireframe object with real labels — " +
+    "the words that actually appear on the screen, not placeholder names for the elements. " +
+    "Connect screens in the order a person moves through them, and label those relationships " +
+    "with the action that causes the move. Use notes sparingly, for a rule or a state that " +
+    "no single screen can show.",
+  placeholder: "Describe the screens and what people do on them…",
+  example: "The screens for signing up, verifying identity and adding a card.",
+  seed: (title) => [
+    {
+      type: "CreateObject",
+      id: newObjectId(),
+      objectType: "wireframe",
+      title: title || "New screen",
+      data: { primitives: [] },
+    },
+  ],
+};
+
+const RESEARCH_SYNTHESIS: Starter = {
+  id: "research-synthesis",
+  label: "Research synthesis",
+  blurb: "Findings grouped into themes around one question, with a written summary.",
+  useWhen: "You have interviews, feedback or notes and need to see the patterns.",
+  startsWith: "One central research question",
+  types: ["note", "scape"],
+  layout: "radial",
+  edgeMode: "all",
+  promptHint:
+    "This scape is a research synthesis. Create one central note that states the research " +
+    "question. Around it, create a note for each theme, and connect each theme to the centre. " +
+    "Attach the individual findings, quotes or observations as short notes connected to their " +
+    "theme. Finish with one Scape block that summarises the themes, what they imply, and what " +
+    "is still unknown. If the person pastes raw material, use only what it actually says.",
+  placeholder: "Paste notes or feedback, or describe what you want to learn…",
+  example: "Why users stop using a budgeting app after the first two weeks.",
+  seed: (title) => [
+    {
+      type: "CreateObject",
+      id: newObjectId(),
+      objectType: "note",
+      title: title || "Research question",
+      data: { body: "What are we trying to learn?" },
+    },
+  ],
+};
+
 /** Order is the order they appear on the home page. Blank first: it is the safe default. */
-export const STARTERS: Starter[] = [BLANK, JOURNEY_MAP, MIND_MAP, SCREEN_FLOW, PRODUCT_BRIEF];
+export const STARTERS: Starter[] = [
+  BLANK,
+  PRODUCT_CONCEPT,
+  JOURNEY_MAP,
+  SCREEN_FLOW,
+  RESEARCH_SYNTHESIS,
+];
+
+/**
+ * Ids written by earlier builds. Scapes keep the id they were created with, so a retired
+ * starter maps to the one that replaced it rather than silently falling back to Blank.
+ */
+const RETIRED: Record<string, string> = {
+  "mind-map": "research-synthesis",
+  "product-brief": "product-concept",
+};
 
 export function getStarter(id: string | undefined): Starter {
-  return STARTERS.find((s) => s.id === id) ?? BLANK;
+  const current = id && RETIRED[id] ? RETIRED[id] : id;
+  return STARTERS.find((s) => s.id === current) ?? BLANK;
 }
 
 /** The starter a scape was made from, or Blank. Never throws on an unknown id. */
 export function starterFor(scape: { meta?: { starter?: string } } | null | undefined): Starter {
   return getStarter(scape?.meta?.starter);
 }
+
+/** How each edge mode reads to someone choosing a starter, not to someone in the toolbar. */
+export const EDGE_LABELS: Record<EdgeMode, string> = {
+  all: "All connections shown",
+  selected: "Connections shown on selection",
+  none: "Connections hidden",
+};
 
 export const LAYOUT_LABELS: Record<LayoutMode, string> = {
   LR: "Flow — left to right",

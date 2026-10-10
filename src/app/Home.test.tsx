@@ -20,6 +20,8 @@ vi.mock("./useAppSettings", () => ({
     setModelId: vi.fn(),
     types: [],
     setTypes: vi.fn(),
+    instructions: "",
+    setInstructions: vi.fn(),
   }),
 }));
 vi.mock("@/persistence/scapeRepository", () => ({
@@ -79,7 +81,11 @@ async function mount() {
 }
 async function menu(label: string) {
   await click(byLabel(view.container, "Actions for Alpha"));
-  await click(button(label));
+  await click(
+    [...view.container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+      (b) => b.firstElementChild?.textContent?.trim() === label,
+    )!,
+  );
 }
 beforeEach(() => {
   vi.clearAllMocks();
@@ -103,10 +109,10 @@ afterEach(() => {
 describe("home workflows", () => {
   it("guides first use and preserves the prompt and starter through missing-key settings", async () => {
     await mount();
-    expect(view.container.textContent).toContain("Turn an idea into a working canvas");
+    expect(view.container.textContent).toContain("What are you working on?");
     await click(
       [...view.container.querySelectorAll<HTMLButtonElement>("button")].find((b) =>
-        b.textContent?.startsWith("Product brief"),
+        b.textContent?.startsWith("Product concept"),
       )!,
     );
     type(byLabel(view.container, "Prompt"), "A useful brief");
@@ -119,9 +125,9 @@ describe("home workflows", () => {
         .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
     );
     expect(byLabel<HTMLTextAreaElement>(view.container, "Prompt").value).toBe("A useful brief");
-    expect(view.container.querySelector('[aria-pressed="true"]')?.textContent).toContain(
-      "Product brief",
-    );
+    expect(
+      view.container.querySelector('[data-starter][aria-checked="true"]')?.textContent,
+    ).toContain("Product concept");
   });
   it("does not navigate after a failed save and prevents double creation", async () => {
     let resolve!: (scape: ReturnType<typeof emptyScape>) => void;
@@ -133,8 +139,8 @@ describe("home workflows", () => {
     );
     vi.mocked(scapeRepository.get).mockResolvedValue(undefined);
     await mount();
-    await click(button("Create without AI ↗"));
-    act(() => button("Create without AI ↗").click());
+    await click(button("Start empty"));
+    act(() => button("Start empty").click());
     expect(scapeRepository.create).toHaveBeenCalledOnce();
     await act(async () => resolve(emptyScape("missing")));
     await flush();
@@ -144,21 +150,21 @@ describe("home workflows", () => {
   it("shows returning users their library and persists pins and view preferences", async () => {
     vi.mocked(scapeRepository.list).mockResolvedValue([sample]);
     await mount();
-    expect(view.container.textContent).toContain("Your workspace");
+    expect(view.container.textContent).toContain("New scape");
     await click(byLabel(view.container, "Pin Alpha"));
     expect(mocks.settings["home.pin.a"]).toBe(true);
-    await click(button("List"));
+    await click(byLabel(view.container, "List"));
     expect(mocks.settings["home.library"]).toEqual({ filter: "all", sort: "edited", view: "list" });
     expect(scapeRepository.rename).not.toHaveBeenCalled();
     type(byLabel(view.container, "Search scapes"), "missing");
-    expect(view.container.textContent).toContain("No scapes match");
+    expect(view.container.textContent).toContain("No scapes named");
     await click(button("Clear filters"));
     expect(byLabel(view.container, "Actions for Alpha")).toBeTruthy();
   });
   it("cancels renaming without saving and restores focus", async () => {
     vi.mocked(scapeRepository.list).mockResolvedValue([sample]);
     await mount();
-    await menu("Rename");
+    await menu("Rename…");
     type(byLabel(view.container, "Scape name"), "Changed");
     await click(button("Cancel"));
     expect(scapeRepository.rename).not.toHaveBeenCalled();
@@ -178,7 +184,7 @@ describe("home workflows", () => {
     vi.mocked(scapeRepository.publications.get).mockResolvedValue(row);
     vi.mocked(deletePublication).mockRejectedValue(new Error("offline"));
     await mount();
-    await menu("Delete");
+    await menu("Delete…");
     await click(button("Unpublish and delete"));
     expect(deletePublication).toHaveBeenCalledOnce();
     expect(scapeRepository.remove).not.toHaveBeenCalled();
@@ -187,8 +193,8 @@ describe("home workflows", () => {
   it("exports both formats without opening the editor", async () => {
     vi.mocked(scapeRepository.list).mockResolvedValue([sample]);
     await mount();
-    await menu("Export scape");
-    await menu("Export PDF");
+    await menu("Scape file (.scape)");
+    await menu("PDF");
     expect(downloadScape).toHaveBeenCalledOnce();
     expect(exportScapePdf).toHaveBeenCalledOnce();
     expect(navigate).not.toHaveBeenCalled();
@@ -223,6 +229,36 @@ describe("home workflows", () => {
     await mount();
     expect(view.container.textContent).toContain("Could not load your library");
     await click(button("Retry"));
-    expect(view.container.textContent).toContain("A home for your ideas");
+    expect(view.container.textContent).toContain("Already have work?");
+  });
+});
+
+describe("sidebar pages", () => {
+  it("renders each page with its own heading and keeps the library reachable", async () => {
+    for (const [page, heading] of [
+      ["templates", "Templates"],
+      ["published", "Nothing published yet."],
+      ["instructions", "Instructions for every scape"],
+    ] as const) {
+      view = render(<Home page={page} />);
+      await flush();
+      expect(view.container.textContent).toContain(heading);
+      expect(view.container.querySelector('nav[aria-label="Workspace"]')).not.toBeNull();
+      view.unmount();
+    }
+  });
+  it("starts an empty scape from a template card", async () => {
+    vi.mocked(scapeRepository.create).mockResolvedValue({ ...emptyScape("n"), name: "x" });
+    vi.mocked(scapeRepository.get).mockResolvedValue({ ...emptyScape("n"), name: "x" });
+    view = render(<Home page="templates" />);
+    await flush();
+    const starts = [...view.container.querySelectorAll<HTMLButtonElement>("button")].filter(
+      (b) => b.textContent === "Start empty",
+    );
+    await click(starts[3]);
+    expect(scapeRepository.create).toHaveBeenCalledWith("Untitled screen flow", {
+      starter: "screen-flow",
+    });
+    expect(navigate).toHaveBeenCalledWith("/s/n");
   });
 });

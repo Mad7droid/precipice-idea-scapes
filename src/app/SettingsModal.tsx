@@ -24,6 +24,7 @@ export function SettingsModal({
   onOpenHelp,
   mcpBridge,
   credentials,
+  initialSection = "general",
 }: {
   onClose: () => void;
   theme: ThemePreference;
@@ -36,10 +37,12 @@ export function SettingsModal({
   onOpenHelp?: () => void;
   mcpBridge?: McpBridge;
   credentials?: DesktopCredentials;
+  /** Where to open, when the caller already knows which concern brought the person here. */
+  initialSection?: SettingsSection;
 }) {
   const dialogRef = useDialogFocus(onClose);
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
-  const [section, setSection] = useState<SectionId>("general");
+  const [section, setSection] = useState<SectionId>(initialSection);
 
   useEffect(() => {
     void settingsRepository.get<string>(SETTING_KEYS.model).then((m) => m && setModelId(m));
@@ -213,6 +216,7 @@ export function SettingsModal({
 }
 
 type SectionId = "general" | "ai" | "agent";
+export type SettingsSection = SectionId;
 
 /** Three, because there are three concerns here — not because a sidebar wants filling. */
 const SECTIONS: { id: SectionId; label: string }[] = [

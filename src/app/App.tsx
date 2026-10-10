@@ -11,6 +11,7 @@ import {
 import { AuthErrorModal } from "@/publish/AuthErrorModal";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
+import { homePage } from "./home/routes";
 import { Link, match, navigate, scapeRoute, useRoute } from "./router";
 import { HostConsent } from "./agents/HostConsent";
 import { AgentDock } from "./agents/AgentDock";
@@ -201,6 +202,8 @@ function Routes() {
   // document's canvas, selection and autosave into another's.
   if (scapeId) return <Editor key={scapeId} scapeId={scapeId} />;
 
+  const page = homePage(route);
+  if (page) return <Home page={page} />;
   return <Home />;
 }
 

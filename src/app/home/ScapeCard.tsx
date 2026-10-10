@@ -2,10 +2,12 @@ import { useRef, useState } from "react";
 import type { PublicationRecord, ScapeSummary } from "@/core/types";
 import { getPlugin } from "@/core/registry";
 import { getStarter } from "@/starters";
-import { Menu, MenuItem } from "@/design/Menu";
+import { buttonClass } from "@/design/Button";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/design/Menu";
 import { ScapeThumbnail } from "../ScapeThumbnail";
-import { relativeTime } from "../ScapeList";
-import { HOME_BUTTON } from "./CreationPanel";
+import { describeContents, relativeTime } from "./library";
+import { MoreIcon, PinIcon } from "./icons";
+import { StarterMark } from "./StarterMark";
 
 export type CardAction =
   | "open"
@@ -15,11 +17,12 @@ export type CardAction =
   | "scape"
   | "pdf"
   | "publish"
-  | "scapi"
-  | "agent"
   | "delete"
   | "public"
   | "copy";
+
+const ICON_BUTTON = buttonClass({ variant: "ghost", shape: "icon", size: "sm" });
+
 export function ScapeCard({
   scape,
   pinned,
@@ -46,138 +49,192 @@ export function ScapeCard({
     close();
     onAction(action);
   };
+  const starter = getStarter(scape.starter);
+  const contents = describeContents(scape, (type) => getPlugin(type)?.label ?? type);
+  const published = publication?.status === "published";
+  const edited = new Date(scape.updatedAt);
+
+  const status = publication && (
+    <span
+      className="inline-flex shrink-0 items-center gap-1.5 text-xs text-fg-secondary"
+      title={
+        published
+          ? "A read-only snapshot is live at a public link"
+          : "Unpublished. The public address is reserved but shows nothing"
+      }
+    >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full ${published ? "bg-success" : "bg-[var(--border-strong)]"}`}
+      />
+      {published ? "Published" : "Unpublished"}
+    </span>
+  );
+
+  const actions = (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <button
+        type="button"
+        disabled={busy}
+        aria-label={`${pinned ? "Unpin" : "Pin"} ${scape.name}`}
+        aria-pressed={pinned}
+        title={pinned ? "Unpin" : "Pin to the top of your library"}
+        onClick={() => onAction("pin")}
+        className={`${ICON_BUTTON} ${
+          pinned
+            ? "!text-fg-accent"
+            : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+        }`}
+      >
+        <PinIcon filled={pinned} />
+      </button>
+      <div ref={boundary} className="relative">
+        <button
+          ref={trigger}
+          type="button"
+          disabled={busy}
+          aria-label={`Actions for ${scape.name}`}
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          title="More actions"
+          onClick={() => setMenu(!menu)}
+          className={`${ICON_BUTTON} ${menu ? "bg-hover text-fg" : ""}`}
+        >
+          <MoreIcon />
+        </button>
+        {menu && (
+          <div
+            className={`absolute right-0 z-popover ${list ? "top-full mt-1" : "bottom-full mb-1"}`}
+          >
+            <Menu
+              open={menu}
+              label={`Scape actions: ${scape.name}`}
+              boundaryRef={boundary}
+              onClose={close}
+            >
+              <MenuItem onSelect={() => choose("open")}>Open</MenuItem>
+              <MenuItem onSelect={() => choose("rename")}>Rename…</MenuItem>
+              <MenuItem onSelect={() => choose("duplicate")}>Duplicate</MenuItem>
+              <MenuItem onSelect={() => choose("pin")}>{pinned ? "Unpin" : "Pin to top"}</MenuItem>
+              <MenuSeparator />
+              <MenuLabel>Download</MenuLabel>
+              <MenuItem onSelect={() => choose("scape")} caption="For backup or another device">
+                Scape file (.scape)
+              </MenuItem>
+              <MenuItem onSelect={() => choose("pdf")}>PDF</MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                onSelect={() => choose("publish")}
+                caption={publication ? "Update or unpublish the link" : "Share a read-only link"}
+              >
+                {publication ? "Manage publication…" : "Publish…"}
+              </MenuItem>
+              {published && (
+                <>
+                  <MenuItem onSelect={() => choose("public")}>Open public link</MenuItem>
+                  <MenuItem onSelect={() => choose("copy")}>Copy public link</MenuItem>
+                </>
+              )}
+              <MenuSeparator />
+              <MenuItem onSelect={() => choose("delete")}>
+                <span className="text-danger">Delete…</span>
+              </MenuItem>
+            </Menu>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const time = busy ? (
+    <span role="status" className="text-xs text-fg-secondary">
+      Working…
+    </span>
+  ) : (
+    <time
+      dateTime={edited.toISOString()}
+      title={`Last edited ${edited.toLocaleString()}`}
+      className="shrink-0 text-xs text-fg-tertiary"
+    >
+      Edited {relativeTime(scape.updatedAt)}
+    </time>
+  );
+
+  if (list)
+    return (
+      <li
+        aria-busy={busy}
+        className="group relative flex items-center gap-4 px-3 py-2.5 transition-colors duration-instant ease-out hover:bg-hover"
+      >
+        <button
+          type="button"
+          onClick={() => onAction("open")}
+          aria-label={`Open ${scape.name}`}
+          tabIndex={-1}
+          className="hidden shrink-0 sm:block"
+        >
+          <ScapeThumbnail preview={scape.preview} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => onAction("open")}
+            className="block max-w-full truncate text-left text-sm font-medium text-fg"
+            title={scape.name}
+          >
+            {scape.name}
+          </button>
+          <p className="truncate text-xs text-fg-tertiary" title={contents}>
+            {starter.id === "blank" ? contents : `${starter.label} · ${contents}`}
+          </p>
+        </div>
+        <div className="hidden w-28 shrink-0 md:block">{status}</div>
+        <div className="hidden w-28 shrink-0 text-right sm:block">{time}</div>
+        {actions}
+      </li>
+    );
+
   return (
     <li
       aria-busy={busy}
-      className={`relative rounded-xl border border-subtle bg-surface ${list ? "flex items-center gap-4 p-3" : ""}`}
+      className="group relative flex flex-col rounded-xl border border-subtle bg-surface transition-[border-color,box-shadow] duration-fast ease-out hover:border-default hover:shadow-md focus-within:border-default"
     >
       <button
+        type="button"
         onClick={() => onAction("open")}
         aria-label={`Open ${scape.name}`}
-        className={
-          list ? "hidden shrink-0 sm:block" : "block w-full rounded-t-xl bg-inset text-left"
-        }
+        tabIndex={-1}
+        className="block w-full overflow-hidden rounded-t-xl bg-inset text-left"
       >
-        <ScapeThumbnail preview={scape.preview} large={!list} />
+        {scape.preview?.nodes.length ? (
+          <ScapeThumbnail preview={scape.preview} large />
+        ) : (
+          // An empty scape has nothing to draw, so it shows what it was made to become.
+          <span className="flex h-40 flex-col items-center justify-center gap-2 text-xs text-fg-tertiary">
+            <StarterMark starter={starter} active={false} />
+            Empty {starter.id === "blank" ? "canvas" : starter.label.toLowerCase()}
+          </span>
+        )}
       </button>
-      <div className={list ? "min-w-0 flex-1" : "px-4 pb-4 pt-3"}>
-        <div className="mb-2 flex min-h-6 flex-wrap items-center gap-2 text-xs text-fg-tertiary">
-          <span>{getStarter(scape.starter).label}</span>
-          {publication && (
-            <span
-              className="rounded-full border border-subtle px-2 py-0.5"
-              title="Last known publication status in this browser"
-            >
-              {publication.status === "published" ? "Published" : "Unpublished"}
-            </span>
-          )}
-        </div>
+      <div className="flex flex-1 flex-col px-4 pb-3 pt-3">
         <button
+          type="button"
           onClick={() => onAction("open")}
           className="block w-full truncate text-left text-base font-medium text-fg"
           title={scape.name}
         >
           {scape.name}
         </button>
-        <p
-          className="mt-2 truncate text-xs text-fg-tertiary"
-          title={Object.entries(scape.typeCounts)
-            .map(([type, count]) => `${count} ${getPlugin(type)?.label ?? type}`)
-            .join(" · ")}
-        >
-          {scape.objectCount === 0
-            ? "Empty canvas · ready for your ideas"
-            : Object.entries(scape.typeCounts)
-                .map(
-                  ([type, count]) =>
-                    `${count} ${getPlugin(type)?.label ?? type}${count === 1 ? "" : "s"}`,
-                )
-                .join(" · ")}
+        <p className="mt-0.5 truncate text-xs text-fg-tertiary" title={contents}>
+          {starter.id === "blank" ? contents : `${starter.label} · ${contents}`}
         </p>
-        <div className="mt-4 flex items-center justify-between gap-2">
-          <time
-            dateTime={new Date(scape.updatedAt).toISOString()}
-            title={new Date(scape.updatedAt).toLocaleString()}
-            className="text-xs text-fg-tertiary"
-          >
-            Edited {relativeTime(scape.updatedAt)}
-          </time>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              disabled={busy}
-              aria-label={`${pinned ? "Unpin" : "Pin"} ${scape.name}`}
-              aria-pressed={pinned}
-              onClick={() => onAction("pin")}
-              className={`${HOME_BUTTON} !p-2`}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill={pinned ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.2"
-                aria-hidden
-              >
-                <path d="m6 2 6 2-2 4 1 3-4-1-3 4 1-5-2-2 3-1Z" />
-              </svg>
-            </button>
-            <div ref={boundary} className="relative">
-              <button
-                ref={trigger}
-                disabled={busy}
-                aria-label={`Actions for ${scape.name}`}
-                aria-haspopup="menu"
-                aria-expanded={menu}
-                onClick={() => setMenu(!menu)}
-                className={`${HOME_BUTTON} !p-2`}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-                  <circle cx="3" cy="8" r="1.2" />
-                  <circle cx="8" cy="8" r="1.2" />
-                  <circle cx="13" cy="8" r="1.2" />
-                </svg>
-              </button>
-              {menu && (
-                <div className="absolute bottom-full right-0 z-popover mb-1 max-h-[60vh] overflow-y-auto">
-                  <Menu
-                    open={menu}
-                    label={`Scape actions: ${scape.name}`}
-                    boundaryRef={boundary}
-                    onClose={close}
-                  >
-                    <MenuItem onSelect={() => choose("open")}>Open</MenuItem>
-                    <MenuItem onSelect={() => choose("pin")}>{pinned ? "Unpin" : "Pin"}</MenuItem>
-                    <MenuItem onSelect={() => choose("rename")}>Rename</MenuItem>
-                    <MenuItem onSelect={() => choose("duplicate")}>Duplicate</MenuItem>
-                    <MenuItem onSelect={() => choose("scape")}>Export scape</MenuItem>
-                    <MenuItem onSelect={() => choose("pdf")}>Export PDF</MenuItem>
-                    <MenuItem onSelect={() => choose("publish")}>
-                      {publication ? "Manage publication" : "Publish"}
-                    </MenuItem>
-                    {publication?.status === "published" && (
-                      <>
-                        <MenuItem onSelect={() => choose("public")}>Open public link</MenuItem>
-                        <MenuItem onSelect={() => choose("copy")}>Copy public link</MenuItem>
-                      </>
-                    )}
-                    <MenuItem onSelect={() => choose("scapi")}>Ask Scapi</MenuItem>
-                    <MenuItem onSelect={() => choose("agent")}>Connect an agent</MenuItem>
-                    <MenuItem onSelect={() => choose("delete")}>
-                      <span className="text-danger">Delete</span>
-                    </MenuItem>
-                  </Menu>
-                </div>
-              )}
-            </div>
+        <div className="mt-3 flex min-h-8 items-center gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+            {time}
+            {status}
           </div>
+          {actions}
         </div>
-        {busy && (
-          <p role="status" className="mt-2 text-xs text-fg-secondary">
-            Working…
-          </p>
-        )}
       </div>
     </li>
   );

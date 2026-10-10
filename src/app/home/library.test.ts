@@ -55,6 +55,11 @@ describe("home library", () => {
     ).toEqual(["b"]);
     expect(scapes[0].id).toBe("b");
   });
+  it("keeps pinned scapes first under every sort", () => {
+    expect(
+      selectScapes(scapes, "", DEFAULT_PREFERENCES, new Set(["a"]), publications).map((s) => s.id),
+    ).toEqual(["a", "b"]);
+  });
   it("defaults safely for invalid saved preferences", () => {
     expect(readPreferences({ view: "future", filter: 42 })).toEqual(DEFAULT_PREFERENCES);
     expect(readPreferences(null)).toEqual(DEFAULT_PREFERENCES);

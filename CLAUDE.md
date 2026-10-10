@@ -8,6 +8,7 @@ publication service, hosted MCP connector, and built-in desktop MCP live in this
 - [README.md](README.md) explains the product and local setup.
 - [docs/codebase-architecture.md](docs/codebase-architecture.md) describes the current system.
 - [docs/security-and-local-data.md](docs/security-and-local-data.md) defines data boundaries.
+- [docs/library.md](docs/library.md) covers the sidebar, templates and library workflows.
 - [docs/desktop.md](docs/desktop.md) covers the macOS target and Keychain boundary.
 - [docs/mcp.md](docs/mcp.md) covers agent setup, review, OAuth, and native transport.
 - [docs/README.md](docs/README.md) distinguishes maintained guides from historical specs.
@@ -49,3 +50,9 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Before changing deployment, publishing, or security behavior, update the relevant docs and
 verify that `.github/workflows/` still exercises the intended path.
+
+
+MCP Apps preview content and capabilities belong in tool-result `_meta`, never model-visible
+content. Preserve connection/host/scope/revision checks and keep confirmation tools app-only.
+Public preview sharing is a separate explicit disclosure action using the bounded publication
+projection. Keep release verification and client acceptance status in `docs/releases/`.

@@ -80,6 +80,7 @@ relying on a developer's local shell configuration:
 ```sh
 VITE_PUBLICATION_API_URL=https://publication-api.example.com \
 VITE_TURNSTILE_SITE_KEY=<Turnstile-site-key> \
+VITE_MCP_URL=https://connector.example.com \
 pnpm build
 pnpm wrangler pages deploy dist --project-name precipice --branch main
 ```
@@ -189,3 +190,29 @@ Use fictional content for acceptance tests; do not publish a private workspace t
 Desktop sign-in runs through the system browser and returns through a PKCE-bound callback.
 See [desktop setup](desktop.md) and [MCP deployment](mcp.md) for host credentials and the optional
 connector Worker. Browser and desktop libraries remain separate after signing in.
+
+
+## MCP flow preview snapshots
+
+Chat users can explicitly share the entire displayed draft before creating a local scape.
+`share_flow_preview` uses the host credential and the existing bounded projection and create,
+republish, and unpublish endpoints. No additional migration or storage service is needed.
+The draft’s ten-minute creation expiry does not expire its shared snapshot. The normal 50-slot,
+storage, and daily-write limits apply. Withdrawal retains the slot and URL; deletion frees it.
+
+These snapshots have no saved local scape or local publication mapping. The library’s
+**Published** page covers saved-scape publications. Manage an unsaved chat snapshot using
+**Refresh status → Withdraw shared preview** in its original chat, or the owner-authenticated
+publication API. Revoking a connector does not automatically withdraw its public snapshots.
+
+Verify with fictional data: share without creating a scape, open the hosted link signed out,
+embed it from another origin, withdraw it, and confirm public reads are unavailable. Re-share
+an unexpired draft and verify the same ID is restored. Check both `/p/*` and `/embed/*`: only
+`/embed/*` permits framing. HTTP 200 on a Pages route is not proof of snapshot availability.
+
+Run `pnpm smoke:release` after a production build with ignored `.env.production.local`
+configured. It performs read-only checks against the deployed bundle, route policies,
+missing-snapshot behavior, and MCP authentication/discovery. The main deployment workflow
+runs the same checks after deploying Pages.
+
+See [release 0.1.5](releases/0.1.5.md) for the deployed version and completed checks.

@@ -38,6 +38,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check release version
+        run: pnpm check:version
+
       - name: Validate deployment configuration
         env:
           WRANGLER_PUBLISH_CONFIG: ${{ secrets.WRANGLER_PUBLISH_CONFIG }}
@@ -102,3 +105,7 @@ jobs:
 
       - name: Deploy Pages
         run: pnpm exec wrangler pages deploy dist --project-name precipice --branch main
+
+      - name: Verify deployed release
+        if: env.VITE_MCP_URL != ''
+        run: node scripts/smoke-release.mjs

@@ -5,6 +5,7 @@ import { useScapeStore } from "@/core/store";
 import { db } from "@/persistence/db";
 import type { McpOperation } from "@/mcp/contracts";
 import { liveEditor } from "./liveEditor";
+import { revision } from "@/mcp/document";
 const receipt = (): McpOperation => ({
   key: "op_live",
   scapeId: "live",
@@ -58,4 +59,25 @@ it("does not change the canvas or persist when the write lease is lost", async (
   expect(useScapeStore.getState().scape!.objects.note).toBeUndefined();
   expect(await db.mcpOperations.count()).toBe(0);
   expect(useScapeStore.getState().committing).toBe(false);
+});
+
+it("checks the preview revision inside the frozen editor transaction after flushing", async () => {
+  const operation = receipt();
+  operation.command.tool = "preview_flow";
+  operation.command.args.__revision = await revision(useScapeStore.getState().scape!);
+  const editor = liveEditor({
+    scapeId: "live",
+    canWrite: () => true,
+    flush: async () => {
+      useScapeStore.setState({
+        scape: { ...useScapeStore.getState().scape!, name: "Changed during flush" },
+      });
+    },
+    focus: () => {},
+  });
+  await expect(editor.apply(changes, "tx_preview", "LR", operation)).rejects.toThrow(
+    "revision_conflict",
+  );
+  expect(useScapeStore.getState().scape!.objects.note).toBeUndefined();
+  expect(await db.mcpOperations.count()).toBe(0);
 });

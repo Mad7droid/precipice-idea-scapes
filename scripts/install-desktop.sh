@@ -11,10 +11,18 @@ IDENTIFIER="dev.precipice.desktop"
 STAGED="src-tauri/target/release/bundle/macos/Precipice.app"
 INSTALLED="/Applications/Precipice.app"
 
-if pgrep -f "Precipice.app/Contents/MacOS/precipice-desktop" >/dev/null 2>&1; then
-  echo "Precipice is running. Quit it first; replacing a running app loses unsaved work." >&2
-  exit 1
-fi
+# Stdio helpers may remain alive after the GUI quits. They have no unsaved document and
+# relaunch the installed path on the next request, so they must not block an update.
+while IFS= read -r process_id; do
+  command_line="$(ps -p "$process_id" -o command= 2>/dev/null || true)"
+  case "$command_line" in
+    */Precipice.app/Contents/MacOS/precipice-desktop\ --mcp) ;;
+    */Precipice.app/Contents/MacOS/precipice-desktop*)
+      echo "Precipice is running. Quit it first; replacing a running app loses unsaved work." >&2
+      exit 1
+      ;;
+  esac
+done < <(pgrep -f "Precipice.app/Contents/MacOS/precipice-desktop" || true)
 
 # Vite inlines these at build time. Without them the app calls its own origin
 # (tauri://localhost) and publishing fails with an unreadable response.
@@ -37,6 +45,9 @@ if [ ! -d "$STAGED" ]; then
   echo "Build produced no app bundle at $STAGED" >&2
   exit 1
 fi
+
+# Verify the full bundle seal before replacing the installed app.
+codesign --verify --deep --strict "$STAGED"
 
 # Never delete something that is not our app.
 if [ -e "$INSTALLED" ]; then

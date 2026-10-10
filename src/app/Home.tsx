@@ -14,16 +14,21 @@ import { deletePublication } from "@/publish/client";
 import { publicPath } from "@/publish/contract";
 import { publicationUrl } from "@/publish/url";
 import { readSession } from "@/publish/session";
-import { ImportButton } from "./ScapeList";
 import { setEditorIntent, setPendingWork } from "./pending";
 import { navigate, scapeRoute } from "./router";
-import { SettingsModal } from "./SettingsModal";
+import { SettingsModal, type SettingsSection } from "./SettingsModal";
 import { HelpPanel, type HelpTopic } from "./ProductivityOverlays";
-import { Brand } from "./Brand";
-import { ThemeControl } from "./ThemeControl";
 import { useAppSettings } from "./useAppSettings";
 import { useTheme } from "./theme";
-import { CreationPanel, HOME_BUTTON } from "./home/CreationPanel";
+import { CreationPanel } from "./home/CreationPanel";
+import { ImportButton } from "./home/ImportButton";
+import { isDesktop } from "@/desktop/runtime";
+import { MobileNav, Sidebar } from "./home/Sidebar";
+import { TemplatesPage } from "./home/TemplatesPage";
+import { PublishedPage } from "./home/PublishedPage";
+import { AgentsPage } from "./home/AgentsPage";
+import { InstructionsPage } from "./home/InstructionsPage";
+import type { HomePage } from "./home/routes";
 import { LibraryControls } from "./home/LibraryControls";
 import { ScapeCard, type CardAction } from "./home/ScapeCard";
 import { Dialog } from "./home/Dialog";
@@ -36,17 +41,20 @@ import {
   type LibraryPreferences,
 } from "./home/library";
 
-export function Home() {
+export function Home({ page = "home" }: { page?: HomePage }) {
   const [scapes, setScapes] = useState<ScapeSummary[]>([]);
   const [publications, setPublications] = useState<Map<string, PublicationRecord>>(new Map());
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [pins, setPins] = useState<Set<string>>(new Set());
-  const [exploreHidden, setExploreHidden] = useState(false);
   const [query, setQuery] = useState("");
   const [starterId, setStarterId] = useState("blank");
   const [draft, setDraft] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<SettingsSection | null>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const prompt = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const desktop = isDesktop();
   const [help, setHelp] = useState<HelpTopic | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const running = useRef(new Set<string>());
@@ -74,7 +82,6 @@ export function Home() {
       setPins(
         new Set(items.filter((s) => settings[HOME_KEYS.pin + s.id] === true).map((s) => s.id)),
       );
-      setExploreHidden(settings[HOME_KEYS.explore] === true);
       setStatus("ready");
     } catch (error) {
       if (!mounted.current || ticket !== refreshId.current) return;
@@ -104,6 +111,20 @@ export function Home() {
       window.removeEventListener("focus", focus);
     };
   }, [refresh]);
+
+  // "/" jumps to search, as in most libraries — but never while typing or inside a dialog.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable], [role='dialog']")) return;
+      if (!search.current) return;
+      event.preventDefault();
+      search.current.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const run = async (key: string, operation: () => Promise<void>) => {
     if (running.current.has(key)) return;
@@ -136,20 +157,22 @@ export function Home() {
       );
     return scape;
   };
-  const create = (request: string | null) => {
+  const create = (request: string | null, chosen = starterId) => {
     if (request !== null && !apiKey.trim()) {
-      setSettingsOpen(true);
+      setSettings("general");
       return;
     }
     void run("creation", async () => {
-      const starter = getStarter(starterId);
+      const starter = getStarter(chosen);
       const line = request?.trim().split("\n")[0];
       const scape = await scapeRepository.create(
         line
           ? line.length > 60
             ? `${line.slice(0, 59)}…`
             : line
-          : `Untitled ${starter.label.toLowerCase()}`,
+          : starter.id === "blank"
+            ? "Untitled scape"
+            : `Untitled ${starter.label.toLowerCase()}`,
         { starter: starter.id },
       );
       await requireScape(scape.id);
@@ -196,7 +219,7 @@ export function Home() {
       open(scape.id);
       return;
     }
-    if (kind === "publish" || kind === "scapi" || kind === "agent") {
+    if (kind === "publish") {
       setEditorIntent(scape.id, kind);
       open(scape.id);
       return;
@@ -279,218 +302,227 @@ export function Home() {
     });
   };
   const visible = selectScapes(scapes, query, preferences, pins, publications);
+  const counts = {
+    all: scapes.length,
+    pinned: scapes.filter((s) => pins.has(s.id)).length,
+    published: scapes.filter((s) => publications.get(s.id)?.status === "published").length,
+  };
+  const backUp = () =>
+    void run("library-export", async () => {
+      await downloadLibrary();
+      notify.success(
+        "Library backed up.",
+        `${scapes.length} ${scapes.length === 1 ? "scape" : "scapes"} saved to one file. Import it anywhere to restore them as copies.`,
+      );
+    });
   const firstUse = status === "ready" && scapes.length === 0;
   const closeDialog = () => {
     if (dialog && !running.current.has(dialog.scape.id)) setDialog(null);
   };
 
+  const newScape = () => {
+    if (page !== "home") navigate("/");
+    window.requestAnimationFrame(() => prompt.current?.focus());
+  };
+  const storage = desktop ? "Saved on this Mac" : "Saved in this browser";
+  const libraryReady = ready && status !== "loading";
+
   return (
-    <div className="h-full overflow-auto bg-base text-fg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle px-5 py-3 sm:px-8">
-        <Brand />
-        <div className="flex flex-wrap items-center gap-2">
-          <ImportButton onFile={onImport} disabled={busy.has("creation")} />
-          <button
-            className={HOME_BUTTON}
-            disabled={status !== "ready" || !scapes.length || busy.has("library-export")}
-            onClick={() =>
-              void run("library-export", async () => {
-                await downloadLibrary();
-                notify.success(
-                  "Library exported.",
-                  "Import the file on another device to copy your scapes.",
-                );
-              })
-            }
-          >
-            Export library
-          </button>
-          <ThemeControl value={theme} onChange={setTheme} />
-          <button
-            aria-label="Open settings"
-            onClick={() => setSettingsOpen(true)}
-            className={HOME_BUTTON}
-          >
-            Settings
-          </button>
-          <button aria-label="Open help" onClick={() => setHelp("how-to")} className={HOME_BUTTON}>
-            Help
-          </button>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-7xl px-5 pb-16 pt-8 sm:px-8">
-        <div className="mb-6">
-          <h1 className="font-pixel text-2xl sm:text-3xl">
-            {firstUse ? "Turn an idea into a working canvas" : "Your workspace"}
-          </h1>
-          <p className="mt-2 text-sm text-fg-secondary">
-            {firstUse
-              ? "Connect notes, journeys, screens, and documents. Start with a thought, then make it your own."
-              : "Pick up where you left off, or give your next idea a place to grow."}
-          </p>
-        </div>
-        {!ready || status === "loading" ? (
-          <div
-            role="status"
-            className="rounded-xl border border-subtle bg-surface p-8 text-fg-secondary"
-          >
-            Loading your workspace…
-          </div>
-        ) : (
-          <>
-            <CreationPanel
-              firstUse={firstUse}
-              starterId={starterId}
-              onStarterChange={setStarterId}
-              draft={draft}
-              onDraftChange={setDraft}
+    <div className="flex h-full bg-base text-fg">
+      <Sidebar
+        page={page}
+        publishedCount={counts.published}
+        hasInstructions={!!instructions.trim()}
+        onNewScape={newScape}
+        onImport={() => fileInput.current?.click()}
+        importDisabled={busy.has("creation")}
+        onBackUp={backUp}
+        backUpDisabled={status !== "ready" || !scapes.length || busy.has("library-export")}
+        onSettings={() => setSettings("general")}
+        onHelp={() => setHelp("how-to")}
+        theme={theme}
+        onTheme={setTheme}
+        storage={storage}
+      />
+      <input
+        ref={fileInput}
+        type="file"
+        // Unrestricted on purpose: WKWebView can disable custom extensions before validation.
+        className="hidden"
+        aria-hidden
+        tabIndex={-1}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onImport(file);
+          e.target.value = "";
+        }}
+      />
+      <div className="min-w-0 flex-1 overflow-auto">
+        <MobileNav
+          page={page}
+          onNewScape={newScape}
+          onImport={() => fileInput.current?.click()}
+          onSettings={() => setSettings("general")}
+          onHelp={() => setHelp("how-to")}
+        />
+        <main className="mx-auto w-full max-w-6xl px-5 pb-16 pt-10 sm:px-8">
+          {!libraryReady ? (
+            <div role="status" aria-label="Loading your library">
+              <div className="mx-auto h-40 max-w-3xl animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+              <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-60 animate-pulse rounded-xl bg-surface motion-reduce:animate-none"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : page === "templates" ? (
+            <TemplatesPage
               busy={busy.has("creation")}
-              onCreate={create}
-              onSettings={() => setSettingsOpen(true)}
+              onUse={(starter) => {
+                setStarterId(starter.id);
+                newScape();
+              }}
+              onStartEmpty={(starter) => {
+                setStarterId(starter.id);
+                create(null, starter.id);
+              }}
             />
-            <section aria-label="Scape library" className="mt-8">
-              <LibraryControls
-                query={query}
-                onQuery={setQuery}
-                preferences={preferences}
-                onPreferences={savePreferences}
-                count={scapes.length}
-              />
-              {copied && (
-                <div
-                  role="status"
-                  className="mb-4 flex items-center gap-3 rounded-md border border-subtle bg-surface p-3 text-sm"
-                >
-                  <span className="min-w-0 flex-1 truncate">Created “{copied.name}”.</span>
-                  <button className={HOME_BUTTON} onClick={() => open(copied.id)}>
-                    Open copy
-                  </button>
-                  <button
-                    className={HOME_BUTTON}
-                    aria-label="Dismiss duplicate message"
-                    onClick={() => setCopied(null)}
+          ) : page === "published" ? (
+            <PublishedPage
+              scapes={scapes}
+              publications={publications}
+              busy={busy}
+              onAction={action}
+            />
+          ) : page === "agents" ? (
+            <AgentsPage desktop={desktop} />
+          ) : page === "instructions" ? (
+            <InstructionsPage
+              value={instructions}
+              onChange={setInstructions}
+              where={desktop ? "in this Mac app" : "in this browser"}
+            />
+          ) : (
+            <>
+              <div className={firstUse ? "pt-6 sm:pt-12" : "pt-2"}>
+                <CreationPanel
+                  firstUse={firstUse}
+                  starterId={starterId}
+                  onStarterChange={setStarterId}
+                  draft={draft}
+                  onDraftChange={setDraft}
+                  busy={busy.has("creation")}
+                  onCreate={create}
+                  onSettings={() => setSettings("general")}
+                  inputRef={prompt}
+                />
+              </div>
+              <section aria-label="Scape library" className={firstUse ? "mt-16" : "mt-14"}>
+                {!firstUse && status !== "error" && (
+                  <LibraryControls
+                    query={query}
+                    onQuery={setQuery}
+                    searchRef={search}
+                    preferences={preferences}
+                    onPreferences={savePreferences}
+                    counts={counts}
+                  />
+                )}
+                {copied && (
+                  <div
+                    role="status"
+                    className="mb-4 flex items-center gap-3 rounded-lg border border-subtle bg-surface py-2 pl-4 pr-2 text-sm"
                   >
-                    Dismiss
-                  </button>
-                </div>
-              )}
-              {status === "error" ? (
-                <div role="alert" className="rounded-xl border border-subtle p-8 text-center">
-                  <p>Could not load your library.</p>
-                  <button className={`${HOME_BUTTON} mt-3`} onClick={() => void refresh()}>
-                    Retry
-                  </button>
-                </div>
-              ) : firstUse ? (
-                <div className="rounded-xl border border-dashed border-subtle px-6 py-10 text-center">
-                  <h3 className="text-base">A home for your ideas</h3>
-                  <p className="mt-2 text-sm text-fg-secondary">
-                    Create your first scape above, or import a .scape file or library export to
-                    continue existing work.
-                  </p>
-                  <div className="mt-4">
-                    <ImportButton onFile={onImport} disabled={busy.has("creation")} />
+                    <span className="min-w-0 flex-1 truncate">Created “{copied.name}”.</span>
+                    <Button variant="secondary" size="sm" onClick={() => open(copied.id)}>
+                      Open copy
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Dismiss duplicate message"
+                      onClick={() => setCopied(null)}
+                    >
+                      Dismiss
+                    </Button>
                   </div>
-                </div>
-              ) : !visible.length ? (
-                <div className="rounded-xl border border-subtle p-10 text-center">
-                  <p>No scapes match these filters.</p>
-                  <button
-                    className={`${HOME_BUTTON} mt-3`}
-                    onClick={() => {
-                      setQuery("");
-                      savePreferences({ ...preferences, filter: "all" });
-                    }}
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              ) : (
-                <ul
-                  className={
-                    preferences.view === "gallery"
-                      ? "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
-                      : "space-y-3"
-                  }
-                >
-                  {visible.map((scape) => (
-                    <ScapeCard
-                      key={scape.id}
-                      scape={scape}
-                      pinned={pins.has(scape.id)}
-                      publication={publications.get(scape.id)}
-                      list={preferences.view === "list"}
-                      busy={busy.has(scape.id)}
-                      onAction={(kind) => action(scape, kind)}
+                )}
+                {status === "error" ? (
+                  <div role="alert" className="rounded-xl border border-subtle p-8 text-center">
+                    <p className="text-fg">Could not load your library.</p>
+                    <p className="mt-1 text-sm text-fg-secondary">
+                      Your scapes have not been changed. Try again, or reload the page.
+                    </p>
+                    <Button variant="secondary" className="mt-4" onClick={() => void refresh()}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : firstUse ? (
+                  <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed border-default px-5 py-4">
+                    <div>
+                      <h2 className="text-sm font-medium text-fg">Already have work?</h2>
+                      <p className="mt-0.5 text-sm text-fg-secondary">
+                        Import a .scape file or a library backup. Imports are added as copies.
+                      </p>
+                    </div>
+                    <ImportButton
+                      onFile={onImport}
+                      disabled={busy.has("creation")}
+                      variant="secondary"
+                      label="Import file"
                     />
-                  ))}
-                </ul>
-              )}
-              <p className="mt-5 text-xs leading-5 text-fg-tertiary">
-                Saved on this device. Export a scape file to back up your work or move it to another
-                device.
-              </p>
-            </section>
-            {!exploreHidden && (
-              <section
-                aria-label="Explore the workspace"
-                className="mt-10 border-t border-subtle pt-5"
-              >
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-medium">Explore the workspace</h2>
-                  <button
-                    className={HOME_BUTTON}
-                    aria-label="Dismiss explore the workspace"
-                    onClick={() =>
-                      void run("explore", async () => {
-                        await settingsRepository.set(HOME_KEYS.explore, true);
-                        setExploreHidden(true);
-                      })
+                  </div>
+                ) : !visible.length ? (
+                  <div className="rounded-xl border border-dashed border-default px-6 py-10 text-center">
+                    <p className="text-fg">
+                      {query.trim()
+                        ? `No scapes named “${query.trim()}”${preferences.filter === "all" ? "" : ` in ${preferences.filter}`}.`
+                        : `No ${preferences.filter} scapes yet.`}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      className="mt-4"
+                      onClick={() => {
+                        setQuery("");
+                        savePreferences({ ...preferences, filter: "all" });
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <ul
+                    className={
+                      preferences.view === "gallery"
+                        ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        : "divide-y divide-subtle rounded-xl border border-subtle bg-surface"
                     }
                   >
-                    Dismiss
-                  </button>
-                </div>
-                <div className="mt-4 grid gap-5 sm:grid-cols-3">
-                  {(
-                    [
-                      [
-                        "scapi",
-                        "Think it through with Scapi",
-                        "Ask questions about your canvas and explore what to do next.",
-                      ],
-                      [
-                        "agent",
-                        "Bring your agent",
-                        "Connect a local agent to an open scape and review its proposed changes.",
-                      ],
-                      [
-                        "publishing",
-                        "Share a snapshot",
-                        "Publish a read-only version for others to explore. Publishing is invite-only.",
-                      ],
-                    ] as const
-                  ).map(([topic, title, body]) => (
-                    <button
-                      key={topic}
-                      className="rounded-md p-2 text-left transition-colors duration-instant hover:bg-hover active:bg-selected"
-                      onClick={() => setHelp(topic)}
-                    >
-                      <h3 className="text-sm">
-                        {title} <span aria-hidden>↗</span>
-                      </h3>
-                      <p className="mt-2 text-xs leading-5 text-fg-tertiary">{body}</p>
-                    </button>
-                  ))}
-                </div>
+                    {visible.map((scape) => (
+                      <ScapeCard
+                        key={scape.id}
+                        scape={scape}
+                        pinned={pins.has(scape.id)}
+                        publication={publications.get(scape.id)}
+                        list={preferences.view === "list"}
+                        busy={busy.has(scape.id)}
+                        onAction={(kind) => action(scape, kind)}
+                      />
+                    ))}
+                  </ul>
+                )}
               </section>
-            )}
-          </>
-        )}
-      </main>
-      {settingsOpen && (
+            </>
+          )}
+        </main>
+      </div>
+      {settings && (
         <SettingsModal
-          onClose={() => setSettingsOpen(false)}
+          initialSection={settings}
+          onClose={() => setSettings(null)}
           theme={theme}
           credentials={credentials}
           apiKey={apiKey}
@@ -499,7 +531,7 @@ export function Home() {
           onInstructionsChange={setInstructions}
           onThemeChange={setTheme}
           onOpenHelp={() => {
-            setSettingsOpen(false);
+            setSettings(null);
             setHelp("how-to");
           }}
         />

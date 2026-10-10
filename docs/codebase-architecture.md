@@ -231,17 +231,25 @@ The viewer uses a second registry, `src/core/viewRegistry.ts`, which discovers o
 `view.ts`. The editor `index.ts` is intentionally never imported by the viewer because it reaches
 the store and inspector. This gives the same rendering language without importing editing power.
 
-Starters in `src/starters/index.ts` are recipes, not types. They select allowed object types,
-layout mode, edge visibility, prompt hints, placeholders, and optional seed actions:
+Starters in `src/starters/index.ts` (shown as "templates") are recipes, not types. They set
+the AI's type focus, layout mode, edge visibility, prompt hint, placeholder, example brief, and
+optional seed actions. A starter steers but never locks: any object type can be added to any
+scape by hand, by Scapi, or by an agent, and an explicit type pick in the composer overrides the
+starter's focus.
 
 ```text
-All-in-one   -> all types, left-to-right, all edges
-Journey map  -> journeys + notes, left-to-right, all edges
-Mind map     -> notes, radial, all edges
-Screens      -> wireframes + notes, grid, selected edges
+Blank               -> no focus, left-to-right, all edges
+Product concept     -> brief + journeys + wireframes + notes, top-down, selected edges
+User journey        -> journeys + notes, left-to-right, all edges
+Screen flow         -> wireframes + notes, grid, selected edges
+Research synthesis  -> notes + summary document, radial, all edges
 ```
 
-Unknown starter ids fall back to the blank/all-in-one recipe, so newer documents remain openable.
+Retired ids map forward (`mind-map` → `research-synthesis`, `product-brief` →
+`product-concept`); other unknown ids fall back to Blank, so newer documents remain openable.
+
+The home shell (`src/app/home/`) is one `Home` component rendered for `/`, `/templates`,
+`/published`, `/agents`, and `/instructions`, with a sidebar for navigation and library actions.
 
 ## 6. Editor UI implementation
 
@@ -277,14 +285,15 @@ It orchestrates; the pieces live in `src/app/home/`:
 | `CreationPanel.tsx` | The inline prompt, starter and model selection, and manual creation |
 | `Dialog.tsx` | `useDialogFocus` — focus containment and restoration, shared with the settings and help modals |
 
-Home adapts to the library: a first-use layout leads with creation, a returning layout leads with
-the workspace. Filter, sort, view, pins, and the dismissed state of the explore section are
-browser-local preferences written through the settings repository; search is deliberately
+Home leads with a prompt composer and a short template row, followed by the local library.
+Filter, sort, view, and pins are browser-local preferences written through the settings
+repository; the legacy explore-dismissed preference is retained for compatibility. Search is deliberately
 transient. Document mutations made from home (rename, delete) go through `withHomeLease`, which
 takes the same single-writer lease the editor uses, so home can never write behind an open tab.
 
-`src/app/pending.ts` also carries a scape-scoped `EditorIntent`. Choosing Publish, Ask Scapi, or
-Connect an agent from a card navigates to the editor and opens that panel once. It never performs
+`src/app/pending.ts` also carries a scape-scoped `EditorIntent`. Choosing Publish from a card
+navigates to the editor and opens that panel once. Agent setup is global and opens Settings →
+Agents from its own home-shell route or Settings. It never performs
 the action — no generation, pairing, or publish is ever initiated by the handoff itself.
 
 ### Editor composition
@@ -1000,11 +1009,32 @@ Streamable HTTP with OAuth. Both reach the shared validated command service. See
 
 Commands validate inputs and revisions before applying changes through the reducer. Writes
 are serialized, retryable using idempotency keys, and grouped into undoable transactions.
-Pending review cards and operation outcomes live in the local library. Deletion and publication
-retain explicit review requirements. An offline host returns an unavailable outcome rather
+Pending review cards, flow drafts, and operation outcomes live in the local library. Deletion
+and general publication tools retain explicit in-app review requirements. Flow-preview sharing
+uses a separate explicit disclosure click inside the chat UI. An offline host returns an unavailable outcome rather
 than silently queuing a write for later.
 
 Hosted grants select a browser or desktop destination and access scope; browser grants may
 select individual scapes. Connection revocation blocks later calls. Local desktop access trusts
 same-user processes via a private socket and a local review policy. Neither path sends the
 Anthropic key to an agent. The old Node bridge is a development harness, not the desktop setup.
+
+
+### MCP Apps flow preview
+
+`src/mcp/flowUi.ts` supplies a self-contained `text/html;profile=mcp-app` resource registered
+by `src/mcp/server.ts`. `preview_flow` validates the batch, computes layout, and stores a
+ten-minute receipt without creating an empty scape. The model sees counts and a short summary;
+full block data and the confirmation capability are returned only in tool-result `_meta`.
+The HTML uses the standard JSON-RPC `postMessage` lifecycle and local DOM rendering with
+text-safe insertion. Its CSP permits no remote connections or assets.
+
+`confirm_flow` verifies the connection, host, capability, grant, expiry, and base revision.
+It commits through the same reducer and atomic persistence path as other commands.
+`share_flow_preview` projects the exact draft through `src/mcp/host/publish.ts` into the
+existing publication API, independently of creating a local scape. The public `/embed/*`
+viewer has a separate bundle, permits framing, and receives no credentials or private capability.
+Cross-tab commands for the same target use a Web Lock; a live editor checks the base revision
+again after flushing autosave. The UI disables cancelled drafts and clears withdrawn share
+links when refreshing status. See [MCP](mcp.md) for tool behavior and [security](security-and-local-data.md)
+for disclosure boundaries.

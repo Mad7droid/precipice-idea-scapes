@@ -17,6 +17,14 @@ direction; the current tokens and components define exact values.
 Scapi shares its Ask/Edit composer and transcript across canvas and panel. Agent review cards
 and connection activity should remain readable without taking over the canvas. Settings uses
 General, AI, and Agents sections. Public share links must be usable hosted URLs, even on desktop.
+The library shell has a persistent sidebar on larger screens and compact navigation on mobile.
+Home leads with one composer and a short template row. Templates, Published, Agents, and
+Instructions each have their own page. The chat preview uses warm project tokens, a connected
+map, keyboard-accessible block inspection, one creation action, and a separate disclosure step
+for sharing. Browsing is local. Press feedback uses `--dur-fast` (130ms) and is removed under
+reduced motion. Cancellation, expiry, and withdrawn shares must be reflected in disabled
+actions and current status text.
+
 Use [sanitized product screenshots](screenshots/README.md) when documenting these surfaces.
 
 ---
