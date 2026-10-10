@@ -5,7 +5,15 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
-No pending changes.
+### Added
+
+- Click Scapi on the home page or in an empty Scapi chat for a wink, a smile, a confetti burst
+  or a look around. Reactions play only while Scapi is idle and never show the warning face.
+
+### Changed
+
+- After a failed Scapi request, the mascot shows concern briefly and then steps aside. The
+  error card and retry stay in place.
 
 ## 2026-10-11 — 0.1.6
 
