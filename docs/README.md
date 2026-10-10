@@ -6,7 +6,7 @@ Maintained guides for the current source tree:
 | --- | --- |
 | [Product and setup](../README.md) | Browser and desktop workflows, features, screenshots |
 | [Library and templates](library.md) | Sidebar, creation, filters, publication management and instructions |
-| [Release 0.1.5](releases/0.1.5.md) | Deployment record, verification and client acceptance status |
+| [Release 0.1.6](releases/0.1.6.md) | Deployment record, verification and client acceptance status |
 | [Desktop](desktop.md) | Build/install, Keychain, sign-in, local data and acceptance checks |
 | [Agents and MCP](mcp.md) | Local and hosted client setup, review, scopes and deployment |
 | [Publishing](publishing-runbook.md) | Hosted snapshots, configuration, limits and sharing checks |

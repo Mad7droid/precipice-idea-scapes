@@ -5,6 +5,13 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+No pending changes.
+
+## 2026-10-11 — 0.1.6
+
+Released to the hosted app, MCP connector, and local Mac installation. See the
+[release record](docs/releases/0.1.6.md) for verification and client acceptance status.
+
 ### Added
 
 - Scapi now has a face. The mascot sits above the home title and greets you in an empty Scapi
@@ -12,6 +19,17 @@ does not use formal release numbers yet; entries are grouped by date and commit.
   mascot at the end of the chat thinks, reacts once when an answer completes and shows concern
   on a real failure; canvas answers show the same states. Motion pauses offscreen and respects
   reduced-motion settings.
+- MCP flow previews have an **Expand preview** button that asks the chat host for fullscreen.
+
+### Changed
+
+- The MCP flow preview map scales to fit a responsive viewport instead of a fixed-size
+  scrolling area, so the whole flow is visible at once.
+
+### Fixed
+
+- MCP flow previews keep their preview metadata in tool results, so supporting hosts render
+  the preview viewport instead of an empty frame.
 
 ## 2026-10-10 — 0.1.5
 

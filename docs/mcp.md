@@ -42,7 +42,7 @@ cover the desktop library as a whole; browser grants can select individual scape
 Client setup instructions are supplied for Claude, Claude Code, Codex, ChatGPT, and Cursor.
 The production connector is `https://precipice-mcp.precipice.workers.dev/mcp`. Reconnect or
 refresh the client’s tool definitions after an update if `preview_flow` is missing.
-External-client acceptance testing is tracked in the [release record](releases/0.1.5.md);
+External-client acceptance testing is tracked in the [release record](releases/0.1.6.md);
 unit tests alone do not establish that a particular client renders MCP Apps.
 
 ## Tools and review

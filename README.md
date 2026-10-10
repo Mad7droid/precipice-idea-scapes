@@ -6,7 +6,7 @@ Precipice is a visual workspace for turning product ideas into connected,
 editable artifacts. Start with a prompt or a blank scape, then shape the result
 with notes, journeys, wireframes, and relationships on an infinite canvas.
 
-Use it in the browser or the macOS desktop app. The [0.1.5 Mac download](https://github.com/Mad7droid/precipice-idea-scapes/releases/tag/v0.1.5)
+Use it in the browser or the macOS desktop app. The [0.1.6 Mac download](https://github.com/Mad7droid/precipice-idea-scapes/releases/tag/v0.1.6)
 is an ad-hoc signed Apple Silicon build; see [desktop setup](docs/desktop.md) for installation. Scapi helps you ask questions and edit;
 external agents can work through MCP with review and undo. Publish a read-only snapshot
 when you want a link other people can open.
@@ -89,7 +89,7 @@ until withdrawn, independently of the ten-minute creation draft. Text-only clien
 the existing in-app review tools.
 
 See the [library guide](docs/library.md), [MCP guide](docs/mcp.md), and
-[release record](docs/releases/0.1.5.md) for setup, limits, and verification status.
+[release record](docs/releases/0.1.6.md) for setup, limits, and verification status.
 
 ## Screenshots
 
