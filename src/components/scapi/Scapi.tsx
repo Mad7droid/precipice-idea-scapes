@@ -22,7 +22,26 @@ export interface ScapiProps {
   className?: string;
   style?: CSSProperties;
   onError?: (error: Error) => void;
+  /**
+   * Clicking plays a short, friendly reaction — never a worried one. Only while Scapi is idle,
+   * so play can never hide real work or a real failure.
+   */
+  playful?: boolean;
 }
+
+type PlayStep = [state: ScapiState, gaze: ScapiGaze, ms: number];
+
+/** Played in turn, one per click: a wink, a smile, a confetti burst, a look around. */
+export const SCAPI_PLAYS: readonly (readonly PlayStep[])[] = [
+  [["wink", "front", 700]],
+  [["happy", "front", 1200]],
+  [["success", "front", 1800]],
+  [
+    ["idle", "left", 450],
+    ["idle", "right", 450],
+    ["happy", "up", 800],
+  ],
+];
 
 /**
  * Scapi, drawn from the approved artwork on a Canvas 2D surface.
@@ -45,6 +64,7 @@ export function Scapi({
   className,
   style,
   onError,
+  playful = false,
 }: ScapiProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const controller = useRef<ReturnType<typeof createScapi> | null>(null);
@@ -52,6 +72,7 @@ export function Scapi({
   const [failed, setFailed] = useState(false);
   const props = useRef({ state, gaze, reducedMotion: quiet, effects, onError });
   props.current = { state, gaze, reducedMotion: quiet, effects, onError };
+  const play = useRef({ next: 0, timer: 0 });
 
   useEffect(() => {
     if (!canvas.current) return;
@@ -76,13 +97,17 @@ export function Scapi({
     }
     controller.current = api;
     return () => {
+      window.clearTimeout(play.current.timer);
       api.destroy();
       controller.current = null;
     };
   }, [assetUrl]);
 
   useEffect(() => {
+    // A real state change always wins over a reaction in progress.
+    window.clearTimeout(play.current.timer);
     controller.current?.setState(state);
+    controller.current?.setGaze(props.current.gaze);
   }, [state, reactionKey]);
   useEffect(() => {
     controller.current?.setEffects(effects);
@@ -94,13 +119,44 @@ export function Scapi({
     controller.current?.setReducedMotion(quiet);
   }, [quiet]);
 
-  const box: CSSProperties = { width: size, height: (size * 360) / 420, ...style };
+  const onClick = () => {
+    const api = controller.current;
+    if (!api || props.current.state !== "idle") return;
+    window.clearTimeout(play.current.timer);
+    const steps = SCAPI_PLAYS[play.current.next % SCAPI_PLAYS.length]!;
+    play.current.next += 1;
+    const run = (index: number) => {
+      const step = steps[index];
+      if (!step) {
+        api.setState(props.current.state);
+        api.setGaze(props.current.gaze);
+        return;
+      }
+      api.setState(step[0]);
+      api.setGaze(step[1]);
+      play.current.timer = window.setTimeout(() => run(index + 1), step[2]);
+    };
+    run(0);
+  };
+
+  const box: CSSProperties = {
+    width: size,
+    height: (size * 360) / 420,
+    ...(playful ? { cursor: "pointer", userSelect: "none", touchAction: "manipulation" } : {}),
+    ...style,
+  };
   const a11y = label
     ? { role: "img" as const, "aria-label": label }
     : { "aria-hidden": true as const };
   return failed ? (
     <span {...a11y} className={className} style={{ display: "inline-block", ...box }} />
   ) : (
-    <canvas ref={canvas} {...a11y} className={className} style={{ display: "block", ...box }} />
+    <canvas
+      ref={canvas}
+      {...a11y}
+      {...(playful ? { onClick } : {})}
+      className={className}
+      style={{ display: "block", ...box }}
+    />
   );
 }

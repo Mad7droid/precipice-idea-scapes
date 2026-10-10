@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Turn } from "./types";
-import { SUCCESS_HOLD_MS, useScapiMood, type ScapiMood } from "./useScapiMood";
+import { ERROR_HOLD_MS, SUCCESS_HOLD_MS, useScapiMood, type ScapiMood } from "./useScapiMood";
 
 /**
  * The mascot is supplementary, but a mascot that celebrates history on every reopen, or whose
@@ -76,10 +76,12 @@ describe("useScapiMood", () => {
     expect(mood.state).toBe("thinking");
   });
 
-  it("shows a real failure, treats a stop as neutral and clears on retry", () => {
+  it("acknowledges a real failure briefly, treats a stop as neutral and clears on retry", () => {
     show([turn("a", "streaming")], true);
     show([turn("a", "error")]);
     expect(mood.state).toBe("error");
+    act(() => vi.advanceTimersByTime(ERROR_HOLD_MS));
+    expect(mood.state).toBe("idle");
 
     show([turn("a", "streaming")], true);
     expect(mood.state).toBe("thinking");
