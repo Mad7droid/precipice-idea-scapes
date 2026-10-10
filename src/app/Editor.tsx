@@ -10,9 +10,11 @@ import { Ribbon } from "@/ai/Ribbon";
 import { useGeneration } from "@/ai/useGeneration";
 import { createApplier } from "@/ai/applier";
 import { useScapi } from "@/ai/scapi/useScapi";
+import { useScapiMood } from "@/ai/scapi/useScapiMood";
 import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
 import { isToolName } from "@/ai/tools";
 import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
+import { Scapi } from "@/components/scapi/Scapi";
 import { Button, buttonClass } from "@/design/Button";
 import { starterFor } from "@/starters";
 import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
@@ -220,6 +222,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     scapeId,
   });
   const busy = generation.state.status === "streaming";
+  const scapiMood = useScapiMood(scapi.turns, scapi.streaming, busy);
   const starter = starterFor(scape);
 
   /**
@@ -733,7 +736,16 @@ export function Editor({ scapeId }: { scapeId: string }) {
             {canvasAnswer && (
               <div className="pointer-events-auto w-full max-w-[720px] rounded-2xl border border-subtle bg-surface p-3 shadow-md">
                 <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <span className="mono">Scapi</span>
+                  <span className="mono flex items-center gap-1.5">
+                    {/* The panel is closed while this shows, so this is Scapi's only live face. */}
+                    <Scapi
+                      size={24}
+                      state={scapiMood.state}
+                      reactionKey={scapiMood.reactionKey}
+                      effects={false}
+                    />
+                    Scapi
+                  </span>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -865,7 +877,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
           {scapiOpen ? (
             <aside className="z-panel flex h-full w-full min-w-0 flex-col border-l border-subtle bg-surface">
               <div className="flex shrink-0 items-center justify-between border-b border-subtle px-4 py-2.5">
-                <h2 className="text-sm font-[var(--weight-emph)] text-fg">Scapi</h2>
+                <h2 className="flex items-center gap-2 text-sm font-[var(--weight-emph)] text-fg">
+                  <Scapi size={28} animated={false} effects={false} />
+                  Scapi
+                </h2>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -954,6 +969,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     searchAvailability={scapi.searchAvailability}
                     restored={scapi.restored}
                     suggestions={suggestScapiQuestions(scape)}
+                    mood={scapiMood}
                     disabled={!apiKey.trim() || busy}
                     value={draft}
                     onValueChange={setDraft}

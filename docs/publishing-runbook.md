@@ -215,4 +215,4 @@ configured. It performs read-only checks against the deployed bundle, route poli
 missing-snapshot behavior, and MCP authentication/discovery. The main deployment workflow
 runs the same checks after deploying Pages.
 
-See [release 0.1.5](releases/0.1.5.md) for the deployed version and completed checks.
+See [release 0.1.6](releases/0.1.6.md) for the deployed version and completed checks.

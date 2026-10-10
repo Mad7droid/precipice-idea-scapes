@@ -166,9 +166,9 @@ desktop libraries have separate relay destinations.
 ## Flow previews in desktop-connected chats
 
 The desktop uses the same MCP Apps resource and command service as the hosted connector.
-After installing 0.1.5, refresh client tool discovery or start a new chat if `preview_flow`
+After installing 0.1.6, refresh client tool discovery or start a new chat if `preview_flow`
 is absent. Draft inspection and confirmation do not require an Anthropic key in Precipice.
 For hosted sharing, connect this Mac to your invited account first. Creation stores the flow
 in the desktop library; sharing produces a separate read-only hosted snapshot. Neither action
 synchronizes browser and desktop libraries. See the [MCP guide](mcp.md) and
-[release record](releases/0.1.5.md).
+[release record](releases/0.1.6.md).
