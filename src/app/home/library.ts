@@ -41,9 +41,48 @@ export function selectScapes(
     )
     .sort(
       (a, b) =>
+        // Pinning is a promise to keep something within reach, so a pin outranks the sort.
+        Number(pins.has(b.id)) - Number(pins.has(a.id)) ||
         (prefs.sort === "name" ? a.name.localeCompare(b.name) : b.updatedAt - a.updatedAt) ||
         a.id.localeCompare(b.id),
     );
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** Recent times read as elapsed; older ones read as a date. Nobody counts back 40 days. */
+export function relativeTime(ts: number, now = Date.now()): string {
+  const delta = now - ts;
+  if (delta < MINUTE) return "just now";
+  if (delta < HOUR) return `${Math.floor(delta / MINUTE)}m ago`;
+  if (delta < DAY) return `${Math.floor(delta / HOUR)}h ago`;
+  if (delta < 7 * DAY) return `${Math.floor(delta / DAY)}d ago`;
+  const date = new Date(ts);
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() === new Date(now).getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+/** "3 notes · 1 journey · 4 connections", from the counts the summary already carries. */
+export function describeContents(
+  scape: Pick<ScapeSummary, "objectCount" | "typeCounts" | "relationshipCount">,
+  labelFor: (type: string) => string,
+): string {
+  if (scape.objectCount === 0) return "Empty";
+  const parts = Object.entries(scape.typeCounts)
+    .filter(([, count]) => count > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([type, count]) => plural(count, labelFor(type).toLocaleLowerCase()));
+  if (scape.relationshipCount > 0) parts.push(plural(scape.relationshipCount, "connection"));
+  return parts.join(" · ");
+}
+
+function plural(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 /** Hold the same lease as the editor for document mutations; never take over another tab. */
 export async function withHomeLease<T>(id: string, operation: () => Promise<T>): Promise<T> {

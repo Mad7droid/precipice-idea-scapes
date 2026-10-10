@@ -52,7 +52,7 @@ async function setup(overrides: Partial<ServiceDeps> = {}) {
     markdown: (s) => `# ${s.name}`,
     ...overrides,
   };
-  return { service: createCommandService(deps), repository, scape, reviews };
+  return { service: createCommandService(deps), repository, scape, reviews, operations, deps };
 }
 
 const note = (id: string) => ({
@@ -61,6 +61,198 @@ const note = (id: string) => ({
   objectType: "note",
   title: `Note ${id}`,
   data: { body: "hello" },
+});
+
+function previewAuth(result: Record<string, any>) {
+  return {
+    scape_id: result.scape_id,
+    preview_id: result.operation_id,
+    confirmation_token: result._meta.confirmation_token,
+  };
+}
+
+describe("chat flow previews", () => {
+  it("keeps a new flow out of the library until chat confirmation, then commits it once", async () => {
+    const { service, repository, reviews } = await setup();
+    const before = await repository.list();
+    const preview = await service.execute(
+      call("preview_flow", { name: "Signup", actions: [note("signup")] }),
+    );
+    expect(preview).toMatchObject({ status: "preview", objects: 1 });
+    expect(await repository.list()).toEqual(before);
+    expect(reviews).toHaveLength(0);
+    const args = { ...previewAuth(preview), approve: true };
+    const [first, second] = await Promise.all([
+      service.execute(call("confirm_flow", args, grant({ mode: "review" }))),
+      service.execute(call("confirm_flow", args, grant({ mode: "review" }))),
+    ]);
+    expect(first).toMatchObject({ status: "applied", scape_id: preview.scape_id });
+    expect(second).toEqual(first);
+    expect(await repository.list()).toHaveLength(before.length + 1);
+    const stored = await repository.get(String(preview.scape_id));
+    expect(stored?.objects.signup.data).toEqual({ body: "hello" });
+    expect(stored?.objects.signup.x).toBe(
+      preview._meta && (preview._meta as any).preview.objects[0].x,
+    );
+  });
+
+  it("previews existing edits without mutating, rejects a stale draft and commits a fresh draft as one revertible batch", async () => {
+    const { service, repository, scape } = await setup();
+    const preview = await service.execute(
+      call("preview_flow", { scape_id: scape.id, actions: [note("new_note")] }),
+    );
+    expect((await repository.get(scape.id))?.objects.new_note).toBeUndefined();
+    await service.execute(call("apply_changes", { scape_id: scape.id, actions: [note("other")] }));
+    expect(
+      await service.execute(call("confirm_flow", { ...previewAuth(preview), approve: true })),
+    ).toMatchObject({ error: "revision_conflict" });
+    const fresh = await service.execute(
+      call("preview_flow", { scape_id: scape.id, actions: [note("new_note")] }),
+    );
+    const done = await service.execute(
+      call("confirm_flow", { ...previewAuth(fresh), approve: true }),
+    );
+    expect(done.status).toBe("applied");
+    expect(
+      await service.execute(
+        call("revert_operation", { scape_id: scape.id, operation_id: done.operation_id }),
+      ),
+    ).toMatchObject({ status: "applied" });
+    expect((await repository.get(scape.id))?.objects.new_note).toBeUndefined();
+    expect((await repository.get(scape.id))?.objects.other).toBeTruthy();
+  });
+
+  it("binds confirmation to a private capability, originating connection, host and target", async () => {
+    const { service, repository, scape } = await setup();
+    const preview = await service.execute(
+      call("preview_flow", { scape_id: scape.id, actions: [note("protected")] }),
+    );
+    const args = { ...previewAuth(preview), approve: true };
+    for (const [changed, g] of [
+      [{ ...args, confirmation_token: "wrong" }, grant()],
+      [{ ...args, scape_id: "other" }, grant()],
+      [args, grant({ clientId: "other" })],
+      [args, grant({ host: "desktop" })],
+      [args, grant({ scapes: [] })],
+    ] as const)
+      expect(await service.execute(call("confirm_flow", changed, g))).toMatchObject({
+        error: "not_found",
+      });
+    expect(
+      await service.execute(call("confirm_flow", args, grant({ write: false }))),
+    ).toMatchObject({ error: "forbidden" });
+    expect(
+      await service.execute(call("confirm_flow", { ...args, actions: [note("replacement")] })),
+    ).toMatchObject({ status: "failed" });
+    expect((await repository.get(scape.id))?.objects.protected).toBeUndefined();
+  });
+
+  it("cannot use the preview confirmation path to approve a pending publishing or deletion request", async () => {
+    const { service, scape } = await setup();
+    const pending = await service.execute(call("delete_scape", { scape_id: scape.id }));
+    expect(
+      await service.execute(
+        call("confirm_flow", {
+          scape_id: scape.id,
+          preview_id: pending.operation_id,
+          confirmation_token: "anything",
+          approve: true,
+        }),
+      ),
+    ).toMatchObject({ error: "not_found" });
+  });
+
+  it("expires drafts and makes discard terminal without creating an empty scape", async () => {
+    let now = 1000;
+    const { service, repository } = await setup({ now: () => now });
+    const preview = await service.execute(call("preview_flow", { actions: [note("expired")] }));
+    now += 11 * 60_000;
+    expect(
+      await service.execute(call("confirm_flow", { ...previewAuth(preview), approve: true })),
+    ).toMatchObject({ error: "expired" });
+    const fresh = await service.execute(call("preview_flow", { actions: [note("discarded")] }));
+    expect(
+      await service.execute(call("confirm_flow", { ...previewAuth(fresh), approve: false })),
+    ).toMatchObject({ status: "cancelled" });
+    expect(
+      await service.execute(call("confirm_flow", { ...previewAuth(fresh), approve: true })),
+    ).toMatchObject({ status: "cancelled" });
+    expect(await repository.list()).toHaveLength(1);
+  });
+
+  it("persists drafts across service restarts and honors the original capability", async () => {
+    const { service, deps, repository } = await setup();
+    const preview = await service.execute(call("preview_flow", { actions: [note("restored")] }));
+    const restarted = createCommandService(deps);
+    expect(
+      await restarted.execute(call("confirm_flow", { ...previewAuth(preview), approve: true })),
+    ).toMatchObject({ status: "applied" });
+    expect((await repository.get(String(preview.scape_id)))?.objects.restored).toBeTruthy();
+  });
+
+  it("permits read-only inspection but not creation or sharing, and limits new drafts to all-scapes grants", async () => {
+    const { service, scape } = await setup();
+    expect(
+      await service.execute(
+        call("preview_flow", { actions: [note("new")] }, grant({ scapes: [scape.id] })),
+      ),
+    ).toMatchObject({ status: "failed" });
+    const g = grant({ write: false, scapes: [scape.id] });
+    const preview = await service.execute(
+      call("preview_flow", { scape_id: scape.id, actions: [note("read_only")] }, g),
+    );
+    expect(preview.status).toBe("preview");
+    expect((preview._meta as any).can_write).toBe(false);
+    expect(
+      await service.execute(call("share_flow_preview", previewAuth(preview), g)),
+    ).toMatchObject({ error: "forbidden" });
+  });
+
+  it("shares only after explicit chat disclosure, deduplicates sharing, and permits withdrawal after expiry", async () => {
+    let now = 1000;
+    const shares: any[] = [];
+    const { service, repository } = await setup({
+      now: () => now,
+      sharePreview: async (scape, existing, withdraw) => {
+        shares.push({ scape, existing, withdraw });
+        return withdraw
+          ? { message: "Withdrawn" }
+          : {
+              publication_id: "pub_preview",
+              url: "https://example.test/p/pub_preview",
+              iframe: "<iframe></iframe>",
+            };
+      },
+    });
+    const preview = await service.execute(call("preview_flow", { actions: [note("public")] }));
+    expect(shares).toHaveLength(0);
+    const args = previewAuth(preview);
+    const shared = await service.execute(call("share_flow_preview", args));
+    expect(shared).toMatchObject({ status: "ok", publication_id: "pub_preview" });
+    expect(await service.execute(call("share_flow_preview", args))).toEqual(shared);
+    expect(shares).toHaveLength(1);
+    expect(shares[0].scape.objects.public.data).toEqual({ body: "hello" });
+    expect(await repository.list()).toHaveLength(1);
+    expect(
+      await service.execute(call("get_operation", { operation_id: preview.operation_id })),
+    ).toMatchObject({
+      status: "preview",
+      _meta: { share: { publication_id: "pub_preview" } },
+    });
+    expect(
+      await service.execute(
+        call("get_operation", { operation_id: preview.operation_id }, grant({ clientId: "other" })),
+      ),
+    ).toMatchObject({ error: "not_found" });
+    now += 11 * 60_000;
+    expect(
+      await service.execute(call("share_flow_preview", { ...args, withdraw: true })),
+    ).toMatchObject({ status: "ok" });
+    expect(shares[1]).toMatchObject({ existing: "pub_preview", withdraw: true });
+    expect(await service.execute(call("share_flow_preview", args))).toMatchObject({
+      error: "expired",
+    });
+  });
 });
 
 describe("command service", () => {
@@ -278,10 +470,18 @@ describe("concurrent agent calls", () => {
 
 it("publishing always waits for confirmation, even for a trusted agent", async () => {
   let published = false;
-  const { service, scape } = await setup({ publish: async () => { published = true; return { url: "https://example.test/public" }; } });
-  const result = await service.execute(call("publish_scape", {scape_id: scape.id}));
+  const { service, scape } = await setup({
+    publish: async () => {
+      published = true;
+      return { url: "https://example.test/public" };
+    },
+  });
+  const result = await service.execute(call("publish_scape", { scape_id: scape.id }));
   expect(result.status).toBe("awaiting_review");
   expect(published).toBe(false);
-  expect(await service.resolveReview(result.operation_id!, true)).toMatchObject({status: "applied", url: "https://example.test/public"});
+  expect(await service.resolveReview(result.operation_id!, true)).toMatchObject({
+    status: "applied",
+    url: "https://example.test/public",
+  });
   expect(published).toBe(true);
 });

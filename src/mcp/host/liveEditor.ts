@@ -26,6 +26,13 @@ export function liveEditor(options: {
         if (!options.canWrite()) throw new Error("read_only");
         await options.flush();
         const before = current();
+        if (
+          operation?.command.tool === "preview_flow" &&
+          operation.command.args.__revision !== (await revision(before))
+        )
+          throw new Error(
+            "revision_conflict: The scape changed after this preview. Ask for a fresh preview.",
+          );
         const first = applyBatch(before, payloads, txId);
         const batch = layout
           ? applyBatch(before, [...payloads, layoutAction(first.state, layout)], txId)
@@ -36,6 +43,7 @@ export function liveEditor(options: {
           operation.result = {
             status: "applied",
             operation_id: operation.key,
+            scape_id: operation.scapeId,
             revision: operation.afterRevision,
             message: String(operation.command.args.__summary ?? "Applied."),
           };

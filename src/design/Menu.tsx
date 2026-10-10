@@ -93,3 +93,13 @@ export function MenuItem({
     </button>
   );
 }
+
+/** A hairline between groups of items. Arrow keys skip it: only menu items take focus. */
+export function MenuSeparator() {
+  return <div role="separator" className="-mx-1 my-1 border-t border-subtle" />;
+}
+
+/** A quiet label over a group, for menus long enough that grouping alone does not explain. */
+export function MenuLabel({ children }: { children: React.ReactNode }) {
+  return <div className="px-2 pb-0.5 pt-1.5 text-2xs text-fg-tertiary">{children}</div>;
+}

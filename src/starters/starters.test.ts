@@ -54,6 +54,11 @@ describe("starters", () => {
     expect(starterFor({ meta: { starter: "mind-map" } }).layout).toBe("radial");
   });
 
+  it("maps retired starter ids to the starters that replaced them", () => {
+    expect(getStarter("mind-map").id).toBe("research-synthesis");
+    expect(getStarter("product-brief").id).toBe("product-concept");
+  });
+
   it("draws relationships for the starters whose whole point is the relationships", () => {
     expect(getStarter("mind-map").edgeMode).toBe("all");
     expect(getStarter("journey-map").edgeMode).toBe("all");

@@ -23,9 +23,12 @@ To build and install in one step, replacing the copy in `/Applications`:
 pnpm desktop:install
 ```
 
-Quit Precipice first; the script refuses to replace a running app. It also
+Quit the Precipice window first; the script refuses to replace a running GUI. Idle `--mcp`
+stdio helpers can remain connected and do not block installation; their next request opens
+the updated installed app. It also
 refuses to overwrite anything in `/Applications/Precipice.app` that is not
-`dev.precipice.desktop`. Afterwards it deletes the staged bundle under
+`dev.precipice.desktop`. The script verifies the full app-bundle signature before replacing the installed copy.
+Afterwards it deletes the staged bundle under
 `src-tauri/target`, so only the installed app exists (see *Avoiding duplicate
 apps* below).
 
@@ -37,7 +40,8 @@ pnpm desktop:build
 
 Open the DMG under `src-tauri/target/release/bundle/dmg/`, drag Precipice into
 Applications, then launch it. Builds target the current Mac architecture. This
-local build is not Developer ID signed or notarized and needs no Apple Developer
+local build is ad-hoc signed with `bundle.macOS.signingIdentity = "-"`, and is not
+Developer ID signed or notarized and needs no Apple Developer
 account. For downloaded unsigned builds, macOS may require approval in System
 Settings → Privacy & Security. Do not disable Gatekeeper globally.
 
@@ -102,7 +106,7 @@ blocked, and the bundled app has a CSP. Service workers are web-only.
 
 ## Data and current limits
 
-Scapes in the Mac app are separate from browser Scapes. Choose **Export library** on the browser home page, then **Import** in the Mac
+Scapes in the Mac app are separate from browser Scapes. Choose **Back up library** on the browser home page, then **Import** in the Mac
 app and select the downloaded `Precipice-library.json` file. All Scapes are added as new copies in one
 transaction; existing desktop Scapes are never overwritten. Document content,
 timestamps and action history transfer; credentials, preferences, publication
@@ -157,3 +161,14 @@ needed. Local agents ask for review until trusted. Remote setup opens the system
 through `precipice://auth/callback`, bound to the originating app with PKCE. Its scoped host
 credential is stored in Keychain. Select Desktop app when granting agent access; browser and
 desktop libraries have separate relay destinations.
+
+
+## Flow previews in desktop-connected chats
+
+The desktop uses the same MCP Apps resource and command service as the hosted connector.
+After installing 0.1.5, refresh client tool discovery or start a new chat if `preview_flow`
+is absent. Draft inspection and confirmation do not require an Anthropic key in Precipice.
+For hosted sharing, connect this Mac to your invited account first. Creation stores the flow
+in the desktop library; sharing produces a separate read-only hosted snapshot. Neither action
+synchronizes browser and desktop libraries. See the [MCP guide](mcp.md) and
+[release record](releases/0.1.5.md).

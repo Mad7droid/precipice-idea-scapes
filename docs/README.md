@@ -5,6 +5,8 @@ Maintained guides for the current source tree:
 | Guide | Purpose |
 | --- | --- |
 | [Product and setup](../README.md) | Browser and desktop workflows, features, screenshots |
+| [Library and templates](library.md) | Sidebar, creation, filters, publication management and instructions |
+| [Release 0.1.5](releases/0.1.5.md) | Deployment record, verification and client acceptance status |
 | [Desktop](desktop.md) | Build/install, Keychain, sign-in, local data and acceptance checks |
 | [Agents and MCP](mcp.md) | Local and hosted client setup, review, scopes and deployment |
 | [Publishing](publishing-runbook.md) | Hosted snapshots, configuration, limits and sharing checks |
@@ -13,6 +15,9 @@ Maintained guides for the current source tree:
 | [Security policy](../SECURITY.md) | Private vulnerability reporting and repository hygiene |
 | [Design language](design-language.md) | Visual principles and current component rules |
 | [Screenshot provenance](screenshots/README.md) | Public demo images and safe capture procedure |
+
+[Scapi UX reference](scapi-ux-patterns.html) documents the built-in assistant’s interactions;
+it is separate from the external MCP preview UI.
 
 [CHANGELOG.md](../CHANGELOG.md) records user-visible changes. [CLAUDE.md](../CLAUDE.md) gives
 contributor rules. [NOTES.md](../NOTES.md) and the original

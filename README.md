@@ -6,7 +6,8 @@ Precipice is a visual workspace for turning product ideas into connected,
 editable artifacts. Start with a prompt or a blank scape, then shape the result
 with notes, journeys, wireframes, and relationships on an infinite canvas.
 
-Use it in the browser or the macOS desktop app. Scapi helps you ask questions and edit;
+Use it in the browser or the macOS desktop app. The [0.1.5 Mac download](https://github.com/Mad7droid/precipice-idea-scapes/releases/tag/v0.1.5)
+is an ad-hoc signed Apple Silicon build; see [desktop setup](docs/desktop.md) for installation. Scapi helps you ask questions and edit;
 external agents can work through MCP with review and undo. Publish a read-only snapshot
 when you want a link other people can open.
 
@@ -20,8 +21,9 @@ Open the hosted app at **[precipice.pages.dev](https://precipice.pages.dev)**.
 For a first look:
 
 1. Open the link in a modern browser.
-2. Choose a starter such as **All-in-one**, **Journey map**, **Mind map**, **Screens**, or
-   **Product brief**, or reopen existing work from the scape library on the home page.
+2. Describe what you are working on, pick a template — **Blank**, **Product concept**,
+   **User journey**, **Screen flow**, or **Research synthesis** — or reopen existing work from the
+   library on Home. The sidebar also holds Templates, Published, Agents, and Instructions.
 3. Use the canvas controls to pan, zoom, select objects, and show or hide relationship lines.
 4. Select an object to edit it in the inspector; resize any card from its lower-right handle.
 5. Ask or edit with Scapi from the composer at the bottom of the canvas, or press `⌘J` for the
@@ -65,18 +67,39 @@ shared key behind a public endpoint is a shared key anyone can spend.
 - Invite-only publishing: read-only public and embeddable scape snapshots, Google sign-in,
   account-level storage and write limits, and administrator-managed invitations.
 - A macOS app with optional Keychain storage, system-browser sign-in, and portable library transfer.
+- In-chat MCP Apps previews: inspect notes, journeys, screens, and connections in compatible
+  Claude and ChatGPT clients, then create or discard directly in chat. Preview navigation and
+  confirmation make no additional model calls. Separately share an unlisted hosted preview with
+  copyable iframe code and withdrawal controls.
 - Settings → Agents: built-in desktop MCP and a hosted OAuth connector. Agents can read, search,
   create, edit, arrange, and export scapes through validated operations. Review cards, revision
   checks, idempotent retries, and one-step undo keep changes inspectable.
+
+## Preview a flow from chat
+
+Open **Agents** in the sidebar (or **Settings → Agents**) and connect a supported client.
+The hosted connector is `https://precipice-mcp.precipice.workers.dev/mcp`. Keep the browser
+with your library open, or choose **Desktop app** when connecting to this Mac.
+
+Ask: “Draft a signup flow in Precipice with notes, a journey, and wireframes. Use
+`preview_flow` so I can inspect it before creating it.” In a compatible MCP Apps host, browse
+the preview and choose **Create in Precipice**. To embed it on a website, choose **Share
+preview → Make preview public**, then copy the iframe code. Shared snapshots remain available
+until withdrawn, independently of the ten-minute creation draft. Text-only clients can use
+the existing in-app review tools.
+
+See the [library guide](docs/library.md), [MCP guide](docs/mcp.md), and
+[release record](docs/releases/0.1.5.md) for setup, limits, and verification status.
 
 ## Screenshots
 
 ### Home and generation
 
-The home surface combines prompt-driven creation, starter scapes, imports, theme
-selection, settings, and a searchable library of locally saved scapes.
+Home combines prompt-driven creation, templates, imports, and a searchable local library.
+The sidebar opens Templates, Published, Agents, and Instructions. The image below shows the
+previous home layout; see the current library guide for the sidebar workflow.
 
-![Precipice home with the All-in-one starter](docs/screenshots/home-all-in-one-dark.png)
+![Precipice home](docs/screenshots/home-all-in-one-dark.png)
 
 ![Getting started help](docs/screenshots/help-getting-started-dark.png)
 
@@ -227,7 +250,7 @@ Build and install it with `pnpm desktop:install`, which replaces the app in
 updater yet; see [desktop build, installation, and security notes](docs/desktop.md)
 for why that waits on Developer ID signing.
 
-To copy an entire browser library to the Mac app: choose **Export library** on the
+To copy an entire browser library to the Mac app: choose **Back up library** on the
 browser home page, then **Import** in the desktop app and select the downloaded
 `Precipice-library.json` file. It adds new copies without overwriting existing Scapes.
 This is a local file transfer, not automatic synchronization; API keys, sign-in

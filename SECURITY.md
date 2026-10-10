@@ -66,7 +66,9 @@ for deletion, unsigned build limitations, and the manual verification checklist.
 Publishing creates an unlisted, publicly readable snapshot. Hosted MCP instead uses OAuth and
 scoped grants to relay private content from an available host. The macOS local MCP transport
 uses a user-private Unix socket and trusts same-user clients. Agent access does not include the
-Anthropic key. Review requirements and revocation limits are documented in
+Anthropic key. Chat previews expose their displayed draft to the authorized MCP host. Public
+preview sharing requires a separate disclosure click and produces an unlisted, publicly
+readable snapshot; withdrawing a link cannot recall previously downloaded copies. Review requirements and revocation limits are documented in
 [Security and local data](docs/security-and-local-data.md) and [Agents and MCP](docs/mcp.md).
 
 ### Documentation assets

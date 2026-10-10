@@ -167,9 +167,31 @@ when the user presses Add; unrelated client settings must be preserved. Desktop 
 one-minute single-use code bound to an in-memory/session PKCE verifier, never a bearer token.
 Host credentials permit relay connection, connection management, and bounded publication
 snapshots. They cannot approve new OAuth grants, administer users, or access account deletion.
-Agent publishing/unpublishing always requires in-app confirmation, even for trusted clients. Browser host credentials live in localStorage. They expire after
+General agent publishing/unpublishing requires in-app confirmation, even for trusted clients.
+Chat preview sharing requires a separate explicit **Make preview public** click in the widget. Browser host credentials live in localStorage. They expire after
 90 days of inactivity, and account suspension is checked on use. Each grant selects browser
 or desktop, and the relay destinations are separate.
+
+## Chat preview data and public disclosure
+
+Flow preview receipts contain the validated action batch, displayed draft, base revision,
+and a random confirmation capability in the local library. They do not contain an Anthropic
+key. Creation expires after ten minutes. A hosted MCP client receives the displayed draft
+through the authorized relay; its UI receives the draft and capability in `_meta`, while
+model-visible results contain status and counts. This limits repeated model context; it does
+not make the client or its host blind to the preview.
+
+Confirmation tools are app-only and check the current edit grant, originating connection,
+host, capability, and revision. They cannot confirm deletion or general publication requests.
+The self-contained sandbox UI loads no remote code and inserts draft content as text.
+Preview browsing and confirmation invoke no model.
+
+**Make preview public** uploads the entire displayed draft, including unchanged blocks in an
+edit preview, through the bounded publication projection. Instructions, action history, local
+metadata, and credentials are excluded. The unlisted `/p/*` and `/embed/*` links are publicly
+readable; embeds are read-only with no local-library or confirmation access. Withdrawal blocks
+subsequent public reads but cannot recall copies already downloaded. Shared snapshots persist
+independently of the creation draft and consume normal publication quotas.
 
 ## Public documentation and images
 

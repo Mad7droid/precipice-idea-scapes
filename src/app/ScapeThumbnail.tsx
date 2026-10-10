@@ -24,12 +24,12 @@ export function ScapeThumbnail({
   if (!preview || preview.nodes.length === 0) {
     return (
       <div
-        className="grid shrink-0 place-items-center rounded-sm border border-subtle bg-inset"
+        className={`grid shrink-0 place-items-center bg-inset ${large ? "" : "rounded-sm border border-subtle"}`}
         style={{ width: large ? "100%" : width, height }}
         aria-hidden
       >
         {large ? (
-          <span className="text-xs text-fg-tertiary">Your next idea starts here</span>
+          <span className="text-xs text-fg-tertiary">Empty canvas</span>
         ) : (
           <span className="block h-1 w-1 rounded-full bg-[var(--border-strong)]" />
         )}
@@ -51,7 +51,7 @@ export function ScapeThumbnail({
       width={large ? "100%" : width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      className="shrink-0 rounded-sm border border-subtle bg-inset"
+      className={`shrink-0 bg-inset ${large ? "" : "rounded-sm border border-subtle"}`}
       aria-hidden
     >
       {preview.edges.map(([from, to], i) => {

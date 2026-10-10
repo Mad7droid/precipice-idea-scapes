@@ -1,4 +1,4 @@
-import { publishFromAgent } from "./publish";
+import { publishFromAgent, shareFlowPreview } from "./publish";
 import { allPlugins } from "@/core/registry";
 import type { Scape } from "@/core/types";
 import { summarize } from "@/core/registry";
@@ -85,6 +85,7 @@ function createService(): CommandService {
       })),
     markdown: markdownOf,
     publish: publishFromAgent,
+    sharePreview: shareFlowPreview,
   });
 }
 
@@ -117,7 +118,15 @@ export function createAgentHost(): AgentHost {
   const waiting = new Map<string, (message: RouteMessage) => void>();
 
   async function run(envelope: Envelope): Promise<Outcome> {
-    const outcome = await service.execute(envelope);
+    const scapeId = (envelope.args as { scape_id?: string } | null)?.scape_id;
+    // Cross-tab retries of a preview use the same target ID, even before the scape exists.
+    // Do not hold this lock while forwarding to the editor tab, which acquires it itself.
+    const outcome =
+      typeof navigator !== "undefined" && navigator.locks && scapeId
+        ? await navigator.locks.request(`precipice-mcp-command:${scapeId}`, () =>
+            service.execute(envelope),
+          )
+        : await service.execute(envelope);
     useAgentStore
       .getState()
       .record({ client: envelope.grant.clientName, tool: envelope.tool, at: Date.now() });

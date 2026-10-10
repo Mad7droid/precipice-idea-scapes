@@ -149,7 +149,7 @@ export type HelpTopic = "how-to" | "shortcuts" | "scapi" | "agent" | "publishing
 const CAPABILITY_HELP = {
   scapi: {
     title: "Think with Scapi",
-    body: "Open a scape and choose Ask Scapi from its home action menu, or press Command/Control + J on the canvas. Ask about the whole scape or selected artifacts. Add your Anthropic API key in Settings before sending a question.",
+    body: "Open a scape and select Ask Scapi in the top bar, or press Command/Control + J on the canvas. Ask about the whole scape or only the blocks you have selected. Scapi answers in a side panel and changes nothing unless you ask it to edit. Add your Anthropic API key in Settings before sending a question.",
   },
   agent: {
     title: "Connect a local agent",

@@ -1,7 +1,7 @@
 {
   "name": "precipice",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
     "verify": "pnpm check:version && pnpm check:worker && pnpm build && pnpm test",
     "check:worker": "tsc -p tsconfig.worker.json",
     "check:version": "node scripts/check-version.mjs",
+    "smoke:release": "node --env-file=.env.production.local scripts/smoke-release.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
@@ -43,6 +44,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@tauri-apps/cli": "^2.11.4",
     "@types/dagre": "^0.7.53",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^26.1.2",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
