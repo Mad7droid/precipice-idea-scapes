@@ -2,7 +2,9 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DotMatrix } from "@/ai/DotMatrix";
+import { Scapi } from "@/components/scapi/Scapi";
 import type { ObjectId, ScapeObject } from "@/core/types";
+import type { ScapiMood } from "./useScapiMood";
 import { Button } from "@/design/Button";
 import { answerFormatLabel, inferAnswerFormat } from "./answerFormat";
 import { ObjectChip } from "./ObjectChip";
@@ -46,6 +48,12 @@ export interface ScapiPanelProps {
    * answers around it and scrolls with them.
    */
   activity?: React.ReactNode;
+  /**
+   * Scapi's live state. Shown once, at the end of the transcript, only while there is something
+   * to show — working, a fresh completion, a current failure. The status text stays the source
+   * of truth; the mascot is decoration beside it.
+   */
+  mood?: ScapiMood;
 }
 
 /**
@@ -142,6 +150,7 @@ export function ScapiPanel({
   onValueChange,
   composer,
   activity,
+  mood,
 }: ScapiPanelProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -151,7 +160,8 @@ export function ScapiPanel({
   // list this effect ran after *every* render and wrote `scrollTop` each time — a forced
   // synchronous layout per frame, which is its own source of stutter.
   const last = turns[turns.length - 1];
-  const growth = `${turns.length}:${last?.body.length ?? 0}:${last?.reasoning.length ?? 0}:${last?.activity.length ?? 0}:${activity ? 1 : 0}`;
+  const live = mood && mood.state !== "idle" ? mood : null;
+  const growth = `${turns.length}:${last?.body.length ?? 0}:${last?.reasoning.length ?? 0}:${last?.activity.length ?? 0}:${activity ? 1 : 0}:${live ? 1 : 0}`;
 
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -222,6 +232,9 @@ export function ScapiPanel({
             </ol>
           )}
           {activity && <div className="mt-5">{activity}</div>}
+          {live && (
+            <Scapi size={56} state={live.state} reactionKey={live.reactionKey} className="mt-3" />
+          )}
         </div>
 
         {!atLatest && turns.length > 0 && (
@@ -263,6 +276,7 @@ function EmptyState({
 }) {
   return (
     <div className="mt-6">
+      <Scapi size={96} className="mb-3" />
       <p className="text-base font-[var(--weight-emph)] text-fg">Ask about this scape.</p>
       <p className="mt-1 text-sm text-fg-secondary">
         Scapi can read every object on the canvas. Ask answers questions without changing your work.

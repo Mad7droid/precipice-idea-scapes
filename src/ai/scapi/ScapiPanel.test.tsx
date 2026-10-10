@@ -109,3 +109,25 @@ describe("Scapi composer submission", () => {
     expect(input.value).toBe("Follow up");
   });
 });
+
+describe("ScapiPanel mascot", () => {
+  const mascots = (mood: "idle" | "thinking") => {
+    const view = render(
+      <ScapiPanel
+        turns={[streamingTurn()]}
+        streaming={mood === "thinking"}
+        onSend={() => {}}
+        onCancel={() => {}}
+        mood={{ state: mood, reactionKey: 0 }}
+      />,
+    );
+    mounted.push(view);
+    // Without Canvas 2D (jsdom), the mascot yields a decorative box of the same size.
+    return view.container.querySelectorAll('[aria-hidden="true"][style*="width: 56px"]').length;
+  };
+
+  it("shows one live mascot while Scapi works and none once it settles", () => {
+    expect(mascots("thinking")).toBe(1);
+    expect(mascots("idle")).toBe(0);
+  });
+});

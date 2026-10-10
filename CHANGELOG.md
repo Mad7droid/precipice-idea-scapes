@@ -5,7 +5,13 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
-No pending changes.
+### Added
+
+- Scapi now has a face. The mascot sits above the home title and greets you in an empty Scapi
+  chat; a small avatar marks the Scapi header button and panel header. While Scapi works, a live
+  mascot at the end of the chat thinks, reacts once when an answer completes and shows concern
+  on a real failure; canvas answers show the same states. Motion pauses offscreen and respects
+  reduced-motion settings.
 
 ## 2026-10-10 — 0.1.5
 

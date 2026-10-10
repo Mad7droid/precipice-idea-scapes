@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Scapi } from "@/components/scapi/Scapi";
 import type { Scape, ThemePreference } from "@/core/types";
 import { Menu, MenuItem } from "@/design/Menu";
 import { starterFor } from "@/starters";
@@ -131,8 +132,9 @@ export function TopBar({
             onClick={onOpenScapi}
             aria-pressed={scapiOpen}
             title="Ask Scapi (⌘J)"
-            className="rounded-md border border-default px-3 py-1.5 text-fg hover:bg-hover"
+            className="inline-flex items-center gap-1.5 rounded-md border border-default py-1.5 pl-2 pr-3 text-fg hover:bg-hover"
           >
+            <Scapi size={24} animated={false} effects={false} />
             Scapi
           </button>
         )}

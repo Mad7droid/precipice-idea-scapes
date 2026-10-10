@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { Composer } from "@/ai/Composer";
+import { Scapi } from "@/components/scapi/Scapi";
 import { STARTERS, getStarter } from "@/starters";
 import { useAppSettings } from "../useAppSettings";
 import { StarterMark } from "./StarterMark";
@@ -49,6 +50,14 @@ export function CreationPanel({
 
   return (
     <section aria-labelledby="create-heading" className="mx-auto w-full max-w-3xl">
+      {/* The box reserves the mascot's space before its artwork loads, so nothing below moves. */}
+      <div className="mx-auto mb-4 aspect-[7/6] w-28 sm:w-36">
+        <Scapi
+          state={busy ? "thinking" : "idle"}
+          size={144}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </div>
       <h1 id="create-heading" className="text-center font-pixel text-2xl text-fg sm:text-3xl">
         What are you working on?
       </h1>
