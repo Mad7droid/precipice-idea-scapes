@@ -130,6 +130,9 @@ async function runAsk(
       messages: assembleMessages(scape, options.history, options.question, pinned),
       tools,
       stopWhen: stepCountIs(MAX_STEPS),
+      // fullStream below handles failures. The SDK's default logger includes raw request
+      // content; keep diagnostics out of the console as well as the visible transcript.
+      onError: () => {},
       providerOptions: {
         anthropic: {
           // `summarized` is what makes the reasoning panel possible at all — the default

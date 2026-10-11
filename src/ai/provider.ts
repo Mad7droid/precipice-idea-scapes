@@ -114,6 +114,20 @@ export function describeProviderError(error: unknown): { message: string; detail
       detail: "Check the API key in settings, then try again.",
     };
   }
+  if (
+    /reached your specified API usage limits|(?:monthly|spend|usage) limit (?:reached|exceeded)/i.test(
+      raw,
+    )
+  ) {
+    // Only copy the fixed-format reset timestamp, never the provider's full diagnostic.
+    const reset = raw.match(/regain access on (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) UTC/i);
+    return {
+      message: "Anthropic API usage limit reached",
+      detail:
+        "Increase the API account’s usage limit in Anthropic Console, or wait for it to reset." +
+        (reset ? ` Access resets ${reset[1]} at ${reset[2]} UTC.` : ""),
+    };
+  }
   if (status === 429 || type === "rate_limit_error" || /rate.?limit/i.test(raw)) {
     return {
       message: "Scapi is temporarily busy",
