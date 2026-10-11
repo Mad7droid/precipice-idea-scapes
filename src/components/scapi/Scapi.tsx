@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createScapi } from "./scapi-controller.js";
 
 export type ScapiState =
@@ -27,6 +27,8 @@ export interface ScapiProps {
    * so play can never hide real work or a real failure.
    */
   playful?: boolean;
+  /** Occasional friendly idle reactions, paused offscreen and under reduced motion. */
+  idleReactions?: boolean;
 }
 
 type PlayStep = [state: ScapiState, gaze: ScapiGaze, ms: number];
@@ -65,6 +67,7 @@ export function Scapi({
   style,
   onError,
   playful = false,
+  idleReactions = false,
 }: ScapiProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const controller = useRef<ReturnType<typeof createScapi> | null>(null);
@@ -119,12 +122,11 @@ export function Scapi({
     controller.current?.setReducedMotion(quiet);
   }, [quiet]);
 
-  const onClick = () => {
+  const playReaction = useCallback((choice: number) => {
     const api = controller.current;
     if (!api || props.current.state !== "idle") return;
     window.clearTimeout(play.current.timer);
-    const steps = SCAPI_PLAYS[play.current.next % SCAPI_PLAYS.length]!;
-    play.current.next += 1;
+    const steps = SCAPI_PLAYS[choice]!;
     const run = (index: number) => {
       const step = steps[index];
       if (!step) {
@@ -137,6 +139,62 @@ export function Scapi({
       play.current.timer = window.setTimeout(() => run(index + 1), step[2]);
     };
     run(0);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !idleReactions ||
+      state !== "idle" ||
+      quiet ||
+      failed ||
+      !canvas.current ||
+      !controller.current
+    )
+      return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let visible = false;
+    let timer = 0;
+    const reset = () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(play.current.timer);
+      controller.current?.setState(props.current.state);
+      controller.current?.setGaze(props.current.gaze);
+    };
+    const schedule = () => {
+      window.clearTimeout(timer);
+      if (!visible || document.hidden || media.matches) {
+        reset();
+        return;
+      }
+      timer = window.setTimeout(
+        () => {
+          // Smiles, winks and looking around; confetti is reserved for clicks and real success.
+          const choices = [0, 1, 3];
+          playReaction(choices[Math.floor(Math.random() * choices.length)]!);
+          schedule();
+        },
+        8000 + Math.random() * 8000,
+      );
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry?.isIntersecting ?? false;
+      schedule();
+    });
+    observer.observe(canvas.current);
+    media.addEventListener("change", schedule);
+    document.addEventListener("visibilitychange", schedule);
+    return () => {
+      reset();
+      observer.disconnect();
+      media.removeEventListener("change", schedule);
+      document.removeEventListener("visibilitychange", schedule);
+    };
+  }, [idleReactions, state, quiet, failed, assetUrl, playReaction]);
+
+  const onClick = () => {
+    if (props.current.state !== "idle") return;
+    playReaction(play.current.next % SCAPI_PLAYS.length);
+    play.current.next += 1;
   };
 
   const box: CSSProperties = {

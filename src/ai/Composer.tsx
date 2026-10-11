@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { allPlugins } from "@/core/registry";
 import { MAX_INSTRUCTIONS } from "@/core/types";
 import { Button } from "@/design/Button";
+import { ScapiActionIcon } from "@/components/scapi/ScapiActionIcon";
 import { Select } from "@/design/Select";
 import { DotMatrix } from "./DotMatrix";
 import { InstructionsPill } from "./Instructions";
@@ -292,19 +293,23 @@ export function Composer({
             onClick={send}
             disabled={!canSend}
             aria-label={sendLabel ?? "Send"}
-            className={sendLabel ? "h-8" : ""}
+            className={sendLabel ? "h-8 py-0.5 pr-1" : ""}
           >
             {sendLabel}
-            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-              <path
-                d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5l4 4"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
+            {mode ? (
+              <ScapiActionIcon />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+                <path
+                  d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5l4 4"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            )}
           </Button>
         )}
       </div>
