@@ -14,6 +14,8 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 - After a failed Scapi request, the mascot shows concern briefly and then steps aside. The
   error card and retry stay in place.
+- MCP agents are now told to call `preview_flow` whenever you ask to see, show or preview a
+  flow, journey or wireframes, so the in-chat preview appears without naming the tool.
 
 ## 2026-10-11 — 0.1.6
 
