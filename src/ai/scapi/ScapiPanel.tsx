@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DotMatrix } from "@/ai/DotMatrix";
 import { Scapi } from "@/components/scapi/Scapi";
+import { ScapiActionIcon } from "@/components/scapi/ScapiActionIcon";
 import type { ObjectId, ScapeObject } from "@/core/types";
 import type { ScapiMood } from "./useScapiMood";
 import { Button } from "@/design/Button";
@@ -49,9 +50,8 @@ export interface ScapiPanelProps {
    */
   activity?: React.ReactNode;
   /**
-   * Scapi's live state. Shown once, at the end of the transcript, only while there is something
-   * to show — working, or a brief reaction to a turn that just settled. The status text and
-   * error cards stay the source of truth; the mascot is decoration beside them.
+   * Scapi's live state. One mascot stays at the end of the transcript after a turn settles,
+   * returning to friendly idle reactions. Status text and error cards carry the meaning.
    */
   mood?: ScapiMood;
 }
@@ -160,7 +160,10 @@ export function ScapiPanel({
   // list this effect ran after *every* render and wrote `scrollTop` each time — a forced
   // synchronous layout per frame, which is its own source of stutter.
   const last = turns[turns.length - 1];
-  const live = mood && mood.state !== "idle" ? mood : null;
+  const live =
+    turns.length > 0 || activity
+      ? (mood ?? { state: streaming || activity ? "thinking" : "idle", reactionKey: 0 })
+      : null;
   const growth = `${turns.length}:${last?.body.length ?? 0}:${last?.reasoning.length ?? 0}:${last?.activity.length ?? 0}:${activity ? 1 : 0}:${live ? 1 : 0}`;
 
   useLayoutEffect(() => {
@@ -233,7 +236,14 @@ export function ScapiPanel({
           )}
           {activity && <div className="mt-5">{activity}</div>}
           {live && (
-            <Scapi size={56} state={live.state} reactionKey={live.reactionKey} className="mt-3" />
+            <Scapi
+              size={56}
+              state={live.state}
+              reactionKey={live.reactionKey}
+              playful
+              idleReactions
+              className="mt-3"
+            />
           )}
         </div>
 
@@ -798,7 +808,7 @@ function ScapiComposer({
               disabled={!canSend}
               aria-label="Ask"
             >
-              <span aria-hidden>↑</span>
+              <ScapiActionIcon />
             </Button>
           )}
         </div>

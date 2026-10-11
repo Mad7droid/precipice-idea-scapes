@@ -38,6 +38,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
@@ -70,5 +72,101 @@ describe("Scapi play", () => {
     calls.length = 0;
     act(() => vi.advanceTimersByTime(3000));
     expect(calls).toEqual([]);
+  });
+});
+
+describe("idle chat reactions", () => {
+  let visibility: IntersectionObserverCallback;
+  let media: MediaQueryList;
+  let hidden = false;
+
+  beforeEach(() => {
+    const events = new EventTarget();
+    media = {
+      matches: false,
+      addEventListener: events.addEventListener.bind(events),
+      removeEventListener: events.removeEventListener.bind(events),
+      dispatchEvent: events.dispatchEvent.bind(events),
+    } as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+    hidden = false;
+    vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          visibility = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+  });
+
+  const ambient = (state: ScapiState = "idle") =>
+    act(() => root.render(<Scapi state={state} size={56} playful idleReactions />));
+  const visible = (isIntersecting: boolean) =>
+    act(() =>
+      visibility([{ isIntersecting } as IntersectionObserverEntry], {} as IntersectionObserver),
+    );
+
+  it("occasionally plays friendly reactions while idle and returns to rest", () => {
+    ambient();
+    visible(true);
+    calls.length = 0;
+    act(() => vi.advanceTimersByTime(12000));
+    expect(states()).toEqual(["happy"]);
+    act(() => vi.advanceTimersByTime(1200));
+    expect(states().at(-1)).toBe("idle");
+    act(() => vi.advanceTimersByTime(12000));
+    expect(states()).not.toContain("error");
+    expect(states()).not.toContain("success");
+  });
+
+  it("pauses offscreen and lets a new request interrupt idle play", () => {
+    ambient();
+    visible(true);
+    act(() => vi.advanceTimersByTime(12000));
+    visible(false);
+    calls.length = 0;
+    act(() => vi.advanceTimersByTime(30000));
+    expect(calls).toEqual([]);
+    visible(true);
+    act(() => vi.advanceTimersByTime(12000));
+    ambient("thinking");
+    expect(states().at(-1)).toBe("thinking");
+    calls.length = 0;
+    act(() => vi.advanceTimersByTime(30000));
+    expect(calls).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("pauses when the document hides and resumes without catching up", () => {
+    ambient();
+    visible(true);
+    hidden = true;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    calls.length = 0;
+    act(() => vi.advanceTimersByTime(60000));
+    expect(calls).toEqual([]);
+    hidden = false;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    act(() => vi.advanceTimersByTime(11999));
+    expect(calls).toEqual([]);
+    act(() => vi.advanceTimersByTime(1));
+    expect(states()).toEqual(["happy"]);
+  });
+
+  it("stops automatic play when reduced motion is enabled", () => {
+    ambient();
+    visible(true);
+    act(() => vi.advanceTimersByTime(12000));
+    Object.defineProperty(media, "matches", { value: true });
+    act(() => media.dispatchEvent(new Event("change")));
+    calls.length = 0;
+    act(() => vi.advanceTimersByTime(30000));
+    expect(calls).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

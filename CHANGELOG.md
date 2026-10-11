@@ -5,6 +5,17 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-11 — 0.1.9
+
+### Changed
+
+- Scapi stays beneath the latest chat answer after it finishes, with occasional random smiles,
+  winks and glances. Click reactions remain available while idle; automatic reactions pause
+  while working, offscreen, in hidden windows and under reduced motion.
+- The header's Ask Scapi button uses only the avatar, with its tooltip and accessible name.
+- Ask/Edit send buttons replace the arrow with Scapi on a cream disc that separates the
+  orange mascot from the action fill in either theme. The mode switcher is unchanged.
+
 ## 2026-10-11 — 0.1.8
 
 ### Fixed

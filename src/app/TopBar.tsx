@@ -130,12 +130,12 @@ export function TopBar({
           <button
             type="button"
             onClick={onOpenScapi}
+            aria-label="Ask Scapi"
             aria-pressed={scapiOpen}
             title="Ask Scapi (⌘J)"
-            className="inline-flex items-center gap-1.5 rounded-md border border-default py-1.5 pl-2 pr-3 text-fg hover:bg-hover"
+            className="grid h-9 w-9 place-items-center rounded-md border border-default text-fg transition-colors duration-instant ease-out hover:bg-hover active:scale-[0.98] aria-pressed:bg-selected motion-reduce:active:scale-100"
           >
             <Scapi size={24} animated={false} effects={false} />
-            Scapi
           </button>
         )}
         {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}

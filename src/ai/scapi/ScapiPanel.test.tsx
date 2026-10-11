@@ -126,8 +126,8 @@ describe("ScapiPanel mascot", () => {
     return view.container.querySelectorAll('[aria-hidden="true"][style*="width: 56px"]').length;
   };
 
-  it("shows one live mascot while Scapi works and none once it settles", () => {
+  it("keeps one mascot in the conversation while working and after settling", () => {
     expect(mascots("thinking")).toBe(1);
-    expect(mascots("idle")).toBe(0);
+    expect(mascots("idle")).toBe(1);
   });
 });
