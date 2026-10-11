@@ -5,6 +5,16 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-11 — 0.1.8
+
+### Fixed
+
+- Scapi now identifies Anthropic's monthly API usage cap, including its reset timestamp,
+  instead of showing a generic HTTP 400 failure. This is distinct from missing credits and
+  transient rate limits. Account limits must be changed in Anthropic Console.
+- Scapi suppresses the SDK's default raw-error console logger; failures still reach the
+  transcript through the existing safe error handling.
+
 ## 2026-10-11 — 0.1.7
 
 ### Fixed

@@ -129,6 +129,25 @@ describe("web search fallback", () => {
 });
 
 describe("safe error presentation", () => {
+  it("distinguishes the monthly API usage cap from credits and transient rate limits", () => {
+    const message =
+      "You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.";
+    const expected = {
+      message: "Anthropic API usage limit reached",
+      detail:
+        "Increase the API account’s usage limit in Anthropic Console, or wait for it to reset. Access resets 2026-11-01 at 00:00 UTC.",
+    };
+    expect(describeProviderError(Object.assign(new Error(message), { statusCode: 400 }))).toEqual(
+      expected,
+    );
+    expect(describeProviderError({ type: "invalid_request_error", message })).toEqual(expected);
+    expect(
+      describeProviderError({
+        type: "invalid_request_error",
+        message: "Monthly limit reached: secret content",
+      }).detail,
+    ).not.toContain("secret");
+  });
   it.each([
     [413, "Request too large", "This conversation is too large"],
     [400, "Your credit balance is too low", "Anthropic credits unavailable"],
