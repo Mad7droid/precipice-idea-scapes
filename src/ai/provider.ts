@@ -66,6 +66,33 @@ export function anthropicClient(apiKey: string): AnthropicProvider {
   return createAnthropic({ apiKey, ...transportSettings() });
 }
 
+/**
+ * The parts of a provider failure that are safe to reason about.
+ *
+ * Failures arrive in two shapes. A rejected request is an `Error` (the SDK's `APICallError`)
+ * carrying `statusCode`. A failure *mid-stream* — overloaded, rate limited, an API error after
+ * the first token — is Anthropic's SSE error payload passed through as a plain
+ * `{ type, message }` object, sometimes wrapped as `{ type: "error", error: { … } }`. Reading
+ * only `Error#message` turned every mid-stream failure into "[object Object]", and so into the
+ * generic message, hiding even an ordinary "overloaded".
+ */
+export function providerErrorFacts(error: unknown): {
+  status?: number;
+  type?: string;
+  message: string;
+} {
+  const record = (value: unknown) =>
+    value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+  const outer = record(error);
+  const inner = record(outer?.error) ?? outer;
+  const text = (value: unknown) => (typeof value === "string" ? value : undefined);
+  const type = text(inner?.type) !== "error" ? text(inner?.type) : undefined;
+  const status = typeof outer?.statusCode === "number" ? outer.statusCode : undefined;
+  const message =
+    error instanceof Error ? error.message : (text(inner?.message) ?? text(error) ?? "");
+  return { ...(status ? { status } : {}), ...(type ? { type } : {}), message };
+}
+
 /** Turns provider failures into safe, actionable copy. Raw provider diagnostics stay out of the UI. */
 export function describeProviderError(error: unknown): { message: string; detail: string } {
   if (error instanceof MissingApiKeyError) {
@@ -75,36 +102,74 @@ export function describeProviderError(error: unknown): { message: string; detail
     };
   }
 
-  const raw = error instanceof Error ? error.message : String(error);
-  const status = (error as { statusCode?: number })?.statusCode;
+  const { status, type, message: raw } = providerErrorFacts(error);
 
-  if (status === 401 || /authentication|invalid x-api-key/i.test(raw)) {
+  if (
+    status === 401 ||
+    type === "authentication_error" ||
+    /authentication|invalid x-api-key/i.test(raw)
+  ) {
     return {
       message: "Scapi could not connect",
       detail: "Check the API key in settings, then try again.",
     };
   }
-  if (status === 429 || /rate.?limit/i.test(raw)) {
+  if (status === 429 || type === "rate_limit_error" || /rate.?limit/i.test(raw)) {
     return {
       message: "Scapi is temporarily busy",
       detail: "Wait a moment, then try again.",
     };
   }
-  if (status === 404 || /model.*(not found|not available)|invalid.*model/i.test(raw)) {
+  if (
+    status === 404 ||
+    type === "not_found_error" ||
+    /model.*(not found|not available)|invalid.*model/i.test(raw)
+  ) {
     return {
       message: "Model unavailable",
       detail: "Choose a supported Anthropic model and try again.",
     };
   }
-  if (status === 529 || /overloaded/i.test(raw)) {
+  if (status === 529 || type === "overloaded_error" || /overloaded/i.test(raw)) {
     return { message: "Scapi is temporarily busy", detail: "Try again in a few seconds." };
   }
   if (/fetch|network|Failed to fetch/i.test(raw)) {
     return { message: "Could not reach Anthropic", detail: "Check your connection and try again." };
   }
+  if (status === 413 || /request too large|prompt is too long/i.test(raw)) {
+    return {
+      message: "This conversation is too large",
+      detail: "Clear the Scapi conversation or ask about selected objects, then try again.",
+    };
+  }
+  if (/credit balance|billing|insufficient credits/i.test(raw)) {
+    return {
+      message: "Anthropic credits unavailable",
+      detail: "Check the API account’s billing and credit balance, then try again.",
+    };
+  }
+  if (status === 403 || type === "permission_error") {
+    return {
+      message: "Scapi access was denied",
+      detail: "Check the API key’s permissions and model access, then try again.",
+    };
+  }
+  if ((status !== undefined && status >= 500) || type === "api_error") {
+    return {
+      message: "Anthropic is temporarily unavailable",
+      detail: "Try again in a few moments.",
+    };
+  }
+  // The provider's own text can echo request content, so it never reaches the UI. Its status
+  // and error type are a fixed vocabulary, and they are what makes a report diagnosable.
+  const reference = [status && `HTTP ${status}`, type && /^[a-z_]+$/.test(type) && type]
+    .filter(Boolean)
+    .join(" · ");
   return {
     message: "Something went wrong",
-    detail: "Scapi could not complete this response. Please try again.",
+    detail:
+      "Scapi could not complete this response. Please try again." +
+      (reference ? ` Reference: ${reference}.` : ""),
   };
 }
 
