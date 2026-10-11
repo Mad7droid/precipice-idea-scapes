@@ -12,6 +12,7 @@ import { useDialogFocus } from "./home/Dialog";
 import { McpBridgePanel } from "./McpBridgePanel";
 import { AgentsPanel } from "./agents/AgentsPanel";
 import type { McpBridge } from "@/mcp/bridge";
+import packageInfo from "../../package.json";
 
 export function SettingsModal({
   onClose,
@@ -149,6 +150,8 @@ export function SettingsModal({
                     </p>
                   </div>
                 )}
+
+                <p className="mt-5 text-xs text-fg-tertiary">Precipice version {packageInfo.version}</p>
               </>
             )}
 
