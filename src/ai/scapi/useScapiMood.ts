@@ -4,10 +4,15 @@ import type { Turn } from "./types";
 
 /** How long the success reaction holds before Scapi settles back to idle. */
 export const SUCCESS_HOLD_MS = 1800;
+/**
+ * A failure is acknowledged, not dwelt on. The error card stays; the worried face does not,
+ * so a failed turn never leaves a warning mascot parked under it.
+ */
+export const ERROR_HOLD_MS = 2400;
 
 export interface ScapiMood {
   state: ScapiState;
-  /** Bumped once per completion this session, so the mascot replays exactly one reaction. */
+  /** Bumped once per settled turn this session, so the mascot replays exactly one reaction. */
   reactionKey: number;
 }
 
@@ -27,7 +32,7 @@ export function useScapiMood(turns: Turn[], streaming: boolean, busy = false): S
   const previous = useRef<{ id: string; status: Turn["status"] } | null>(
     last ? { id: last.id, status: last.status } : null,
   );
-  const [celebrating, setCelebrating] = useState<string | null>(null);
+  const [reacting, setReacting] = useState<{ id: string; status: "done" | "error" } | null>(null);
   const [reactionKey, setReactionKey] = useState(0);
 
   const id = last?.id;
@@ -37,21 +42,23 @@ export function useScapiMood(turns: Turn[], streaming: boolean, busy = false): S
   useEffect(() => {
     const before = previous.current;
     previous.current = id && status ? { id, status } : null;
-    if (!id || status !== "done" || !watched.current.has(id)) return;
-    // A finished turn reacts once, on its own streaming → done edge.
+    if (!id || (status !== "done" && status !== "error") || !watched.current.has(id)) return;
+    // A settled turn reacts once, on its own streaming → done/error edge.
     if (before?.id !== id || before.status !== "streaming") return;
-    setCelebrating(id);
+    const reaction = { id, status };
+    setReacting(reaction);
     setReactionKey((key) => key + 1);
     const timer = window.setTimeout(
-      () => setCelebrating((current) => (current === id ? null : current)),
-      SUCCESS_HOLD_MS,
+      () => setReacting((current) => (current === reaction ? null : current)),
+      status === "done" ? SUCCESS_HOLD_MS : ERROR_HOLD_MS,
     );
     return () => window.clearTimeout(timer);
   }, [id, status]);
 
   let state: ScapiState = "idle";
   if (streaming || busy || status === "streaming") state = "thinking";
-  else if (id && celebrating === id && status === "done") state = "success";
-  else if (id && status === "error" && watched.current.has(id)) state = "error";
+  else if (id && reacting?.id === id && reacting.status === status) {
+    state = status === "done" ? "success" : "error";
+  }
   return { state, reactionKey };
 }

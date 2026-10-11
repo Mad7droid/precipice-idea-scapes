@@ -1,5 +1,5 @@
 import { stepCountIs, streamText, type ModelMessage } from "ai";
-import { anthropicClient, describeProviderError } from "@/ai/provider";
+import { anthropicClient, describeProviderError, providerErrorFacts } from "@/ai/provider";
 import type { ObjectId, Scape } from "@/core/types";
 import { responseTokenBudget } from "./answerFormat";
 import { questionBlock, scapeContextBlock, scapiSystemPrompt } from "./scapiPrompt";
@@ -117,7 +117,10 @@ async function runAsk(
       onActivity: (event) => onEvent({ kind: "activity", event }),
     });
     if (webSearch) {
-      tools.web_search = client.tools.webSearch_20260209({ maxUses: 3 });
+      // Scapi needs cited search results, not programmatic filtering. Dynamic search can
+      // introduce implicit code_execution records that cannot safely be replayed by our
+      // read-only tool loop. Basic search keeps the transcript self-contained.
+      tools.web_search = client.tools.webSearch_20250305({ maxUses: 3 });
     }
 
     const result = streamText({
@@ -181,11 +184,11 @@ async function runAsk(
       /abort/i.test(error instanceof Error ? error.message : "");
 
     const unavailable = webSearch && isWebSearchUnavailable(error);
-    if (unavailable && !retriedWithoutSearch && !cancelled) {
+    if (unavailable && !sawText && !retriedWithoutSearch && !cancelled) {
       // Account-level search access is configured in Anthropic's Console. Retry immediately
       // without that tool so an Ask turn remains useful instead of becoming a dead end.
       onEvent({ kind: "search-unavailable" });
-      await runAsk(options, false, true);
+      await runAsk(options, false, true, retriedWithoutHistory);
       return;
     }
     if (
@@ -211,11 +214,11 @@ async function runAsk(
 }
 
 export function isMalformedToolHistory(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const { message } = providerErrorFacts(error);
   return /(?:code_execution|tool use).*without a corresponding.*tool.result/i.test(message);
 }
 
 export function isWebSearchUnavailable(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const { message } = providerErrorFacts(error);
   return /web[ _-]?search|search.*(?:enable|permission|allow|available)/i.test(message);
 }

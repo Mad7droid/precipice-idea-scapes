@@ -5,7 +5,27 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
-No pending changes.
+## 2026-10-11 — 0.1.7
+
+### Fixed
+
+- Scapi uses basic web search to avoid implicit code-execution transcript records. Search
+  fallback and malformed-history recovery recognize streamed provider errors, keep retry
+  limits, and never append a restarted answer after partial output.
+- Scapi explains billing, permission, request-size and server failures with safe actionable
+  messages; unknown provider failures include a safe status/type reference.
+
+### Added
+
+- Click Scapi on the home page or in an empty Scapi chat for a wink, a smile, a confetti burst
+  or a look around. Reactions play only while Scapi is idle and never show the warning face.
+
+### Changed
+
+- After a failed Scapi request, the mascot shows concern briefly and then steps aside. The
+  error card and retry stay in place.
+- MCP agents are now told to call `preview_flow` whenever you ask to see, show or preview a
+  flow, journey or wireframes, so the in-chat preview appears without naming the tool.
 
 ## 2026-10-11 — 0.1.6
 

@@ -50,8 +50,8 @@ export interface ScapiPanelProps {
   activity?: React.ReactNode;
   /**
    * Scapi's live state. Shown once, at the end of the transcript, only while there is something
-   * to show — working, a fresh completion, a current failure. The status text stays the source
-   * of truth; the mascot is decoration beside it.
+   * to show — working, or a brief reaction to a turn that just settled. The status text and
+   * error cards stay the source of truth; the mascot is decoration beside them.
    */
   mood?: ScapiMood;
 }
@@ -276,7 +276,7 @@ function EmptyState({
 }) {
   return (
     <div className="mt-6">
-      <Scapi size={96} className="mb-3" />
+      <Scapi size={96} playful className="mb-3" />
       <p className="text-base font-[var(--weight-emph)] text-fg">Ask about this scape.</p>
       <p className="mt-1 text-sm text-fg-secondary">
         Scapi can read every object on the canvas. Ask answers questions without changing your work.
