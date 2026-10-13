@@ -198,6 +198,8 @@ export const SETTING_KEYS = {
    * `instructions` are layered on top of these, never instead of them.
    */
   instructions: "ai.instructions",
+  /** The language dictation listens for. Explicit, because detection is unreliable on short phrases. */
+  dictationLanguage: "dictation.language",
 } as const;
 
 /**

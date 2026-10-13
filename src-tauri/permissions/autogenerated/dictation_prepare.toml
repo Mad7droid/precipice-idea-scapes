@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dictation-prepare"
+description = "Enables the dictation_prepare command without any pre-configured scope."
+commands.allow = ["dictation_prepare"]
+
+[[permission]]
+identifier = "deny-dictation-prepare"
+description = "Denies the dictation_prepare command without any pre-configured scope."
+commands.deny = ["dictation_prepare"]

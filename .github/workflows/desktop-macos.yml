@@ -10,6 +10,8 @@ jobs:
       VITE_MCP_URL: ${{ vars.VITE_MCP_URL }}
       VITE_PUBLICATION_API_URL: ${{ vars.VITE_PUBLICATION_API_URL }}
       VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+      # Where the app downloads its pinned speech models. Unset builds hide dictation.
+      PRECIPICE_MODELS_URL: ${{ vars.PRECIPICE_MODELS_URL }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -20,6 +22,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      # whisper.cpp (dictation) builds with CMake; fail early and clearly if the image lacks it.
+      - run: cmake --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:version
       - run: pnpm test

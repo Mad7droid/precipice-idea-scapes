@@ -11,6 +11,13 @@ fn main() {
             "mcp_send",
             "mcp_install_client",
             "mcp_helper_path",
+            "dictation_status",
+            "dictation_install",
+            "dictation_cancel_install",
+            "dictation_prepare",
+            "dictation_start",
+            "dictation_stop",
+            "dictation_cancel",
         ]),
     ))
     .expect("failed to build desktop app");

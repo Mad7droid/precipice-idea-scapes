@@ -5,6 +5,14 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+### Added
+
+- Dictation in the Mac app: a mic beside Send in the canvas composer and the Scapi panel.
+  Click to talk, click to stop, Esc to discard. Text appears phrase by phrase in the draft
+  and is never sent on its own. Speech is transcribed on the Mac by Whisper; audio is never
+  saved or sent. English and Hindi, with experimental Malayalam, chosen in Settings → General.
+  The first use offers a one-time speech model download from Precipice.
+
 ## 2026-10-11 — 0.1.9
 
 ### Changed

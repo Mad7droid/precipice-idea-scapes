@@ -1,6 +1,6 @@
 # Dictation implementation plan
 
-Status: proposed. Speak to Scapi and get editable text in the composer. Fully local, free,
+Status: phase 1 (desktop) implemented; phase 0 hosting needs the R2 bucket and `PRECIPICE_MODELS_URL`. Speak to Scapi and get editable text in the composer. Fully local, free,
 models served from our own Cloudflare R2. Scapi does not speak back.
 
 ## Decisions
@@ -92,6 +92,17 @@ evaluate on own recordings. IndicConformer only if this fails (second runtime, +
 
 Rely on system keyboard dictation first; then PWA on the web engine with `base`/`small`; a
 native app is a separate project.
+
+## Phase 1 measurements (base M1, 8 GB, turbo q5_0, Metal)
+
+| Setting | English 5.4 s | Hindi 3.7 s | Hindi 6.2 s |
+| --- | --- | --- | --- |
+| Default 30 s window | 1.3x real time | 1.2x | — |
+| Window sized to phrase + 384 frames (shipped) | 5.7x, correct | 4.2x, correct | 5.0x, correct |
+| + flash attention, or less headroom | faster | garbled or repeated | — |
+
+Samples were macOS `say` voices (Samantha, Lekha), not real speakers; QA on real recordings
+is still open. Intel Macs get Whisper small (4x real time on M1, weaker Hindi spelling).
 
 ## Risks
 

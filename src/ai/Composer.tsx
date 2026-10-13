@@ -8,6 +8,9 @@ import { DotMatrix } from "./DotMatrix";
 import { InstructionsPill } from "./Instructions";
 import type { Scope } from "./prompt";
 import { MODELS } from "./models";
+import { MicButton } from "@/dictation/MicButton";
+import { useDictation } from "@/dictation/useDictation";
+import { appendPhrase } from "@/dictation/vocabulary";
 
 /** Auto-grow to six lines, then scroll. Roughly six × --leading-base plus the padding. */
 const MAX_HEIGHT_PX = 168;
@@ -126,6 +129,13 @@ export function Composer({
   const [focused, setFocused] = useState(false);
   const localTextarea = useRef<HTMLTextAreaElement>(null);
   const textarea = inputRef ?? localTextarea;
+  // Phrases can land faster than React re-renders, so each one appends to the latest draft.
+  const latest = useRef(value);
+  latest.current = value;
+  const dictation = useDictation((phrase) => {
+    latest.current = appendPhrase(latest.current, phrase);
+    setValue(latest.current);
+  });
 
   useLayoutEffect(() => {
     const el = textarea.current;
@@ -278,6 +288,7 @@ export function Composer({
               ⌘↵ to send
             </span>
           )}
+          {!disabled && <MicButton dictation={dictation} size="md" />}
         </div>
 
         {busy ? (

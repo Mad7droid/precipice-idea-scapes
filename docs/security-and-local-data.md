@@ -23,6 +23,23 @@ own Anthropic (Claude) API key.
   contains, so they are not written into a `.scape` export or a publication.
   Pinning a Scape does not change its content or its edited time.
 
+## Dictation (macOS app)
+
+- Speech is transcribed on the Mac by whisper.cpp inside the app process. Audio
+  is held in memory only while a phrase is transcribed; it is never written to
+  disk, IndexedDB, logs, or sent anywhere. Only the resulting text reaches the
+  webview, and it lands in the composer draft — it is never sent on its own.
+- The microphone is opened only between pressing the mic and stopping (or Esc).
+  macOS asks for permission on first use; a denied app is detected and explained.
+- The recogniser is primed with words from the open Scape (its name, card titles
+  and tags) so names transcribe correctly. That prompt stays in the process.
+- The speech model is downloaded once, after an explicit click, from the
+  Precipice model host fixed at build time (`PRECIPICE_MODELS_URL`, HTTPS only,
+  no redirects). Each file is pinned by size and SHA-256 in the app source; a
+  file that fails the check is discarded. Models live in the app data folder
+  under `models/` and contain no user data.
+- The dictation language is a local setting, like the theme.
+
 ## Durability and offline behavior
 
 - Autosave writes locally without a Save button. When a Scape is open in more

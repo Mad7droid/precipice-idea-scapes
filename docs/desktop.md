@@ -117,6 +117,16 @@ the same bundle identifier preserves its local data and Keychain service name.
 Uninstalling the app does not remove its Keychain item; remove the key in Settings
 first, or remove the item using Keychain Access.
 
+Dictation turns speech into composer text on the Mac (see
+[security and local data](security-and-local-data.md#dictation-macos-app)). The first
+press offers a one-time model download: Whisper large-v3-turbo (574 MB) on Apple
+Silicon, Whisper small (190 MB) on Intel. Measured on a base M1 with 8 GB, a 5 s
+phrase is ready about 1 s after you pause. Pick English, Hindi or Malayalam
+(experimental) under Settings → General. Builds without `PRECIPICE_MODELS_URL` hide
+the mic until a model is placed in the app data `models/` folder by hand, where it is
+hashed before first use. `scripts/upload-speech-models.sh` publishes the pinned files
+to the R2 bucket.
+
 Google sign-in never runs inside the app's webview: Google blocks embedded OAuth and
 the app's CSP blocks Turnstile. **Continue with Google** (Publish sheet or Settings →
 Agents) opens the system browser at `/host/start`; the web app runs Turnstile and

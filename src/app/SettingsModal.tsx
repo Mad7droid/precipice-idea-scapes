@@ -13,6 +13,7 @@ import { McpBridgePanel } from "./McpBridgePanel";
 import { AgentsPanel } from "./agents/AgentsPanel";
 import type { McpBridge } from "@/mcp/bridge";
 import packageInfo from "../../package.json";
+import { DICTATION_LANGUAGES, type DictationLanguage } from "@/dictation/engine";
 
 export function SettingsModal({
   onClose,
@@ -44,9 +45,13 @@ export function SettingsModal({
   const dialogRef = useDialogFocus(onClose);
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [section, setSection] = useState<SectionId>(initialSection);
+  const [dictationLanguage, setDictationLanguage] = useState<DictationLanguage>("en");
 
   useEffect(() => {
     void settingsRepository.get<string>(SETTING_KEYS.model).then((m) => m && setModelId(m));
+    void settingsRepository
+      .get<DictationLanguage>(SETTING_KEYS.dictationLanguage)
+      .then((l) => l && setDictationLanguage(l));
   }, []);
 
   return (
@@ -112,6 +117,25 @@ export function SettingsModal({
                   />
                 </div>
 
+                {credentials?.desktop && (
+                  <div className="mt-5 block">
+                    <span className="mb-1 block text-xs text-fg-secondary">Dictation language</span>
+                    <Select
+                      label="Dictation language"
+                      value={dictationLanguage}
+                      onChange={(next) => {
+                        setDictationLanguage(next as DictationLanguage);
+                        void settingsRepository.set(SETTING_KEYS.dictationLanguage, next);
+                      }}
+                      options={DICTATION_LANGUAGES}
+                      className="w-full"
+                    />
+                    <p className="mt-2 text-xs text-fg-tertiary">
+                      Speech is turned into text on this Mac. Audio is never saved or sent.
+                    </p>
+                  </div>
+                )}
+
                 {credentials?.desktop ? (
                   <CredentialSettings credentials={credentials} />
                 ) : (
@@ -151,7 +175,9 @@ export function SettingsModal({
                   </div>
                 )}
 
-                <p className="mt-5 text-xs text-fg-tertiary">Precipice version {packageInfo.version}</p>
+                <p className="mt-5 text-xs text-fg-tertiary">
+                  Precipice version {packageInfo.version}
+                </p>
               </>
             )}
 

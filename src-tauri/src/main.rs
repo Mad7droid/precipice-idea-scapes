@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod dictation;
 mod mcp;
 
 use security_framework::passwords::{
@@ -96,8 +97,10 @@ fn main() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
+        .manage(dictation::Dictation::default())
         .setup(|app| {
             mcp::start_listener(app.handle().clone());
+            dictation::start_idle_unloader(app.handle().clone());
             tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
@@ -124,7 +127,14 @@ fn main() {
             mcp::mcp_ready,
             mcp::mcp_send,
             mcp::mcp_install_client,
-            mcp::mcp_helper_path
+            mcp::mcp_helper_path,
+            dictation::dictation_status,
+            dictation::dictation_install,
+            dictation::dictation_cancel_install,
+            dictation::dictation_prepare,
+            dictation::dictation_start,
+            dictation::dictation_stop,
+            dictation::dictation_cancel
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Precipice");
