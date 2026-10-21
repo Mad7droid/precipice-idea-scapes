@@ -51,6 +51,45 @@ fn remove_api_key() -> Result<(), &'static str> {
     }
 }
 
+/// The optional TypeSafe (Jev) routing key. A separate Keychain item and separate commands, so
+/// the routing key and the Anthropic key can never be read through each other's grant.
+const TYPESAFE_SERVICE: &str = "dev.precipice.desktop.typesafe";
+
+/// TypeSafe does not document a key prefix, so this checks shape only.
+fn valid_typesafe_key(key: &str) -> bool {
+    key.len() >= 8 && key.len() <= 4096 && !key.chars().any(|c| c.is_whitespace() || c.is_control())
+}
+
+#[tauri::command]
+fn read_typesafe_key() -> Result<Option<String>, &'static str> {
+    match generic_password(credential_options(TYPESAFE_SERVICE, ACCOUNT)) {
+        Ok(bytes) => String::from_utf8(bytes)
+            .map(Some)
+            .map_err(|_| "Invalid credential encoding"),
+        Err(error) if error.code() == NOT_FOUND => Ok(None),
+        Err(_) => Err("Keychain read failed"),
+    }
+}
+
+#[tauri::command]
+fn save_typesafe_key(key: String) -> Result<(), &'static str> {
+    let key = key.trim();
+    if !valid_typesafe_key(key) {
+        return Err("Invalid TypeSafe key");
+    }
+    set_generic_password_options(key.as_bytes(), credential_options(TYPESAFE_SERVICE, ACCOUNT))
+        .map_err(|_| "Keychain save failed")
+}
+
+#[tauri::command]
+fn remove_typesafe_key() -> Result<(), &'static str> {
+    match delete_generic_password_options(credential_options(TYPESAFE_SERVICE, ACCOUNT)) {
+        Ok(()) => Ok(()),
+        Err(error) if error.code() == NOT_FOUND => Ok(()),
+        Err(_) => Err("Keychain removal failed"),
+    }
+}
+
 const AGENT_SERVICE: &str = "dev.precipice.desktop.agent";
 
 #[tauri::command]
@@ -124,6 +163,9 @@ fn main() {
             read_api_key,
             save_api_key,
             remove_api_key,
+            read_typesafe_key,
+            save_typesafe_key,
+            remove_typesafe_key,
             mcp::mcp_ready,
             mcp::mcp_send,
             mcp::mcp_install_client,
@@ -149,6 +191,15 @@ mod tests {
         assert!(!valid_key(""));
         assert!(!valid_key("sk-ant-test\nother"));
         assert!(!valid_key(&format!("sk-ant-{}", "a".repeat(4096))));
+    }
+    #[test]
+    fn validates_typesafe_key_shape() {
+        assert!(valid_typesafe_key("ts_live_abcdef"));
+        assert!(!valid_typesafe_key(""));
+        assert!(!valid_typesafe_key("short"));
+        assert!(!valid_typesafe_key("ts_live abc"));
+        assert!(!valid_typesafe_key("ts_live_\u{7}abcdef"));
+        assert!(!valid_typesafe_key(&"a".repeat(4097)));
     }
     #[test]
     #[ignore = "writes a disposable credential to the local login Keychain"]

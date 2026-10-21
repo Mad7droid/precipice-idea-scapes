@@ -22,6 +22,10 @@ export interface GenerationState {
   model: string;
   txId: string | null;
   error: { message: string; detail: string } | null;
+  /** Objects this generation created or rewrote — what a Deepen pass is scoped to. */
+  touched: string[];
+  /** Routing judged the request large or ambiguous, so Deepen is offered prominently. */
+  deepSuggested: boolean;
 }
 
 const IDLE: GenerationState = {
@@ -32,6 +36,8 @@ const IDLE: GenerationState = {
   model: "",
   txId: null,
   error: null,
+  touched: [],
+  deepSuggested: false,
 };
 
 export interface UseGenerationOptions {
@@ -47,12 +53,20 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
   const handleEvent = useCallback((event: GenerationEvent) => {
     setState((prev) => {
       switch (event.kind) {
-        case "applied":
+        case "applied": {
+          const { action } = event;
+          const touched =
+            (action.type === "CreateObject" || action.type === "UpdateObject") &&
+            !prev.touched.includes(action.id)
+              ? [...prev.touched, action.id]
+              : prev.touched;
           return {
             ...prev,
             applied: prev.applied + 1,
             lines: [...prev.lines, { key: lineKey.current++, text: event.line }],
+            touched,
           };
+        }
         case "skipped":
           return { ...prev, skipped: [...prev.skipped, event] };
         case "error":
@@ -88,6 +102,8 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
        * none can forget to.
        */
       globalInstructions?: string;
+      /** Set by routing; only changes how prominently Deepen is offered afterwards. */
+      deepSuggested?: boolean;
     }) => {
       const scape = useScapeStore.getState().scape;
       if (!scape || !options.request.trim()) return;
@@ -108,7 +124,12 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
       controller.current?.abort();
       controller.current = new AbortController();
       lineKey.current = 0;
-      setState({ ...IDLE, status: "streaming", model: options.modelId });
+      setState({
+        ...IDLE,
+        status: "streaming",
+        model: options.modelId,
+        deepSuggested: !!options.deepSuggested,
+      });
 
       // The scape's own starter decides what kind of document this is. It is read here rather
       // than passed in so every caller — composer, quick action, outline — gets it for free.

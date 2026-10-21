@@ -1,8 +1,12 @@
 # Voice and routing: combined plan
 
-Status: proposal, 2026-10-21. Merges the [dictation plan](dictation-plan.md) (phase 1 built)
-and the [Jev routing plan](jev-routing-plan.md) (not built). Where they disagree, this file
-decides.
+Status: implementation in progress, 2026-10-21. This is the controlling combined plan.
+Local routing, optional Jev transport/credentials, tier selection, Deepen and confirmed
+commands are implemented behind opt-in settings. Dictation interaction hardening is also
+implemented. Live routing evaluation, native hardware checks, performance measurements,
+the per-composer draft store and web dictation remain outstanding. The meter now subscribes
+through its own level signal, so audio ticks do not re-render the composer. Neither routing setting
+is enabled by default; the Jev quality gate has **not** been passed.
 
 ## One pipeline
 
@@ -28,7 +32,7 @@ The only voice-specific addition is the command lane (phase F).
 | Jev transport   | Plain `fetch` + existing `zod`; no `@typesafe-ai/sdk`                                                                                                  | No new dependency; the SDK targets Node 22+                                  |
 | Jev input       | Draft text + types/counts/titles only, never bodies, audio, keys or library                                                                            | Disclosure and Jev accuracy both improve with less state                     |
 | Audio           | Never leaves the Mac; Jev only ever sees the transcript the person can already see                                                                     | The dictation privacy promise stays literal                                  |
-| Fast model tier | Haiku, using the current Haiku id (`claude-haiku-4-5-20251001`); the Jev plan's "Haiku 5.5" is not a released model as far as this plan's author knows | Confirm the id in `models.ts` before shipping                                |
+| Fast model tier | Haiku 5.5 (`claude-haiku-5-5`), confirmed against the current Anthropic model catalogue | Confirm the id in `models.ts` before shipping                                |
 | Manual controls | Become the chips, same menus; nothing removed                                                                                                          | Override is always one click; no capability is hidden                        |
 | Rollout         | `routeChips` setting, off until phase C passes; manual-only path must be byte-for-byte today's behaviour                                               | No regression for people who never opt in                                    |
 | Sending         | Only on ⌘↵ or Send. Neither dictation nor routing ever submits                                                                                         | One rule across both plans                                                   |
@@ -140,8 +144,43 @@ Total A–G: about 16–23 days. A and B are worth shipping even if Jev never pa
 
 ## Open items for the person deciding
 
-1. Confirm the Haiku model id before phase E.
+1. Haiku 5.5 id verified against [Anthropic models](https://platform.claude.com/docs/en/models/overview) on 2026-10-21; live account access and latency remain untested.
 2. The Jev vendor facts in the routing plan (pricing, latency, calibration, DPA) come from its
    docs and press; verify them before phase D, and decide whether a second processor fits the
    local-first promise at all.
 3. Real-voice recordings for phase C are personal data: keep them out of Git (`.context/`).
+
+## Development preview and evaluation
+
+Start the updated BYOK relay with `pnpm exec wrangler dev --local --port 8787 --ip 127.0.0.1`,
+then run `VITE_AI_PROXY_URL=http://127.0.0.1:8787 pnpm dev --host 127.0.0.1 --port 5173 --strictPort`.
+Open http://127.0.0.1:5173/ and enable local suggestions in Settings → AI. No key is needed
+for route chips or local viewport/undo commands. Anthropic is needed for generation,
+questions, connecting with AI and Deepen. Jev needs a separate TypeSafe key. Browser
+voice capture is not implemented; dictation still requires the Mac app.
+
+`node scripts/eval-routing.mjs` reports the local baseline without network calls. The
+100 synthetic requests use 25 wording patterns across four fictional subjects; they include
+Hinglish text but are not speech-recognition QA or an independent holdout. The first local
+run scored 88/100 intent matches, with 8 high-confidence predictions (all correct). Remaining
+misses include polite creation requests and subject-first Hinglish. Always review the route.
+
+For the live gate, put `TYPESAFE_API_KEY` in the gitignored `.env.routing.local`, then run:
+
+```sh
+node --env-file=.env.routing.local scripts/eval-routing.mjs --live
+```
+
+This makes 100 paid TypeSafe requests containing only fictional prompts and metadata. Reports
+contain aggregate measurements and scenario ids, never credentials. Timeouts and failed calls
+count as misses and contribute their elapsed time to p95. The script exits unsuccessfully if
+Jev does not beat the baseline, achieve 90% accuracy among confident predictions, or stay
+below 600 ms p95. Report coverage alongside accuracy; a small confident subset is weak evidence.
+Haiku-as-router comparison, broader holdout data and real English/Hindi/Hinglish hardware QA
+remain pending. Passing this synthetic gate alone does not enable Jev by default.
+
+Native validation on 2026-10-21: `cargo check` passed; `cargo test` passed 15 tests
+with 2 model-dependent tests ignored. CMake 3.31.10 is installed only under the ignored
+`.context/build-tools` venv. For this workspace, prefix Cargo commands with
+`CMAKE="$PWD/.context/build-tools/bin/cmake"`. This does not validate actual microphone
+permissions, dictation accuracy, signed packaging or English/Hindi hardware behavior.

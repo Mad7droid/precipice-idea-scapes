@@ -200,6 +200,10 @@ export const SETTING_KEYS = {
   instructions: "ai.instructions",
   /** The language dictation listens for. Explicit, because detection is unreliable on short phrases. */
   dictationLanguage: "dictation.language",
+  /** Route chips: let the composer suggest Ask/Edit, scope, types and model from the draft. */
+  routeChips: "ai.routeChips",
+  /** Opt-in: refine routing with TypeSafe Jev. The key itself is never stored here. */
+  jevRouting: "ai.jevRouting",
 } as const;
 
 /**

@@ -29,8 +29,8 @@ the updated installed app. It also
 refuses to overwrite anything in `/Applications/Precipice.app` that is not
 `dev.precipice.desktop`. The script verifies the full app-bundle signature before replacing the installed copy.
 Afterwards it deletes the staged bundle under
-`src-tauri/target`, so only the installed app exists (see *Avoiding duplicate
-apps* below).
+`src-tauri/target`, so only the installed app exists (see _Avoiding duplicate
+apps_ below).
 
 For a distributable disk image instead:
 
@@ -125,7 +125,10 @@ phrase is ready about 1 s after you pause. Pick English, Hindi or Malayalam
 (experimental) under Settings → General. Builds without `PRECIPICE_MODELS_URL` hide
 the mic until a model is placed in the app data `models/` folder by hand, where it is
 hashed before first use. `scripts/upload-speech-models.sh` publishes the pinned files
-to the R2 bucket.
+to the R2 bucket. Cmd/Ctrl+Shift+Space toggles dictation while the composer field is
+focused. Stop keeps the heard text; the X or Escape drops pending audio and keeps text
+already inserted. Send stays disabled through startup, listening and finishing so you can
+review the complete draft first. See [interaction research](dictation-ux-research.md).
 
 Google sign-in never runs inside the app's webview: Google blocks embedded OAuth and
 the app's CSP blocks Turnstile. **Continue with Google** (Publish sheet or Settings →
@@ -171,7 +174,6 @@ needed. Local agents ask for review until trusted. Remote setup opens the system
 through `precipice://auth/callback`, bound to the originating app with PKCE. Its scoped host
 credential is stored in Keychain. Select Desktop app when granting agent access; browser and
 desktop libraries have separate relay destinations.
-
 
 ## Flow previews in desktop-connected chats
 

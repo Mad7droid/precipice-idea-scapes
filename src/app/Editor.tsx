@@ -4,7 +4,9 @@ import { notify } from "@/core/notify";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
 import { MAX_INSTRUCTIONS, SETTING_KEYS, type ObjectId, type RelationshipId } from "@/core/types";
-import { Composer } from "@/ai/Composer";
+import { Composer, type ComposerRouting, type SendRoute } from "@/ai/Composer";
+import { modelForTier, tierOf } from "@/ai/models";
+import type { LocalCommand } from "@/ai/router/types";
 import type { Scope } from "@/ai/prompt";
 import { Ribbon } from "@/ai/Ribbon";
 import { useGeneration } from "@/ai/useGeneration";
@@ -111,6 +113,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [dismissedTurnId, setDismissedTurnId] = useState<string | null>(null);
   const [scapiWide, setScapiWide] = useState(false);
   const [theme, setTheme, resolvedTheme] = useTheme();
+  const appSettings = useAppSettings();
   const {
     credentials,
     apiKey,
@@ -121,8 +124,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
     setTypes,
     instructions,
     setInstructions,
+    routeChips,
+    jevRouting,
+    jevKey,
     ready,
-  } = useAppSettings();
+  } = appSettings;
 
   const [readOnly, setReadOnly] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
@@ -219,6 +225,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     getSelection: () => useScapeStore.getState().selection,
     apiKey,
     modelId,
+    connectionId: `${appSettings.connection.provider}:${appSettings.connection.connectionId ?? ""}`,
     scapeId,
   });
   const busy = generation.state.status === "streaming";
@@ -396,8 +403,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const requireKey = () => {
-    if (apiKey.trim()) return true;
-    notify.error("No API key", "Add an Anthropic API key in settings, then try again.");
+    if (appSettings.aiReady) return true;
+    notify.error(
+      "Connect AI",
+      "Connect ChatGPT or choose another connection in Settings → AI, then send your draft.",
+    );
     setSettingsOpen(true);
     return false;
   };
@@ -433,35 +443,137 @@ export function Editor({ scapeId }: { scapeId: string }) {
    * result, and a panel narrating that over the top of them is chrome in front of the thing
    * worth watching. The Ribbon carries progress and Undo.
    */
-  const handleSend = async (request: string, origin: "canvas" | "panel" = "canvas") => {
+  const handleSend = async (
+    request: string,
+    origin: "canvas" | "panel" = "canvas",
+    /** A routed send's choices, or a Deepen pass's. Absent means the controls' own state. */
+    route?: Partial<Pick<SendRoute, "scope" | "types" | "modelId" | "deep">>,
+  ) => {
     if (busy || scapi.streaming || !requireLease()) return;
     if (!requireKey()) return;
     setLastOrigin(origin);
     setScapiMode("edit");
     if (origin === "panel") setScapiOpen(true);
+    const routedTypes = route?.types;
     await generation.start({
       request,
       apiKey: apiKey.trim(),
-      modelId,
-      allowedTypes,
-      scope,
+      modelId: route?.modelId ?? modelId,
+      allowedTypes: routedTypes && routedTypes.length > 0 ? routedTypes : allowedTypes,
+      scope: route?.scope ?? scope,
       globalInstructions: instructions,
+      ...(route?.deep ? { deepSuggested: true } : {}),
     });
   };
 
   /** A question, from whichever composer asked it. One transcript underneath both. */
-  const handleAsk = (question: string, origin: "canvas" | "panel" = "canvas") => {
+  const handleAsk = (
+    question: string,
+    origin: "canvas" | "panel" = "canvas",
+    route?: Pick<SendRoute, "modelId" | "webSearch" | "scope">,
+  ) => {
     if (busy || !requireLease() || !requireKey()) return;
     setLastOrigin(origin);
     setScapiMode("ask");
-    void scapi.send(question);
+    void scapi.send(question, route);
   };
 
-  const handleConnect = async (ids?: ObjectId[]) => {
+  const handleConnect = async (ids?: ObjectId[], routedModel?: string) => {
     if (!requireLease()) return;
     if (!requireKey()) return;
-    await generation.connect(apiKey.trim(), modelId, ids, instructions);
+    await generation.connect(apiKey.trim(), routedModel ?? modelId, ids, instructions);
   };
+
+  /** One entry point for both composers, so a routed send lands the same way from either. */
+  const sendFromComposer = (text: string, origin: "canvas" | "panel", route?: SendRoute) => {
+    if (!route) {
+      if (scapiMode === "ask") handleAsk(text, origin);
+      else void handleSend(text, origin);
+      return;
+    }
+    if (route.intent === "ask") handleAsk(text, origin, route);
+    else if (route.intent === "connect") {
+      setScapiMode("edit");
+      const ids = route.scope === "selection" ? useScapeStore.getState().selection : undefined;
+      void handleConnect(ids, route.modelId);
+    } else void handleSend(text, origin, route);
+  };
+
+  /**
+   * Local commands from a short typed or dictated draft. Each one is something the editor can
+   * already do by hand, through the same store and canvas calls, so undo and the edit lease
+   * apply exactly as they do to a keyboard shortcut.
+   */
+  const runCommand = (command: LocalCommand) => {
+    const store = useScapeStore.getState();
+    switch (command.kind) {
+      case "undo":
+      case "redo":
+        if (!requireLease()) return;
+        if (command.kind === "undo") store.undo();
+        else store.redo();
+        return;
+      case "focus":
+        if (!command.target || !store.scape?.objects[command.target]) return;
+        setSelectedEdgeId(null);
+        store.setSelection([command.target]);
+        commands.current?.focus(command.target);
+        return;
+      case "select-all":
+        if (store.scape) store.setSelection([...store.scape.objectOrder]);
+        return;
+      case "fit":
+        commands.current?.fit();
+        return;
+      case "connect":
+        void handleConnect(store.selection);
+        return;
+    }
+  };
+
+  const routing: ComposerRouting = {
+    enabled: routeChips,
+    jevKey: jevRouting ? jevKey : "",
+    getContext: () => {
+      const { scape: current, selection: selected } = useScapeStore.getState();
+      const objects = current
+        ? current.objectOrder.flatMap((id) => {
+            const object = current.objects[id];
+            return object ? [{ id, type: object.type, title: object.title }] : [];
+          })
+        : [];
+      return {
+        selection: {
+          count: selected.length,
+          types: [...new Set(selected.map((id) => current?.objects[id]?.type ?? ""))].filter(
+            Boolean,
+          ),
+        },
+        objects,
+      };
+    },
+    ...(readOnly ? {} : { onCommand: runCommand }),
+  };
+
+  /**
+   * Make fast, then enhance: a second generation on the deep tier, scoped to what the first one
+   * created or rewrote. Its own transaction, so undo removes the refinement and keeps the draft.
+   */
+  const deepen = () => {
+    const current = useScapeStore.getState().scape;
+    const ids = generation.state.touched.filter((id) => current?.objects[id]);
+    if (ids.length === 0) return;
+    useScapeStore.getState().setSelection(ids);
+    void handleSend(
+      ids.length > 1
+        ? "Deepen the selected objects you just created. Add the detail, edge cases and structure they are missing, sharpen their wording, and connect what you add."
+        : "Deepen the selected object you just created. Add the detail, edge cases and structure it is missing, sharpen its wording, and connect what you add.",
+      lastOrigin,
+      { scope: "selection", modelId: modelForTier("deep", modelId) },
+    );
+  };
+  const canDeepen =
+    !readOnly && generation.state.touched.length > 0 && tierOf(generation.state.model) !== "deep";
 
   /**
    * The local agent bridge is intentionally routed through the same model-facing action applier
@@ -730,6 +842,15 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 onCancel={generation.cancel}
                 onUndo={generation.undo}
                 onDismiss={generation.dismiss}
+                {...(canDeepen
+                  ? {
+                      onDeepen: deepen,
+                      deepenLabel:
+                        appSettings.connection.provider === "chatgpt"
+                          ? "Deepen"
+                          : "Deepen with Opus",
+                    }
+                  : {})}
               />
             </div>
 
@@ -780,10 +901,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   controls={{ instructions: true }}
                   value={draft}
                   onValueChange={setDraft}
-                  onSend={(text) => {
-                    if (scapiMode === "ask") handleAsk(text, "canvas");
-                    else void handleSend(text, "canvas");
-                  }}
+                  onSend={(text, route) => sendFromComposer(text, "canvas", route)}
+                  routing={routing}
                   sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
                   onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
                   busy={scapiMode === "ask" ? scapi.streaming : busy}
@@ -794,6 +913,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   onWebSearchChange={scapi.setWebSearch}
                   webSearchUnavailable={scapi.searchAvailability === "unavailable"}
                   modelId={modelId}
+                  models={appSettings.models}
                   onModelChange={setModelId}
                   scope={scope}
                   onScopeChange={setScope}
@@ -970,7 +1090,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     restored={scapi.restored}
                     suggestions={suggestScapiQuestions(scape)}
                     mood={scapiMood}
-                    disabled={!apiKey.trim() || busy}
+                    disabled={!appSettings.aiReady || busy}
                     value={draft}
                     onValueChange={setDraft}
                     {...(generation.state.status === "idle"
@@ -985,6 +1105,15 @@ export function Editor({ scapeId }: { scapeId: string }) {
                                   if (requireLease()) generation.undo();
                                 }}
                                 onDismiss={generation.dismiss}
+                                {...(canDeepen
+                                  ? {
+                                      onDeepen: deepen,
+                                      deepenLabel:
+                                        appSettings.connection.provider === "chatgpt"
+                                          ? "Deepen"
+                                          : "Deepen with Opus",
+                                    }
+                                  : {})}
                               />
                             </div>
                           ),
@@ -999,16 +1128,14 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           controls={{ instructions: true }}
                           value={draft}
                           onValueChange={setDraft}
-                          onSend={(text) => {
-                            if (scapiMode === "ask") handleAsk(text, "panel");
-                            else void handleSend(text, "panel");
-                          }}
+                          onSend={(text, route) => sendFromComposer(text, "panel", route)}
+                          routing={routing}
                           sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
                           onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
                           busy={scapiMode === "ask" ? scapi.streaming : busy}
                           disabled={
                             readOnly ||
-                            !apiKey.trim() ||
+                            !appSettings.aiReady ||
                             (scapiMode === "ask" ? busy : scapi.streaming)
                           }
                           mode={scapiMode}
@@ -1017,6 +1144,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           onWebSearchChange={scapi.setWebSearch}
                           webSearchUnavailable={scapi.searchAvailability === "unavailable"}
                           modelId={modelId}
+                          models={appSettings.models}
                           onModelChange={setModelId}
                           scope={scope}
                           onScopeChange={setScope}
@@ -1025,9 +1153,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           availableTypes={[]}
                           selectionCount={selection.length}
                           placeholder={
-                            apiKey.trim()
+                            appSettings.aiReady
                               ? composerPlaceholder
-                              : "Add an API key in settings to ask."
+                              : "Connect AI in Settings → AI to ask."
                           }
                         />
                       </div>
@@ -1120,6 +1248,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
 
       {settingsOpen && (
         <SettingsModal
+          routingSettings={appSettings}
           onClose={() => setSettingsOpen(false)}
           theme={theme}
           credentials={credentials}

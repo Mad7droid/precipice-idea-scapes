@@ -42,7 +42,10 @@ describe("desktop credentials", () => {
     expect(state.ready).toBe(true);
     expect(state.credentials.saved).toBe(true);
     act(() => state.setApiKey("sk-ant-temporary"));
-    expect(native.invoke).toHaveBeenCalledTimes(1);
+    expect(native.invoke.mock.calls.map(([command]) => command)).toEqual([
+      "read_api_key",
+      "read_typesafe_key",
+    ]);
     expect(sessionStorage.getItem("anthropic.apiKey")).toBeNull();
     expect(sessionWrite).not.toHaveBeenCalled();
     await act(async () => {

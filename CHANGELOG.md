@@ -7,11 +7,31 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ### Added
 
+- Local developer preview: Continue with ChatGPT in Settings → AI uses an eligible ChatGPT
+  plan for creation, Ask, Edit, Connect and Deepen without an Anthropic API key. Runs only on
+  `pnpm dev` at 127.0.0.1; hosted and Mac app sign-in are not available yet. Anthropic API
+  keys remain under Other ways to connect, and billing connections never switch automatically.
+- Optional draft routing in Settings → AI: local suggestions for Ask/Edit, scope, object
+  types and a fast model tier, with per-draft manual overrides. Experimental Jev enhancement
+  uses a separate TypeSafe key and falls back locally after 800 ms. Both switches default off.
+- Confirmed local command chips for undo, redo, focus, fit, select-all and connecting the
+  selection. Deepen with Opus runs a separate undoable pass on generated objects.
+
 - Dictation in the Mac app: a mic beside Send in the canvas composer and the Scapi panel.
-  Click to talk, click to stop, Esc to discard. Text appears phrase by phrase in the draft
+  Click to talk, click to stop, Esc to cancel pending audio and keep inserted text. Text appears phrase by phrase in the draft
   and is never sent on its own. Speech is transcribed on the Mac by Whisper; audio is never
   saved or sent. English and Hindi, with experimental Malayalam, chosen in Settings → General.
   The first use offers a one-time speech model download from Precipice.
+
+### Changed
+
+- Microphone level updates now render only the meter, keeping the composer stable while listening.
+- Jev draft requests use a separate proxy rate budget from generation.
+- Dictation now has explicit starting/listening/finishing feedback and a visible cancel
+  control. Cmd/Ctrl+Shift+Space toggles it from the focused composer. Send waits for dictation
+  to finish; cancelling keeps inserted text and ignores late phrases. Setup and errors have
+  keyboard dismissal and recovery actions. The voice meter uses transforms and stays static
+  under reduced motion. Competing composers cannot claim a session during startup.
 
 ## 2026-10-11 — 0.1.9
 
@@ -183,7 +203,7 @@ Released to the hosted app, MCP connector, and local Mac installation. See the
 - `pnpm desktop:install` builds the Mac app and replaces the copy in `/Applications` directly, then
   deletes the staged bundle under `src-tauri/target` that made a second "Precipice" show up in
   Spotlight. It refuses to replace a running app or anything that is not Precipice.
-- The composer now lives on the canvas *and* in the Scapi panel, over one shared draft and one
+- The composer now lives on the canvas _and_ in the Scapi panel, over one shared draft and one
   shared transcript. Whichever surface you send from is where the answer appears; an edit sent
   from the canvas opens no panel, leaving the blocks arriving on the canvas as the result.
   Closing Scapi with `⌘J` (or Escape) hides the panel without stopping work in flight.

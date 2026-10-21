@@ -1,3 +1,4 @@
+import { isChatGPTModel, runChatGPT } from "./connection/runtime";
 import { stepCountIs, streamText, tool, type ToolSet } from "ai";
 import type { ObjectId, Scape } from "@/core/types";
 import { anthropicProvider, describeProviderError } from "./provider";
@@ -64,26 +65,42 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   });
 
   try {
-    const model = anthropicProvider.model(options.modelId, options.apiKey);
+    if (isChatGPTModel(options.modelId)) {
+      await runChatGPT({
+        modelId: options.modelId,
+        instructions: systemPrompt({
+          allowedTypes: options.allowedTypes,
+          starterHint: options.starterHint,
+          mode: options.mode,
+          instructions: options.instructions,
+        }),
+        input: [{ role: "user", content: prompt.text }],
+        tools,
+        maxSteps: MAX_STEPS,
+        signal: options.signal,
+      });
+    } else {
+      const model = anthropicProvider.model(options.modelId, options.apiKey);
 
-    const result = streamText({
-      model,
-      system: systemPrompt({
-        ...(options.allowedTypes ? { allowedTypes: options.allowedTypes } : {}),
-        ...(options.starterHint ? { starterHint: options.starterHint } : {}),
-        ...(options.mode ? { mode: options.mode } : {}),
-        ...(options.instructions ? { instructions: options.instructions } : {}),
-      }),
-      prompt: prompt.text,
-      tools,
-      stopWhen: stepCountIs(MAX_STEPS),
-      ...(options.signal ? { abortSignal: options.signal } : {}),
-    });
+      const result = streamText({
+        model,
+        system: systemPrompt({
+          ...(options.allowedTypes ? { allowedTypes: options.allowedTypes } : {}),
+          ...(options.starterHint ? { starterHint: options.starterHint } : {}),
+          ...(options.mode ? { mode: options.mode } : {}),
+          ...(options.instructions ? { instructions: options.instructions } : {}),
+        }),
+        prompt: prompt.text,
+        tools,
+        stopWhen: stepCountIs(MAX_STEPS),
+        ...(options.signal ? { abortSignal: options.signal } : {}),
+      });
 
-    // Consuming fullStream is what drives execution. Tool calls are applied inside
-    // `execute` as they arrive, so nothing here waits for the whole response.
-    for await (const part of result.fullStream) {
-      if (part.type === "error") throw part.error;
+      // Consuming fullStream is what drives execution. Tool calls are applied inside
+      // `execute` as they arrive, so nothing here waits for the whole response.
+      for await (const part of result.fullStream) {
+        if (part.type === "error") throw part.error;
+      }
     }
   } catch (error) {
     // Cancelling is not a failure: actions already applied stay, and they undo together.
@@ -93,7 +110,18 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
       /abort/i.test(error instanceof Error ? error.message : "");
 
     if (!cancelled) {
-      options.onEvent({ kind: "error", ...describeProviderError(error) });
+      options.onEvent({
+        kind: "error",
+        ...(isChatGPTModel(options.modelId)
+          ? {
+              message: "ChatGPT request failed",
+              detail:
+                error instanceof Error
+                  ? error.message
+                  : "Reconnect in Settings → AI and try again.",
+            }
+          : describeProviderError(error)),
+      });
       const failed = summarize(applier, options.modelId, false);
       options.onEvent(failed);
       return toResult(failed);

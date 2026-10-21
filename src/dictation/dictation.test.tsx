@@ -33,6 +33,7 @@ function fakeEngine(initial: DictationStatus) {
   };
   const emit = {
     status: (s: DictationStatus) => act(() => handlers.forEach((h) => h.status?.(s))),
+    level: (rms: number) => act(() => handlers.forEach((h) => h.level?.(rms))),
     phrase: (t: string) => act(() => handlers.forEach((h) => h.phrase?.(t))),
   };
   return { engine, emit };
@@ -43,6 +44,7 @@ function Harness() {
   const dictation = useDictation((phrase) => setDraft((d) => appendPhrase(d, phrase)));
   return (
     <div>
+      <textarea aria-label="Draft" value={draft} readOnly onKeyDown={dictation.handleShortcut} />
       <output>{draft}</output>
       <MicButton dictation={dictation} />
     </div>
@@ -146,7 +148,107 @@ describe("mic button", () => {
     act(() => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     });
+    await flush();
     expect(engine.cancel).toHaveBeenCalledOnce();
+    view.unmount();
+  });
+
+  it("keeps delivered text and drops late phrases immediately on cancel", async () => {
+    const { engine, emit } = fakeEngine({ kind: "ready" });
+    setDictationEngineForTests(engine);
+    const view = render(<Harness />);
+    await flush();
+    await act(async () => button(view.container).click());
+    emit.phrase("keep this");
+    act(() =>
+      view.container.querySelector<HTMLButtonElement>('[aria-label="Cancel dictation"]')!.click(),
+    );
+    emit.phrase("late phrase");
+    await flush();
+    expect(engine.cancel).toHaveBeenCalledOnce();
+    expect(view.container.querySelector("output")!.textContent).toBe("Draft: keep this");
+    view.unmount();
+  });
+
+  it("toggles from the focused field without restarting on key repeat", async () => {
+    const { engine } = fakeEngine({ kind: "ready" });
+    setDictationEngineForTests(engine);
+    const view = render(<Harness />);
+    await flush();
+    const field = view.container.querySelector("textarea")!;
+    await act(async () =>
+      field.dispatchEvent(
+        new KeyboardEvent("keydown", { key: " ", ctrlKey: true, shiftKey: true, bubbles: true }),
+      ),
+    );
+    expect(engine.start).toHaveBeenCalledOnce();
+    act(() =>
+      field.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: " ",
+          ctrlKey: true,
+          shiftKey: true,
+          repeat: true,
+          bubbles: true,
+        }),
+      ),
+    );
+    expect(engine.stop).not.toHaveBeenCalled();
+    act(() =>
+      field.dispatchEvent(
+        new KeyboardEvent("keydown", { key: " ", metaKey: true, shiftKey: true, bubbles: true }),
+      ),
+    );
+    expect(engine.stop).toHaveBeenCalledOnce();
+    expect(button(view.container).disabled).toBe(true);
+    view.unmount();
+  });
+
+  it("waits for startup before cancelling and prevents competing composers", async () => {
+    const { engine, emit } = fakeEngine({ kind: "ready" });
+    let finish!: () => void;
+    engine.start = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    setDictationEngineForTests(engine);
+    const first = render(<Harness />);
+    const second = render(<Harness />);
+    await flush();
+    await act(async () => button(first.container).click());
+    expect(button(first.container).getAttribute("aria-label")).toBe("Starting dictation");
+    act(() => button(second.container).click());
+    expect(engine.start).toHaveBeenCalledOnce();
+    act(() =>
+      first.container.querySelector<HTMLButtonElement>('[aria-label="Cancel dictation"]')!.click(),
+    );
+    expect(engine.cancel).not.toHaveBeenCalled();
+    await act(async () => finish());
+    expect(engine.cancel).toHaveBeenCalledOnce();
+    emit.phrase("cancelled");
+    expect(first.container.querySelector("output")!.textContent).toBe("Draft:");
+    first.unmount();
+    second.unmount();
+  });
+
+  it("returns keyboard focus to the model prompt trigger on Escape", async () => {
+    const { engine } = fakeEngine({ kind: "needs-model", bytes: 574_041_195 });
+    setDictationEngineForTests(engine);
+    const view = render(<Harness />);
+    await flush();
+    const trigger = button(view.container);
+    act(() => trigger.click());
+    expect(view.container.querySelector('[role="dialog"]')?.contains(document.activeElement)).toBe(
+      true,
+    );
+    act(() =>
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+    );
+    expect(view.container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(engine.install).not.toHaveBeenCalled();
     view.unmount();
   });
 
@@ -160,4 +262,27 @@ describe("mic button", () => {
     expect(view.container.textContent).toContain("Microphone access is off.");
     view.unmount();
   });
+});
+
+it("updates the live meter without re-rendering the composer", async () => {
+  const { engine, emit } = fakeEngine({ kind: "ready" });
+  setDictationEngineForTests(engine);
+  let renders = 0;
+  let controls!: ReturnType<typeof useDictation>;
+  function MeterProbe() {
+    renders++;
+    controls = useDictation(() => {});
+    return <MicButton dictation={controls} />;
+  }
+  const view = render(<MeterProbe />);
+  await flush();
+  await act(async () => controls.toggle());
+  const before = renders;
+  const bars = () => [...view.container.querySelectorAll<HTMLElement>(".transition-transform")];
+  const initial = bars().map((bar) => bar.style.transform);
+  emit.level(0.2);
+  expect(renders).toBe(before);
+  expect(bars().map((bar) => bar.style.transform)).not.toEqual(initial);
+  await act(async () => controls.cancel());
+  view.unmount();
 });

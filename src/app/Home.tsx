@@ -64,7 +64,8 @@ export function Home({ page = "home" }: { page?: HomePage }) {
   const [name, setName] = useState("");
   const [copied, setCopied] = useState<{ id: string; name: string } | null>(null);
   const [theme, setTheme] = useTheme();
-  const { credentials, apiKey, setApiKey, instructions, setInstructions, ready } = useAppSettings();
+  const appSettings = useAppSettings();
+  const { credentials, apiKey, setApiKey, instructions, setInstructions, ready } = appSettings;
   const refreshId = useRef(0);
   const mounted = useRef(true);
   const refresh = useCallback(async () => {
@@ -158,8 +159,8 @@ export function Home({ page = "home" }: { page?: HomePage }) {
     return scape;
   };
   const create = (request: string | null, chosen = starterId) => {
-    if (request !== null && !apiKey.trim()) {
-      setSettings("general");
+    if (request !== null && !appSettings.aiReady) {
+      setSettings("ai");
       return;
     }
     void run("creation", async () => {
@@ -521,6 +522,7 @@ export function Home({ page = "home" }: { page?: HomePage }) {
       </div>
       {settings && (
         <SettingsModal
+          routingSettings={appSettings}
           initialSection={settings}
           onClose={() => setSettings(null)}
           theme={theme}

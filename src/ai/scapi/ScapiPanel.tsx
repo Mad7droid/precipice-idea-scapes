@@ -761,7 +761,7 @@ function ScapiComposer({
     latest.current = appendPhrase(latest.current, phrase);
     setDraft(latest.current);
   });
-  const canSend = draft.trim().length > 0 && !disabled && !streaming;
+  const canSend = draft.trim().length > 0 && !disabled && !streaming && !dictation.active;
 
   const submit = () => {
     if (!canSend) return;
@@ -776,6 +776,7 @@ function ScapiComposer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
+            if (dictation.handleShortcut(e)) return;
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               submit();

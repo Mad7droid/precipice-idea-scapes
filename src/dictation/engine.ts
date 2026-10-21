@@ -18,6 +18,7 @@ export type DictationStatus =
   | { kind: "needs-model"; bytes: number }
   | { kind: "installing"; received: number; total: number }
   | { kind: "ready" }
+  | { kind: "starting" } // Frontend: permission/model startup, before native listening.
   | { kind: "listening" }
   | { kind: "finishing" }
   | { kind: "error"; message: string };

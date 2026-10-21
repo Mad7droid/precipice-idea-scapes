@@ -1,5 +1,6 @@
 /**
- * CORS relay to the Anthropic Messages API.
+ * CORS relay to the Anthropic Messages API, and to TypeSafe's System One API for the
+ * optional Jev routing.
  *
  * The caller supplies their own key on every request. The Worker holds no credential of its
  * own, on purpose: a hosted key behind a public endpoint is a hosted key anyone can spend.
@@ -26,8 +27,7 @@ export function isAllowedOrigin(origin: string | null): boolean {
   try {
     const url = new URL(origin);
     return (
-      url.protocol === "http:" &&
-      (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+      url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")
     );
   } catch {
     return false;
@@ -42,6 +42,13 @@ const MAX_TRACKED_IPS = 10_000;
 const FORWARDED_HEADERS = ["content-type", "accept", "anthropic-version", "anthropic-beta"];
 
 /**
+ * Routing requests are a draft sentence plus titles, so they are tiny. A large body is not a
+ * routing request and is refused rather than relayed.
+ */
+const MAX_ROUTING_BODY_BYTES = 64 * 1024;
+const TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone";
+
+/**
  * Best-effort abuse damping, not a rate limit. This map lives in one isolate, and Cloudflare
  * runs many and recycles them freely, so the real ceiling is some unknown multiple of this.
  * Its size is capped so a flood of distinct IPs cannot retain unbounded memory in a warm
@@ -52,7 +59,8 @@ const buckets = new Map<string, { started: number; count: number }>();
 function cors(origin: string | null): Headers {
   const headers = new Headers({
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, anthropic-version, anthropic-beta, x-api-key",
+    "Access-Control-Allow-Headers":
+      "content-type, anthropic-version, anthropic-beta, x-api-key, authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   });
@@ -67,7 +75,7 @@ function json(data: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
-function withinRateLimit(ip: string): boolean {
+function withinRateLimit(ip: string, limit = MAX_REQUESTS_PER_WINDOW): boolean {
   const now = Date.now();
   const bucket = buckets.get(ip);
   if (!bucket || now - bucket.started >= WINDOW_MS) {
@@ -82,7 +90,7 @@ function withinRateLimit(ip: string): boolean {
     buckets.set(ip, { started: now, count: 1 });
     return true;
   }
-  return ++bucket.count <= MAX_REQUESTS_PER_WINDOW;
+  return ++bucket.count <= limit;
 }
 
 export default {
@@ -91,12 +99,14 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
-    if (request.method !== "POST" || new URL(request.url).pathname !== "/v1/messages") {
+    const path = new URL(request.url).pathname;
+    if (request.method !== "POST" || (path !== "/v1/messages" && path !== "/v1/systemone")) {
       return json({ error: "Not found" }, 404, origin);
     }
     if (!isAllowedOrigin(origin)) {
       return json({ error: "Origin not allowed" }, 403, origin);
     }
+    if (path === "/v1/systemone") return relayRouting(request, origin);
 
     const apiKey = request.headers.get("x-api-key")?.trim();
     if (!apiKey) {
@@ -111,7 +121,8 @@ export default {
     }
 
     const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
-    if (!withinRateLimit(ip)) return json({ error: "Rate limit exceeded" }, 429, origin);
+    if (!withinRateLimit(ip))
+      return json({ error: "Rate limit exceeded" }, 429, origin);
 
     const body = await request.arrayBuffer();
     if (body.byteLength > MAX_BODY_BYTES) return json({ error: "Request too large" }, 413, origin);
@@ -144,3 +155,37 @@ export default {
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   },
 };
+
+/**
+ * TypeSafe System One, for the optional Jev routing. Same rules as the Anthropic relay: the
+ * caller's own key on every request, no server-side credential, an allowlisted header set,
+ * and a body cap. Only the Bearer header and the JSON body are forwarded.
+ */
+async function relayRouting(request: Request, origin: string | null): Promise<Response> {
+  const authorization = request.headers.get("authorization")?.trim() ?? "";
+  if (!/^Bearer \S{8,4096}$/.test(authorization)) {
+    return json({ error: "Add a TypeSafe key in settings." }, 401, origin);
+  }
+  const declaredLength = Number(request.headers.get("Content-Length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_ROUTING_BODY_BYTES) {
+    return json({ error: "Request too large" }, 413, origin);
+  }
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!withinRateLimit(`routing:${ip}`, 120))
+    return json({ error: "Rate limit exceeded" }, 429, origin);
+  const body = await request.arrayBuffer();
+  if (body.byteLength > MAX_ROUTING_BODY_BYTES) {
+    return json({ error: "Request too large" }, 413, origin);
+  }
+
+  const upstream = await fetch(TYPESAFE_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization },
+    body,
+  });
+  const responseHeaders = cors(origin);
+  responseHeaders.set("Content-Type", upstream.headers.get("Content-Type") ?? "application/json");
+  responseHeaders.set("Cache-Control", "no-store");
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
+  return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+}

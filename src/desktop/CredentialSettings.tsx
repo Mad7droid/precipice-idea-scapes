@@ -2,7 +2,22 @@ import { useState } from "react";
 import type { DesktopCredentials } from "./useCredentials";
 import { buttonClass } from "@/design/Button";
 
-export function CredentialSettings({ credentials: c }: { credentials: DesktopCredentials }) {
+export function CredentialSettings({
+  credentials: c,
+  id = "desktop-api-key",
+  label = "Anthropic API key",
+  placeholder = "sk-ant-…",
+  vendor = "Anthropic",
+  missing = "Add a key to generate.",
+}: {
+  credentials: DesktopCredentials;
+  id?: string;
+  label?: string;
+  placeholder?: string;
+  /** Who the key is sent to, named in the footnote. */
+  vendor?: string;
+  missing?: string;
+}) {
   const [draft, setDraft] = useState("");
   const [remember, setRemember] = useState(false);
   const disabled = !c.ready || c.busy;
@@ -15,8 +30,8 @@ export function CredentialSettings({ credentials: c }: { credentials: DesktopCre
   };
   return (
     <div className="mt-4">
-      <label htmlFor="desktop-api-key" className="mb-1 block text-xs text-fg-secondary">
-        Anthropic API key
+      <label htmlFor={id} className="mb-1 block text-xs text-fg-secondary">
+        {label}
       </label>
       <p role="status" className="mb-2 text-xs text-fg-tertiary">
         {!c.ready
@@ -25,15 +40,15 @@ export function CredentialSettings({ credentials: c }: { credentials: DesktopCre
             ? "A key is saved in macOS Keychain."
             : c.key
               ? "Using a key for this app session."
-              : "Add a key to generate."}
+              : missing}
       </p>
       <input
-        id="desktop-api-key"
+        id={id}
         type="password"
         value={draft}
         disabled={disabled}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={c.saved ? "Enter a replacement key" : "sk-ant-…"}
+        placeholder={c.saved ? "Enter a replacement key" : placeholder}
         autoComplete="off"
         spellCheck={false}
         className="w-full rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg focus-self"
@@ -73,7 +88,7 @@ export function CredentialSettings({ credentials: c }: { credentials: DesktopCre
       </div>
       <p className="mt-2 text-xs text-fg-tertiary">
         Saved keys survive app restarts. Session keys stay in memory until you quit. Removing a key
-        clears both. Requests go directly to Anthropic.
+        clears both. Requests go directly to {vendor}.
       </p>
       {c.saved && (
         <p className="mt-2 text-xs text-fg-tertiary">
