@@ -351,11 +351,11 @@ export function Composer({
           (decider === "jev"
             ? `with Jev in ${decision.ms} ms`
             : decider === "fallback"
-              ? "on this device, because Jev did not answer in time"
+              ? "on this device, because Jev did not answer"
               : "on this device") +
           ". Click to keep your own choices for this draft."
         : decider === "fallback"
-          ? "Jev did not answer in time; nothing changed."
+          ? "Jev did not answer; on-device routing stands."
           : "Reading your draft…";
   const autoLabel =
     decider === "jev-asking"
@@ -628,12 +628,16 @@ export function Composer({
               <DotMatrix label="working" />
             </span>
           ) : (
-            <span className="mono hidden sm:inline" title="Send with Command or Control + Enter">
+            <span
+              // With Live in the row, the hint yields first so Send never wraps to a new line.
+              className={"mono hidden " + (liveAvailable ? "2xl:inline" : "sm:inline")}
+              title="Send with Command or Control + Enter"
+            >
               ⌘↵ to send
             </span>
           )}
           {!disabled && !live && <MicButton dictation={dictation} size="md" />}
-          {liveReady && !live && (
+          {liveReady && !live && !dictation.active && (
             <Button
               variant="secondary"
               size="sm"

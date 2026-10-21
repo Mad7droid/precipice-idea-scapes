@@ -87,7 +87,7 @@ function EntryStatus({ entry }: { entry: LiveEntry }) {
     entry.decider === "jev"
       ? `Jev ${entry.routeMs} ms`
       : entry.decider === "fallback"
-        ? `on-device ${entry.routeMs} ms (Jev timed out)`
+        ? `on-device ${entry.routeMs} ms (Jev didn’t answer)`
         : `on-device ${entry.routeMs} ms`,
   );
   if (entry.modelId) {

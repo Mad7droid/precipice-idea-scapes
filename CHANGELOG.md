@@ -5,6 +5,18 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+### Fixed
+
+- Jev routing in the Mac app. TypeSafe's CORS policy rejected the app's origin, so every
+  request failed and routing fell back to on-device. The app now calls Jev from its native
+  process, with the key read straight from Keychain.
+- Live voice no longer splits one sentence into two requests when you pause mid-thought.
+  Words heard within 0.6 s of a phrase join it before it runs.
+- Scapi answers above the canvas render markdown and object links like the Scapi panel,
+  instead of showing raw `**` and backticks.
+- The composer's Send button no longer wraps onto a second line next to Live. The fallback
+  label now says Jev didn't answer, rather than claiming a timeout.
+
 ## 2026-10-22 — 0.1.12
 
 ### Added

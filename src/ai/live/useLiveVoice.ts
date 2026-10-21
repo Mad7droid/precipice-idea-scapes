@@ -28,6 +28,8 @@ export interface LiveEntry {
   waitMs?: number;
   runMs?: number;
   heardAt: number;
+  /** When the latest words of this entry were heard; a run waits briefly after it. */
+  lastHeardAt: number;
 }
 
 export interface UseLiveVoiceOptions {
@@ -47,6 +49,12 @@ const loadJev = () => (jevModule ??= import("@/ai/router/jev"));
 
 const START_GRACE_MS = 1500;
 const KEEP = 6;
+/**
+ * A pause in speech is not always the end of a thought: the Mac recogniser closes a phrase
+ * after ~0.7 s of quiet. A phrase waits this long before running, and words heard in that
+ * window join it, so one spoken sentence is one request.
+ */
+export const SETTLE_MS = 600;
 
 export function useLiveVoice({
   baseline,
@@ -57,6 +65,10 @@ export function useLiveVoice({
   onCommand,
 }: UseLiveVoiceOptions) {
   const [entries, setEntries] = useState<LiveEntry[]>([]);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const versions = useRef(new Map<number, number>());
+  const [tick, setTick] = useState(0);
   const decisions = useRef(new Map<number, { route: SendRoute; command?: LocalCommand } | null>());
   const running = useRef<{ id: number; startedAt: number; seenBusy: boolean } | null>(null);
   const sequence = useRef(0);
@@ -67,15 +79,18 @@ export function useLiveVoice({
     setEntries((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
   }, []);
 
-  const push = useCallback(
-    (text: string) => {
-      const id = ++sequence.current;
-      const heardAt = performance.now();
-      setEntries((prev) => [...prev.slice(-(KEEP - 1)), { id, text, stage: "routing", heardAt }]);
+  const route = useCallback(
+    (id: number, text: string) => {
+      const version = (versions.current.get(id) ?? 0) + 1;
+      versions.current.set(id, version);
+      decisions.current.delete(id);
       const { baseline: base, context: ctx, jevKey: key } = latest.current;
       const routeContext = { ...ctx(), input: "voice" as const };
       const local = heuristicRoute(text, routeContext);
+      const started = performance.now();
       const finish = (jev: Awaited<ReturnType<typeof import("@/ai/router/jev").askJev>>) => {
+        // Words joined this entry while it was routing; the newer routing wins.
+        if (versions.current.get(id) !== version) return;
         const suggestion = merge(local, jev);
         const decision = decide(base(), suggestion, new Set());
         const command = latest.current.onCommand ? decision.command : undefined;
@@ -84,7 +99,7 @@ export function useLiveVoice({
           stage: "queued",
           action: command ? command.kind : labelFor(decision.route.intent),
           decider: jev ? "jev" : key.trim() ? "fallback" : "local",
-          routeMs: Math.round(performance.now() - heardAt),
+          routeMs: Math.round(performance.now() - started),
           ...(command ? {} : { modelId: decision.route.modelId }),
         });
       };
@@ -98,6 +113,33 @@ export function useLiveVoice({
         .then(finish);
     },
     [update],
+  );
+
+  const push = useCallback(
+    (text: string) => {
+      const now = performance.now();
+      const last = entriesRef.current.at(-1);
+      if (
+        last &&
+        (last.stage === "routing" || last.stage === "queued") &&
+        now - last.lastHeardAt < SETTLE_MS + 1500
+      ) {
+        const joined = `${last.text} ${text}`;
+        const merged = { ...last, text: joined, stage: "routing" as const, lastHeardAt: now };
+        entriesRef.current = entriesRef.current.map((entry) =>
+          entry.id === last.id ? merged : entry,
+        );
+        setEntries(entriesRef.current);
+        route(last.id, joined);
+        return;
+      }
+      const id = ++sequence.current;
+      const entry: LiveEntry = { id, text, stage: "routing", heardAt: now, lastHeardAt: now };
+      entriesRef.current = [...entriesRef.current.slice(-(KEEP - 1)), entry];
+      setEntries(entriesRef.current);
+      route(id, text);
+    },
+    [route],
   );
 
   // The runner: one phrase at a time, in spoken order, each when the scape is free.
@@ -130,6 +172,12 @@ export function useLiveVoice({
     const blocked = entries.find((entry) => entry.stage === "routing");
     if (!next || (blocked && blocked.id < next.id)) return;
     const decision = decisions.current.get(next.id);
+    // Commands run at once; requests wait out the settle window in case speech continues.
+    const settleLeft = next.lastHeardAt + SETTLE_MS - performance.now();
+    if (!decision?.command && settleLeft > 0) {
+      const timer = window.setTimeout(() => setTick((n) => n + 1), settleLeft);
+      return () => window.clearTimeout(timer);
+    }
     decisions.current.delete(next.id);
     const startedAt = performance.now();
     const waitMs = Math.round(startedAt - next.heardAt);
@@ -145,11 +193,13 @@ export function useLiveVoice({
     running.current = { id: next.id, startedAt, seenBusy: false };
     update(next.id, { stage: "running", waitMs });
     latest.current.onSend(next.text, decision.route);
-  }, [busy, entries, update]);
+  }, [busy, entries, update, tick]);
 
   const clear = useCallback(() => {
     decisions.current.clear();
+    versions.current.clear();
     running.current = null;
+    entriesRef.current = [];
     setEntries([]);
   }, []);
 

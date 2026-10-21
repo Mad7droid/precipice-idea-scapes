@@ -402,7 +402,7 @@ const TurnView = memo(function TurnView({
  * Separately memoised so that an activity or source event — which arrives while the body is
  * unchanged — does not re-parse the markdown.
  */
-const AnswerBody = memo(function AnswerBody({
+export const AnswerBody = memo(function AnswerBody({
   body,
   objects,
   onObjectClick,

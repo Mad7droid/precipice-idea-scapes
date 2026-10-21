@@ -15,6 +15,7 @@
     "allow-read-typesafe-key",
     "allow-save-typesafe-key",
     "allow-remove-typesafe-key",
+    "allow-jev-route",
     "allow-mcp-ready",
     "allow-mcp-send",
     "allow-mcp-install-client",

@@ -70,8 +70,9 @@ Requests include input kind, selection count/types and available object types. S
 command requests also include up to 60 object ids/titles as target choices. Object
 bodies, library contents and web results are excluded. The key is sent only as the
 TypeSafe authentication header. Web requests pass through the BYOK Cloudflare proxy;
-desktop requests go directly to TypeSafe. The proxy has no managed key and adds no
-request logging. TypeSafe is a separate processor; do not assume zero retention.
+the Mac app sends them from its native process (`jev_route`), which reads the key from
+Keychain itself, because TypeSafe's CORS policy does not allow the app's origin. The proxy
+has no managed key and adds no request logging. TypeSafe is a separate processor; do not assume zero retention.
 
 The key uses tab session storage on web and optional macOS Keychain storage on desktop,
 matching Anthropic credentials. Routing times out after 800 ms and falls back locally;

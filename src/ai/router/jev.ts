@@ -264,6 +264,21 @@ export async function askJev(
   const timer = setTimeout(abort, JEV_TIMEOUT_MS);
   const started = performance.now();
   try {
+    if (isDesktop() && fetcher === fetch) {
+      // TypeSafe does not allow the app's origin in CORS, so the Mac app routes natively; the
+      // key stays in Keychain and only this bounded request crosses the bridge.
+      const { invoke } = await import("@tauri-apps/api/core");
+      const timedOut = new Promise<never>((_, reject) =>
+        controller.signal.addEventListener("abort", () => reject(new Error("aborted")), {
+          once: true,
+        }),
+      );
+      const raw = await Promise.race([
+        invoke<string>("jev_route", { body: JSON.stringify(buildRequest(text, context)) }),
+        timedOut,
+      ]);
+      return parseAnswers(JSON.parse(raw), context, Math.round(performance.now() - started));
+    }
     const result = await fetcher(jevUrl(), {
       method: "POST",
       headers: {
