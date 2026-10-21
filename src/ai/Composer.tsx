@@ -8,13 +8,13 @@ import { DotMatrix } from "./DotMatrix";
 import { InstructionsPill } from "./Instructions";
 import type { Scope } from "./prompt";
 import { MODELS, type ModelChoice } from "./models";
-import { MicButton } from "@/dictation/MicButton";
+import { Elapsed, MicButton } from "@/dictation/MicButton";
 import { useDictation } from "@/dictation/useDictation";
 import { appendPhrase } from "@/dictation/vocabulary";
 import { decide } from "./router/decide";
 import { describeCommand } from "./router/commands";
 import { useRoute } from "./router/useRoute";
-import { LivePanel } from "./live/LivePanel";
+import { LiveHistory, LiveLine } from "./live/LivePanel";
 import { useLiveVoice } from "./live/useLiveVoice";
 import type { LocalCommand, RouteContext, RouteDimension, SendRoute } from "./router/types";
 
@@ -124,6 +124,8 @@ export interface ComposerProps {
    * needs to know when the scape is free for the next spoken phrase.
    */
   liveBusy?: boolean;
+  /** The last ask or edit failed; live voice reports that run as failed, not done. */
+  liveFailed?: boolean;
 }
 
 /**
@@ -162,6 +164,7 @@ export function Composer({
   webSearchUnavailable,
   routing,
   liveBusy,
+  liveFailed,
   models = MODELS,
 }: ComposerProps) {
   const routingOn = !!routing?.enabled && !!mode && !!onModeChange;
@@ -265,6 +268,7 @@ export function Composer({
     context: getRouteContext,
     jevKey: routing?.jevKey ?? "",
     busy: !!liveBusy,
+    failed: !!liveFailed,
     onSend: (text, route) => onSend(text, route),
     ...(routing?.onCommand ? { onCommand: routing.onCommand } : {}),
   });
@@ -373,19 +377,18 @@ export function Composer({
         (focused ? "border-focus shadow-md" : "border-default")
       }
     >
-      {(live || liveVoice.entries.length > 0) && (
-        <LivePanel
-          listening={live && dictation.active}
+      {live && (
+        <LiveLine
           partial={dictation.partial}
           entries={liveVoice.entries}
           jevOn={!!routing?.jevKey.trim()}
-          onStop={dictation.toggle}
-          onClear={liveVoice.clear}
         />
       )}
       <textarea
         ref={textarea}
         rows={1}
+        // Live voice takes this row; the draft is kept, untouched, for when it ends.
+        hidden={live}
         value={value}
         disabled={disabled}
         onChange={(e) => {
@@ -623,7 +626,7 @@ export function Composer({
 
         <div className="ml-auto flex items-center gap-1.5">
           {slot}
-          {busy ? (
+          {live ? null : busy ? (
             <span className="mono hidden sm:inline">
               <DotMatrix label="working" />
             </span>
@@ -636,7 +639,26 @@ export function Composer({
               ⌘↵ to send
             </span>
           )}
+          {liveAvailable && <LiveHistory entries={liveVoice.entries} onClear={liveVoice.clear} />}
           {!disabled && !live && <MicButton dictation={dictation} size="md" />}
+          {live && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={dictation.toggle}
+              disabled={dictation.status?.kind !== "listening"}
+              aria-label="Stop live voice"
+              title="Stop live voice · Esc"
+              className="gap-1.5"
+            >
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 rounded-full bg-danger motion-safe:animate-pulse"
+              />
+              <Elapsed since={dictation.startedAt} />
+              <span aria-hidden className="h-2 w-2 rounded-[2px] bg-current" />
+            </Button>
+          )}
           {liveReady && !live && !dictation.active && (
             <Button
               variant="secondary"
@@ -662,7 +684,8 @@ export function Composer({
           <Button variant="neutral" shape="icon" onClick={onCancel} aria-label="Stop generating">
             <span aria-hidden className="block h-2.5 w-2.5 rounded-[2px] bg-current" />
           </Button>
-        ) : (
+        ) : live ? null : (
+          // Live voice runs each phrase itself; a Send with nothing to send is noise.
           <Button
             variant="primary"
             shape={label ? "pill" : "icon"}

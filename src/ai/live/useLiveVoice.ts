@@ -12,7 +12,7 @@ import type { LocalCommand, RouteContext, SendRoute } from "@/ai/router/types";
  * an ask still cannot write; live mode removes the click, not the guarantees.
  */
 
-export type LiveStage = "routing" | "queued" | "running" | "done" | "skipped";
+export type LiveStage = "routing" | "queued" | "running" | "done" | "failed" | "skipped";
 
 export interface LiveEntry {
   id: number;
@@ -38,6 +38,8 @@ export interface UseLiveVoiceOptions {
   jevKey: string;
   /** True while any ask or edit is running, whichever mode started it. */
   busy: boolean;
+  /** True when the most recent ask or edit ended in an error, so a run is not shown as done. */
+  failed?: boolean;
   onSend: (text: string, route: SendRoute) => void;
   onCommand?: (command: LocalCommand) => void;
 }
@@ -61,6 +63,7 @@ export function useLiveVoice({
   context,
   jevKey,
   busy,
+  failed = false,
   onSend,
   onCommand,
 }: UseLiveVoiceOptions) {
@@ -152,7 +155,7 @@ export function useLiveVoice({
       }
       const elapsed = performance.now() - current.startedAt;
       if (current.seenBusy) {
-        update(current.id, { stage: "done", runMs: Math.round(elapsed) });
+        update(current.id, { stage: failed ? "failed" : "done", runMs: Math.round(elapsed) });
         running.current = null;
       } else {
         const timer = window.setTimeout(
@@ -193,7 +196,7 @@ export function useLiveVoice({
     running.current = { id: next.id, startedAt, seenBusy: false };
     update(next.id, { stage: "running", waitMs });
     latest.current.onSend(next.text, decision.route);
-  }, [busy, entries, update, tick]);
+  }, [busy, entries, failed, update, tick]);
 
   const clear = useCallback(() => {
     decisions.current.clear();

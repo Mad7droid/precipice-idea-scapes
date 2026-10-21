@@ -310,7 +310,7 @@ function Meter({ level }: { level: LevelSignal }) {
   );
 }
 
-function Elapsed({ since }: { since: number | null }) {
+export function Elapsed({ since }: { since: number | null }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 500);

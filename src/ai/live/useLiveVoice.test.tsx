@@ -30,7 +30,7 @@ afterEach(() => {
   remote.ask.mockReset();
 });
 
-function mount(jevKey = "") {
+function mount(jevKey = "", failed = false) {
   const sent: string[] = [];
   const commands: string[] = [];
   let latest!: ReturnType<typeof useLiveVoice>;
@@ -43,6 +43,7 @@ function mount(jevKey = "") {
       context: () => context,
       jevKey,
       busy,
+      failed,
       onSend: (text) => sent.push(text),
       onCommand: (command) => commands.push(command.kind),
     });
@@ -86,6 +87,16 @@ describe("live voice", () => {
     await wait(SETTLE_MS);
     expect(sent).toEqual(["so now connect it to a document that explains the claim"]);
     expect(live().entries).toHaveLength(1);
+  });
+
+  it("reports a run that ended in an error as failed, not done", async () => {
+    vi.useFakeTimers();
+    const { live, busy } = mount("", true);
+    act(() => live().push("add a checkout step"));
+    await wait(SETTLE_MS);
+    busy(true);
+    busy(false);
+    expect(live().entries[0]!.stage).toBe("failed");
   });
 
   it("runs local commands immediately", async () => {

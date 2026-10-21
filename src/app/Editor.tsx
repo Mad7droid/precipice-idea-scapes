@@ -889,7 +889,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     </button>
                   </div>
                 </div>
-                <div className="max-h-[38vh] overflow-auto text-fg">
+                <div className="max-h-[28vh] overflow-auto text-fg">
                   {canvasAnswer.body ? (
                     <Suspense
                       fallback={<div className="whitespace-pre-wrap">{canvasAnswer.body}</div>}
@@ -924,6 +924,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   onSend={(text, route) => sendFromComposer(text, "canvas", route)}
                   routing={routing}
                   liveBusy={busy || scapi.streaming}
+                  liveFailed={
+                    generation.state.status === "error" || scapi.turns.at(-1)?.status === "error"
+                  }
                   sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
                   onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
                   busy={scapiMode === "ask" ? scapi.streaming : busy}
@@ -1152,6 +1155,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           onSend={(text, route) => sendFromComposer(text, "panel", route)}
                           routing={routing}
                           liveBusy={busy || scapi.streaming}
+                          liveFailed={
+                            generation.state.status === "error" ||
+                            scapi.turns.at(-1)?.status === "error"
+                          }
                           sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
                           onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
                           busy={scapiMode === "ask" ? scapi.streaming : busy}

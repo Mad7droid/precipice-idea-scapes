@@ -14,6 +14,11 @@ does not use formal release numbers yet; entries are grouped by date and commit.
   Words heard within 0.6 s of a phrase join it before it runs.
 - Scapi answers above the canvas render markdown and object links like the Scapi panel,
   instead of showing raw `**` and backticks.
+- Live voice and AI progress take far less of the screen. While live, the composer keeps its
+  height: one line shows what you are saying or the latest phrase with its timings, the Live
+  button becomes Stop with a timer, and earlier phrases open from a small "runs" control as
+  an overlay. The progress strip is one row while working, with every step one click away.
+  Answers above the canvas are capped lower. A live run that errors is shown as failed.
 - The composer's Send button no longer wraps onto a second line next to Live. The fallback
   label now says Jev didn't answer, rather than claiming a timeout.
 
