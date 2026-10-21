@@ -5,6 +5,8 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-22 — 0.1.12
+
 ### Added
 
 - Live voice in the Scapi panel: press Live and talk. Each pause runs what you said as an Ask, Edit, Connect or local command, with no Send. Each
