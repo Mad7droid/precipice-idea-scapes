@@ -5,6 +5,8 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-22 — 0.1.13
+
 ### Fixed
 
 - Jev routing in the Mac app. TypeSafe's CORS policy rejected the app's origin, so every
