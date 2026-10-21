@@ -91,23 +91,41 @@ export function Ribbon({
   }
 
   if (state.status === "streaming") {
+    const latest = state.lines.at(-1);
+    // One row while working: the newest step, who is doing it, and Stop. Every step so far is
+    // one click away rather than stacked over the canvas the steps are changing.
     return (
       <Strip>
-        <ol ref={listRef} className="max-h-[132px] overflow-y-auto px-3 py-2">
-          {state.lines.map((line) => (
-            <li key={line.key} className="mono animate-ribbon-line normal-case tracking-normal">
-              {line.text}
-            </li>
-          ))}
-          {state.lines.length === 0 && (
-            <li className="py-0.5 text-fg-secondary">
-              <DotMatrix label={phrase} />
-            </li>
+        {showSteps && state.lines.length > 1 && (
+          <ol
+            ref={listRef}
+            className="max-h-[132px] overflow-y-auto border-b border-subtle px-3 py-2"
+          >
+            {state.lines.map((line) => (
+              <li key={line.key} className="mono normal-case tracking-normal">
+                {line.text}
+              </li>
+            ))}
+          </ol>
+        )}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <DotMatrix />
+          {latest ? (
+            <button
+              type="button"
+              onClick={() => setShowSteps((open) => !open)}
+              aria-expanded={showSteps}
+              title={showSteps ? "Hide the steps" : "Show every step so far"}
+              className="mono min-w-0 flex-1 truncate text-left normal-case tracking-normal text-fg"
+            >
+              <span key={latest.key} className="animate-ribbon-line inline-block">
+                {latest.text}
+              </span>
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1 truncate text-fg-secondary">{phrase}</span>
           )}
-        </ol>
-        <div className="flex items-center justify-between border-t border-subtle px-3 py-1.5">
-          <span className="mono flex items-center gap-2">
-            {state.lines.length > 0 && <DotMatrix />}
+          <span className="mono flex shrink-0 items-center gap-2">
             <ModelTag modelId={state.model} />
             <Dot />
             {state.applied} {state.applied === 1 ? "action" : "actions"}

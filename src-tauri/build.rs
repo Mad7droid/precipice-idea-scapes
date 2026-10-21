@@ -10,6 +10,7 @@ fn main() {
             "read_typesafe_key",
             "save_typesafe_key",
             "remove_typesafe_key",
+            "jev_route",
             "mcp_ready",
             "mcp_send",
             "mcp_install_client",

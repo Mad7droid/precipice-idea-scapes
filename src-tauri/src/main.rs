@@ -90,6 +90,53 @@ fn remove_typesafe_key() -> Result<(), &'static str> {
     }
 }
 
+/// Jev routing from the Mac app. TypeSafe's API does not allow the app's `tauri://` origin in
+/// CORS, so the request is made natively. The key is read from Keychain here and never passes
+/// back through the webview; the body is the bounded routing request the webview built.
+const TYPESAFE_URL: &str = "https://api.typesafe.ai/v1/systemone";
+const JEV_MAX_BODY: usize = 64 * 1024;
+
+fn jev_agent() -> &'static ureq::Agent {
+    static AGENT: std::sync::OnceLock<ureq::Agent> = std::sync::OnceLock::new();
+    // One pooled agent: a warm connection is most of the latency budget.
+    AGENT.get_or_init(|| {
+        ureq::Agent::config_builder()
+            .https_only(true)
+            .max_redirects(0)
+            .http_status_as_error(false)
+            .timeout_global(Some(std::time::Duration::from_millis(2_000)))
+            .build()
+            .into()
+    })
+}
+
+#[tauri::command]
+async fn jev_route(body: String) -> Result<String, &'static str> {
+    if body.len() > JEV_MAX_BODY || serde_json::from_str::<serde_json::Value>(&body).is_err() {
+        return Err("Invalid routing request");
+    }
+    let key = read_typesafe_key()?.ok_or("Add a TypeSafe key in Settings")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut response = jev_agent()
+            .post(TYPESAFE_URL)
+            .header("authorization", &format!("Bearer {key}"))
+            .header("content-type", "application/json")
+            .send(body.as_str())
+            .map_err(|_| "Could not reach TypeSafe")?;
+        if !response.status().is_success() {
+            return Err("TypeSafe refused the routing request");
+        }
+        response
+            .body_mut()
+            .with_config()
+            .limit(256 * 1024)
+            .read_to_string()
+            .map_err(|_| "Invalid TypeSafe response")
+    })
+    .await
+    .map_err(|_| "Routing failed")?
+}
+
 const AGENT_SERVICE: &str = "dev.precipice.desktop.agent";
 
 #[tauri::command]
@@ -166,6 +213,7 @@ fn main() {
             read_typesafe_key,
             save_typesafe_key,
             remove_typesafe_key,
+            jev_route,
             mcp::mcp_ready,
             mcp::mcp_send,
             mcp::mcp_install_client,

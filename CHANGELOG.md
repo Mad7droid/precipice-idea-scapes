@@ -5,6 +5,25 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-22 — 0.1.13
+
+### Fixed
+
+- Jev routing in the Mac app. TypeSafe's CORS policy rejected the app's origin, so every
+  request failed and routing fell back to on-device. The app now calls Jev from its native
+  process, with the key read straight from Keychain.
+- Live voice no longer splits one sentence into two requests when you pause mid-thought.
+  Words heard within 0.6 s of a phrase join it before it runs.
+- Scapi answers above the canvas render markdown and object links like the Scapi panel,
+  instead of showing raw `**` and backticks.
+- Live voice and AI progress take far less of the screen. While live, the composer keeps its
+  height: one line shows what you are saying or the latest phrase with its timings, the Live
+  button becomes Stop with a timer, and earlier phrases open from a small "runs" control as
+  an overlay. The progress strip is one row while working, with every step one click away.
+  Answers above the canvas are capped lower. A live run that errors is shown as failed.
+- The composer's Send button no longer wraps onto a second line next to Live. The fallback
+  label now says Jev didn't answer, rather than claiming a timeout.
+
 ## 2026-10-22 — 0.1.12
 
 ### Added
