@@ -5,7 +5,7 @@ import type { Action, ActionPayload } from "@/core/actions";
 import { PrecipiceDb } from "@/persistence/db";
 import type { McpOperation } from "./contracts";
 import { applyBatch } from "./document";
-import { saveOperation } from "./operations";
+import { pruneOperations, RECEIPT_RETENTION_MS, saveOperation } from "./operations";
 
 let db: PrecipiceDb;
 let counter = 0;
@@ -95,5 +95,28 @@ describe("saveOperation", () => {
 
     expect(await db.actions.where({ scapeId: "scp_1" }).count()).toBe(1);
     expect(await db.actions.where({ scapeId: "scp_2" }).count()).toBe(1);
+  });
+});
+
+describe("pruneOperations", () => {
+  it("drops long-expired receipts but keeps recent ones and live shared previews", async () => {
+    const now = Date.now();
+    const old = now - RECEIPT_RETENTION_MS - 1;
+    await db.mcpOperations.bulkPut([
+      receipt({ key: "old", expiresAt: old }),
+      receipt({ key: "recent", expiresAt: now - 1 }),
+      receipt({
+        key: "shared",
+        expiresAt: old,
+        command: { id: "c", tool: "preview_flow", args: { __share: { publication_id: "p" } } },
+      }),
+    ]);
+
+    await pruneOperations(db, now);
+
+    expect((await db.mcpOperations.toArray()).map((row) => row.key).sort()).toEqual([
+      "recent",
+      "shared",
+    ]);
   });
 });

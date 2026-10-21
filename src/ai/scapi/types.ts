@@ -76,6 +76,15 @@ export interface Source {
  *    `user` with no `response` leaves a dangling question, and a `response` with no `user` is
  *    the bug this type exists to prevent.
  */
+/**
+ * How much conversation the model is given back.
+ *
+ * Whole turns, from the end. Never a partial turn: see `ModelTurn` for why a `user` without its
+ * `response` (or the reverse) is a correctness bug rather than a size saving. Lives here rather
+ * than in `ask.ts` so the hook can bound its history without loading the provider SDK.
+ */
+export const HISTORY_TURNS = 6;
+
 export interface ModelTurn {
   user: ModelMessage;
   response: ModelMessage[];
