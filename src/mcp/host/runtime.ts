@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { isDesktop } from "@/desktop/runtime";
+import { pruneOperations } from "@/mcp/operations";
 import { restorePendingReviews } from "./host";
 import { startRelay, type RelayController } from "./relay";
 import { loadHostCredential } from "./credential";
@@ -29,6 +30,7 @@ export function useAgentRuntime(): void {
     const controller = startRelay(desktop ? "desktop" : "web");
     relay = controller;
     void restorePendingReviews();
+    void pruneOperations().catch(() => undefined);
     let stopAuth: (() => void) | undefined;
     let stopLocal: (() => void) | undefined;
     let cancelled = false;

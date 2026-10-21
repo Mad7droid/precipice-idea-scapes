@@ -378,6 +378,23 @@ describe("action log growth", () => {
     );
   });
 
+  it("trims a log that only ever sees short sessions", async () => {
+    const database = new PrecipiceDb(`log-${Math.random()}`);
+    const limits = { maxLoggedActions: 5, trimCheckEvery: 100 };
+    const first = new DexieScapeRepository(database, limits);
+    const scape = await first.create("Brief visits");
+    for (let i = 0; i < 8; i++) await first.appendActions(scape.id, [logAction(i)]);
+
+    // A relaunch: a fresh repository, nowhere near the check threshold.
+    const next = new DexieScapeRepository(database, limits);
+    await next.appendActions(scape.id, [logAction(8)]);
+
+    const log = await next.getActionLog(scape.id);
+    expect(log.map((entry) => entry.txId)).toEqual(
+      Array.from({ length: 5 }, (_, i) => `tx_${4 + i}`),
+    );
+  });
+
   it("does not trim a log that is within its cap", async () => {
     const database = new PrecipiceDb(`log-${Math.random()}`);
     const repo = new DexieScapeRepository(database, { maxLoggedActions: 10, trimCheckEvery: 1 });

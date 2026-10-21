@@ -5,6 +5,16 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-21 — 0.1.10
+
+### Changed
+
+- Lower memory use over long sessions. Undo keeps the most recent 200 steps per open scape
+  instead of every edit since it was opened. Agent history and revert cover the last 30 days;
+  older receipts are removed at launch, except previews that are still publicly shared. Edit
+  history trims itself even when a scape only sees short sessions. The editor no longer
+  re-hashes unpublished scapes on every edit, and Scapi keeps only the conversation it sends.
+
 ## 2026-10-11 — 0.1.9
 
 ### Changed

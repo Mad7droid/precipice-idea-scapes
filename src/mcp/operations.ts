@@ -45,3 +45,19 @@ export async function saveOperation(
     },
   );
 }
+
+/** How long a receipt outlives its expiry, so recent history and revert keep working. */
+export const RECEIPT_RETENTION_MS = 30 * 24 * 60 * 60_000;
+
+/**
+ * Receipts are written by every agent command and were never removed, so the table grew for
+ * as long as agents were used. Long-expired ones go; a preview that is still publicly shared
+ * stays, because its row is what lets the person withdraw it.
+ */
+export async function pruneOperations(database: PrecipiceDb = db, now = Date.now()) {
+  await database.mcpOperations
+    .where("expiresAt")
+    .below(now - RECEIPT_RETENTION_MS)
+    .filter((operation) => !operation.command.args.__share)
+    .delete();
+}

@@ -17,6 +17,12 @@ export type CommitToken = symbol;
 let activeCommit: CommitToken | null = null;
 
 /**
+ * Undo steps kept per open scape. Each step holds the values it replaced, so an unbounded stack
+ * grows for as long as the scape stays open — days, in the desktop app.
+ */
+export const MAX_UNDO_STEPS = 200;
+
+/**
  * One store, one mutation path.
  *
  * Undo groups on `txId` and nothing else. A drag emits one MoveObject with a fresh txId, so
@@ -98,6 +104,7 @@ export const useScapeStore = create<StoreState>((set, get) => ({
       ];
     } else {
       nextUndo = [...undoStack, { txId: action.txId, inverses: [inverse], size: 1 }];
+      if (nextUndo.length > MAX_UNDO_STEPS) nextUndo = nextUndo.slice(-MAX_UNDO_STEPS);
     }
 
     set({
