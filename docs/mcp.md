@@ -118,6 +118,9 @@ when retrying a write, and send `expected_revision` when relying on a prior read
 - Use **Refresh status** to retrieve a shared link and withdraw it after the creation draft
   expires. A withdrawn snapshot keeps its retained slot; re-sharing an unexpired draft restores
   the same URL. Account publication deletion frees the slot.
+- Receipts stay in the library for 30 days after they expire, so `get_history` and
+  `revert_operation` cover that window. Older receipts are removed at launch; a preview that is
+  still publicly shared keeps its receipt so it can always be withdrawn.
 - The library’s **Published** page lists snapshots attached to saved scapes. Unsaved chat
   preview snapshots are managed from their chat preview or the authenticated publication API.
 - A text-only client should use `create_scape`/`apply_changes` with in-app review. App-only

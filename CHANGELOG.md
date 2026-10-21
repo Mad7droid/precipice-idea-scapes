@@ -5,6 +5,8 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+## 2026-10-22 — 0.1.11
+
 ### Added
 
 - Local developer preview: Continue with ChatGPT in Settings → AI uses an eligible ChatGPT
@@ -18,8 +20,8 @@ does not use formal release numbers yet; entries are grouped by date and commit.
   selection. Deepen with Opus runs a separate undoable pass on generated objects.
 
 - Dictation in the Mac app: a mic beside Send in the canvas composer and the Scapi panel.
-  Click to talk, click to stop, Esc to cancel pending audio and keep inserted text. Text appears phrase by phrase in the draft
-  and is never sent on its own. Speech is transcribed on the Mac by Whisper; audio is never
+  Click to talk, click to stop, Esc to cancel pending audio and keep inserted text. Text
+  appears phrase by phrase in the draft and is never sent on its own. Speech is transcribed on the Mac by Whisper; audio is never
   saved or sent. English and Hindi, with experimental Malayalam, chosen in Settings → General.
   The first use offers a one-time speech model download from Precipice.
 
@@ -32,6 +34,16 @@ does not use formal release numbers yet; entries are grouped by date and commit.
   to finish; cancelling keeps inserted text and ignores late phrases. Setup and errors have
   keyboard dismissal and recovery actions. The voice meter uses transforms and stays static
   under reduced motion. Competing composers cannot claim a session during startup.
+
+## 2026-10-21 — 0.1.10
+
+### Changed
+
+- Lower memory use over long sessions. Undo keeps the most recent 200 steps per open scape
+  instead of every edit since it was opened. Agent history and revert cover the last 30 days;
+  older receipts are removed at launch, except previews that are still publicly shared. Edit
+  history trims itself even when a scape only sees short sessions. The editor no longer
+  re-hashes unpublished scapes on every edit, and Scapi keeps only the conversation it sends.
 
 ## 2026-10-11 — 0.1.9
 

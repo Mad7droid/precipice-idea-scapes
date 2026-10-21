@@ -159,9 +159,13 @@ export class DexieScapeRepository implements ScapeRepository {
       ),
     );
 
+    // The counter lives in memory, so a log that only ever sees short sessions would never
+    // reach the threshold. Measuring once on a session's first append closes that gap.
+    const firstThisSession = !this.appendsSinceTrim.has(scapeId);
     const since = (this.appendsSinceTrim.get(scapeId) ?? 0) + actions.length;
     if (since < this.trimCheckEvery) {
       this.appendsSinceTrim.set(scapeId, since);
+      if (firstThisSession) await this.trimActionLog(scapeId);
       return;
     }
     this.appendsSinceTrim.set(scapeId, 0);
@@ -183,10 +187,10 @@ export class DexieScapeRepository implements ScapeRepository {
       if (total <= this.maxLoggedActions) return;
 
       // Insertion order, which is what `++id` gives us — `ts` comes from the action and can
-      // repeat across a burst.
+      // repeat across a burst. An index walks equal keys in primary-key order, so the oldest
+      // rows are the first keys, and only keys are read.
       const excess = total - this.maxLoggedActions;
-      const oldest = await table.where("scapeId").equals(scapeId).sortBy("id");
-      const doomed = oldest.slice(0, excess).map((row) => row.id!);
+      const doomed = await table.where("scapeId").equals(scapeId).limit(excess).primaryKeys();
       await table.bulkDelete(doomed);
     });
   }

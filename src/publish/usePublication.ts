@@ -45,7 +45,13 @@ export function usePublication(
   const [signedIn, setSignedIn] = useState(() => publishToken() !== null);
   const scapeId = scape?.id ?? null;
 
-  const projection = useMemo(() => (scape ? projectScape(scape) : null), [scape]);
+  // Projecting and hashing copies the whole scape, and it reruns on every edit. Only a live
+  // publication has a hash to compare against, so nothing else pays for it.
+  const published = row?.status === "published";
+  const projection = useMemo(
+    () => (scape && published ? projectScape(scape) : null),
+    [scape, published],
+  );
 
   const refresh = useCallback(() => {
     setSignedIn(publishToken() !== null);

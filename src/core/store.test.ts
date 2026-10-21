@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { emptyScape, fixtureScape } from "./fixtures";
-import { useScapeStore } from "./store";
+import { MAX_UNDO_STEPS, useScapeStore } from "./store";
 
 const store = () => useScapeStore.getState();
 
@@ -43,6 +43,17 @@ describe("undo groups on txId", () => {
     // Second undo reverses the creation.
     store().undo();
     expect(store().scape!.objects["a"]).toBeUndefined();
+  });
+
+  it("keeps only the most recent undo steps", () => {
+    store().dispatchTx([{ type: "CreateObject", id: "a", objectType: "note", title: "A" }]);
+    for (let i = 1; i <= MAX_UNDO_STEPS + 5; i++)
+      store().dispatchTx([{ type: "MoveObject", id: "a", x: i, y: 0 }]);
+
+    expect(store().undoStack).toHaveLength(MAX_UNDO_STEPS);
+    while (store().undo());
+    // The oldest steps, including the create, were dropped; the newest ones still undo exactly.
+    expect(store().scape!.objects["a"].x).toBe(5);
   });
 
   it("undo of a generation returns state to exactly pre-generation", () => {

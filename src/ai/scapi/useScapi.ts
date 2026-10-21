@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ObjectId, Scape } from "@/core/types";
 import { applyAskEvent, isComplete, startTurn } from "./reducer";
-import type { AskEvent, ModelTurn, SearchAvailability, Turn } from "./types";
+import {
+  HISTORY_TURNS,
+  type AskEvent,
+  type ModelTurn,
+  type SearchAvailability,
+  type Turn,
+} from "./types";
 
 /**
  * Scapi's state for one scape.
@@ -208,7 +214,10 @@ export function useScapi({
   const commit = useCallback(
     (event: AskEvent) => {
       updateLast((turn) => applyAskEvent(turn, event));
-      if (event.kind === "done" && event.turn) history.current.push(event.turn);
+      // Only the last few turns are ever sent back, so older ones (search results included)
+      // are dropped rather than held for the life of the panel.
+      if (event.kind === "done" && event.turn)
+        history.current = [...history.current, event.turn].slice(-HISTORY_TURNS);
     },
     [updateLast],
   );

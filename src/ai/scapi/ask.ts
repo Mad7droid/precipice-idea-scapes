@@ -5,7 +5,7 @@ import type { ObjectId, Scape } from "@/core/types";
 import { responseTokenBudget } from "./answerFormat";
 import { questionBlock, scapeContextBlock, scapiSystemPrompt } from "./scapiPrompt";
 import { scapiTools } from "./scapiTools";
-import type { AskEvent, ModelTurn } from "./types";
+import { HISTORY_TURNS, type AskEvent, type ModelTurn } from "./types";
 
 /**
  * One question, answered.
@@ -18,13 +18,7 @@ import type { AskEvent, ModelTurn } from "./types";
 /** Enough for the model to search, read a few objects, then answer. */
 const MAX_STEPS = 6;
 
-/**
- * How much conversation the model is given back.
- *
- * Whole turns, from the end. Never a partial turn: see `ModelTurn` for why a `user` without its
- * `response` (or the reverse) is a correctness bug rather than a size saving.
- */
-export const HISTORY_TURNS = 6;
+export { HISTORY_TURNS };
 
 /**
  * `low` is the default on purpose. This feature was specified interaction-first, and on current
