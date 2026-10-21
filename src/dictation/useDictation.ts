@@ -17,6 +17,8 @@ export interface Dictation {
   /** True while this composer's session is live — another composer's session is not ours. */
   active: boolean;
   level: LevelSignal;
+  /** Interim words for this composer's live session; empty when nothing is pending. */
+  partial: string;
   startedAt: number | null;
   toggle: () => void;
   cancel: () => void;
@@ -37,6 +39,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
   const [status, setStatus] = useState<DictationStatus | null>(null);
   const [level] = useState(createLevelSignal);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [partial, setPartial] = useState("");
   const owns = useRef(false);
   const identity = useRef(Symbol("dictation composer"));
   const startup = useRef<Promise<void> | null>(null);
@@ -58,11 +61,17 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
           if (sessionOwner === identity.current) sessionOwner = null;
           owns.current = false;
           setStartedAt(null);
+          setPartial("");
           level.set(0);
         }
       },
+      partial: (text) => owns.current && setPartial(text),
       level: (rms) => owns.current && level.set(rms),
-      phrase: (text) => owns.current && deliver.current(text),
+      phrase: (text) => {
+        if (!owns.current) return;
+        setPartial("");
+        deliver.current(text);
+      },
     });
     return () => {
       alive = false;
@@ -123,6 +132,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
     // Stop delivering immediately, including phrases queued before the native cancel arrives.
     owns.current = false;
     setStartedAt(null);
+    setPartial("");
     level.set(0);
     void Promise.resolve(startup.current)
       .then(() => engine.cancel())
@@ -175,6 +185,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
     status,
     active,
     level,
+    partial,
     startedAt,
     toggle,
     cancel,

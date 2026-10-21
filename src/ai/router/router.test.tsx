@@ -118,3 +118,44 @@ it("aborts old answers as soon as typing resumes and clears stale command chips"
   expect(latest.suggestion).toBeNull();
 });
 import { useState } from "react";
+
+describe("who decided the route", () => {
+  async function settle(answer: Promise<RouteSuggestion | null>) {
+    vi.useFakeTimers();
+    remote.ask.mockReturnValue(answer);
+    let latest!: ReturnType<typeof useRoute>;
+    function Probe() {
+      latest = useRoute({
+        text: "make a checkout flow for returning customers",
+        enabled: true,
+        jevKey: "test",
+        getContext: () => context,
+      });
+      return null;
+    }
+    view = render(<Probe />);
+    expect(latest.jev).toBe("off");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    return () => latest;
+  }
+
+  it("reports Jev while it is asked and after it answers", async () => {
+    let finish!: (answer: RouteSuggestion) => void;
+    const latest = await settle(new Promise((resolve) => (finish = resolve)));
+    expect(latest().jev).toBe("asking");
+    await act(async () => {
+      finish({ source: "jev", ms: 120, intent: { value: "edit", confidence: 0.9 } });
+    });
+    expect(latest().jev).toBe("answered");
+    expect(latest().suggestion?.source).toBe("jev");
+  });
+
+  it("reports an on-device fallback when Jev gives no answer", async () => {
+    const latest = await settle(Promise.resolve(null));
+    await act(async () => {});
+    expect(latest().jev).toBe("fallback");
+    expect(latest().suggestion?.source).toBe("heuristic");
+  });
+});

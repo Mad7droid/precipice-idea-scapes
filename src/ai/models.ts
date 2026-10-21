@@ -74,3 +74,9 @@ export function modelForTier(tier: ModelTier, preferred: string): string {
 export function modelLabel(modelId: string): string {
   return MODELS.find((model) => model.id === modelId)?.label ?? modelId;
 }
+
+/** Which service is doing the work, for "who is working" labels. Never a billing claim. */
+export function describeModel(modelId: string): { provider: "Claude" | "ChatGPT"; model: string } {
+  if (modelId.startsWith("chatgpt/")) return { provider: "ChatGPT", model: modelId.slice(8) };
+  return { provider: "Claude", model: modelLabel(modelId) };
+}

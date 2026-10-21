@@ -903,6 +903,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   onValueChange={setDraft}
                   onSend={(text, route) => sendFromComposer(text, "canvas", route)}
                   routing={routing}
+                  liveBusy={busy || scapi.streaming}
                   sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
                   onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
                   busy={scapiMode === "ask" ? scapi.streaming : busy}
@@ -1130,6 +1131,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                           onValueChange={setDraft}
                           onSend={(text, route) => sendFromComposer(text, "panel", route)}
                           routing={routing}
+                          liveBusy={busy || scapi.streaming}
                           sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
                           onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
                           busy={scapiMode === "ask" ? scapi.streaming : busy}

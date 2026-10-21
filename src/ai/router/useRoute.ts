@@ -17,6 +17,13 @@ export interface UseRouteOptions {
   getContext: () => RouteContext;
 }
 
+/**
+ * What Jev did for the current draft, so the composer can say who decided. `off` means no key,
+ * Jev disabled or a draft too short to ask about; `fallback` means Jev failed or timed out and
+ * the on-device suggestion stands.
+ */
+export type JevStatus = "off" | "asking" | "answered" | "fallback";
+
 function normalise(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -32,6 +39,7 @@ function normalise(text: string): string {
 export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions) {
   const [suggestion, setSuggestion] = useState<RouteSuggestion | null>(null);
   const [pending, setPending] = useState(false);
+  const [jev, setJev] = useState<JevStatus>("off");
   const held = useRef(false);
   const queued = useRef<RouteSuggestion | null | undefined>(undefined);
   const controller = useRef<AbortController | null>(null);
@@ -55,6 +63,7 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
       controller.current = null;
       if (!key) {
         setPending(false);
+        setJev("off");
         publish(null);
         return;
       }
@@ -63,17 +72,20 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
 
       if (!jevKey.trim() || normalized.split(" ").length < MIN_JEV_WORDS) {
         setPending(false);
+        setJev("off");
         return;
       }
       const cached = cache.current.get(key);
       if (cached !== undefined) {
         publish(merge(local, cached));
         setPending(false);
+        setJev(cached ? "answered" : "fallback");
         return;
       }
       const current = new AbortController();
       controller.current = current;
       setPending(true);
+      setJev("asking");
       void import("./jev")
         .then(({ askJev }) => askJev(draft, context, jevKey, current.signal))
         .then((answer) => {
@@ -83,8 +95,11 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
             cache.current.delete(cache.current.keys().next().value!);
           }
           publish(merge(local, answer));
+          setJev(answer ? "answered" : "fallback");
         })
-        .catch(() => undefined)
+        .catch(() => {
+          if (!current.signal.aborted) setJev("fallback");
+        })
         .finally(() => {
           if (controller.current === current) {
             controller.current = null;
@@ -106,6 +121,7 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
     queued.current = undefined;
     setSuggestion(null);
     setPending(false);
+    setJev("off");
     if (!enabled) {
       setSuggestion(null);
       setPending(false);
@@ -142,5 +158,11 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
     }
   }, []);
 
-  return { suggestion: enabled ? suggestion : null, pending, hold, phraseLanded };
+  return {
+    suggestion: enabled ? suggestion : null,
+    pending,
+    jev: enabled ? jev : ("off" as JevStatus),
+    hold,
+    phraseLanded,
+  };
 }

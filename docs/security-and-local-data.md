@@ -40,6 +40,26 @@ own Anthropic (Claude) API key.
   under `models/` and contain no user data.
 - The dictation language is a local setting, like the theme.
 
+## Dictation (web)
+
+- The web app uses the browser's Web Speech API with `processLocally` set, so the
+  browser's on-device language pack transcribes. Precipice never selects a cloud
+  recogniser; a browser without on-device support shows dictation as unavailable.
+  The language pack is downloaded by the browser after an explicit click.
+- The microphone stream is also read locally for the level meter. Interim words are
+  shown on screen only; final phrases go to the draft, or to live voice below.
+- `Permissions-Policy` allows the microphone for Precipice's own origin only
+  (`microphone=(self)`); embeds and other origins cannot request it.
+
+## Live voice
+
+- Live is an explicit mode in the Scapi composer. Each finished phrase is routed
+  (on-device, or Jev when enabled) and run without Send: Ask, Edit, Connect, or a
+  local command. Runs are sequential in spoken order; each edit is its own undoable
+  transaction and Ask still cannot write.
+- Phrase text is sent to the selected AI connection exactly as a typed request would
+  be, and to Jev when Jev routing is on. Audio is never sent. Stop or Esc ends it.
+
 ## Optional smart routing (TypeSafe Jev)
 
 Route chips and Jev are separate opt-in settings, both off by default. Local route

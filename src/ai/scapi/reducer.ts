@@ -16,8 +16,9 @@ import type { AskEvent, Turn } from "./types";
  */
 let sequence = 0;
 
-export function startTurn(question: string, pinned: ObjectId[] = []): Turn {
+export function startTurn(question: string, pinned: ObjectId[] = [], modelId?: string): Turn {
   return {
+    ...(modelId ? { modelId } : {}),
     id: `turn_${++sequence}`,
     question,
     pinned,

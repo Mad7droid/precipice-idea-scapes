@@ -31,6 +31,8 @@ export interface Turn {
   sources: Source[];
   status: TurnStatus;
   error: { message: string; detail: string } | null;
+  /** The model that answered, so the transcript says whether Claude or ChatGPT did the work. */
+  modelId?: string;
 }
 
 export type SearchAvailability = "unknown" | "available" | "unavailable";
