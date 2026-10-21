@@ -35,6 +35,9 @@ pub enum Status {
 #[derive(Default)]
 pub struct Dictation {
     inner: Mutex<Inner>,
+    /// Held across a model load. Hovering the mic, focusing it and pressing it each ask for the
+    /// model; without this, overlapping requests each load their own ~640 MB copy before one wins.
+    loading: Mutex<()>,
 }
 
 #[derive(Default)]
@@ -116,15 +119,19 @@ fn load_model(state: &Dictation, path: &PathBuf) -> Result<Arc<WhisperContext>, 
     if let Some(model) = state.inner.lock().unwrap().model.clone() {
         return Ok(model);
     }
+    // `inner` stays free while loading, so status, stop and cancel never wait on the disk.
+    let _loading = state.loading.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(model) = state.inner.lock().unwrap().model.clone() {
+        return Ok(model);
+    }
     let mut params = WhisperContextParameters::default();
     params.use_gpu(true);
     let path_str = path.to_str().ok_or("Invalid model path")?;
     let model = Arc::new(
         WhisperContext::new_with_params(path_str, params).map_err(|_| "Could not load the speech model")?,
     );
-    let mut inner = state.inner.lock().unwrap();
-    // Another thread may have won the race; keep one copy.
-    Ok(inner.model.get_or_insert(model).clone())
+    state.inner.lock().unwrap().model = Some(model.clone());
+    Ok(model)
 }
 
 #[tauri::command]
