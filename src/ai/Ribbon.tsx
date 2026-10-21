@@ -42,11 +42,19 @@ export function Ribbon({
   onCancel,
   onUndo,
   onDismiss,
+  onDeepen,
+  deepenLabel = "Deepen with Opus",
 }: {
   state: GenerationState;
   onCancel: () => void;
   onUndo: () => void;
   onDismiss: () => void;
+  /**
+   * A second, separately undoable pass on the deep tier over what this generation touched.
+   * Absent when there is nothing to deepen or the generation already ran on the deep tier.
+   */
+  onDeepen?: () => void;
+  deepenLabel?: string;
 }) {
   const [showSkipped, setShowSkipped] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
@@ -164,6 +172,24 @@ export function Ribbon({
         >
           undo
         </button>
+        {onDeepen && state.touched.length > 0 && (
+          <>
+            <Dot />
+            {state.deepSuggested ? (
+              // Routing judged the brief large or ambiguous: offer the refinement as an action.
+              <RibbonButton onClick={onDeepen}>{deepenLabel}</RibbonButton>
+            ) : (
+              <button
+                type="button"
+                onClick={onDeepen}
+                title="Refine what was just added. Undoes separately."
+                className="mono normal-case tracking-normal text-fg-accent hover:underline"
+              >
+                deepen
+              </button>
+            )}
+          </>
+        )}
 
         <button
           type="button"

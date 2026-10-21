@@ -10,10 +10,15 @@ import { deletePublication } from "@/publish/client";
 import { navigate } from "./router";
 import { downloadScape, importScape } from "@/persistence/portable";
 import { exportScapePdf } from "@/export/pdf";
-const mocks = vi.hoisted(() => ({ key: "", settings: {} as Record<string, unknown> }));
+const mocks = vi.hoisted(() => ({ key: "", subscription: false, settings: {} as Record<string, unknown> }));
 vi.mock("./useAppSettings", () => ({
   useAppSettings: () => ({
     apiKey: mocks.key,
+    aiReady: mocks.subscription || !!mocks.key,
+    models: [],
+    connection: { available: false, status: "disconnected", provider: "anthropic", models: [], choose: vi.fn() },
+    routeChips: false, setRouteChips: vi.fn(), jevRouting: false, setJevRouting: vi.fn(),
+    jevKey: "", setJevKey: vi.fn(), jevCredentials: { desktop: false },
     setApiKey: vi.fn(),
     ready: true,
     modelId: "test",
@@ -90,6 +95,7 @@ async function menu(label: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.key = "";
+  mocks.subscription = false;
   mocks.settings = {};
   useNotifications.getState().clear();
   vi.mocked(scapeRepository.list).mockResolvedValue([]);
@@ -107,7 +113,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("home workflows", () => {
-  it("guides first use and preserves the prompt and starter through missing-key settings", async () => {
+  it("guides first use and preserves the prompt and starter through connection settings", async () => {
     await mount();
     expect(view.container.textContent).toContain("What are you working on?");
     await click(
@@ -128,6 +134,15 @@ describe("home workflows", () => {
     expect(
       view.container.querySelector('[data-starter][aria-checked="true"]')?.textContent,
     ).toContain("Product concept");
+  });
+  it("creates through a connected subscription without an Anthropic key", async () => {
+    mocks.subscription = true;
+    vi.mocked(scapeRepository.create).mockResolvedValue(emptyScape("a"));
+    await mount();
+    type(byLabel(view.container, "Prompt"), "A subscription-powered brief");
+    await click(button("Generate"));
+    expect(scapeRepository.create).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith("/s/a");
   });
   it("does not navigate after a failed save and prevents double creation", async () => {
     let resolve!: (scape: ReturnType<typeof emptyScape>) => void;

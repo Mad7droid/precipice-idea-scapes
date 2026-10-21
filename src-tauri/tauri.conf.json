@@ -12,7 +12,7 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://api.anthropic.com https://*.precipice.workers.dev wss://*.precipice.workers.dev http://127.0.0.1:38383; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://api.anthropic.com https://api.typesafe.ai https://*.precipice.workers.dev wss://*.precipice.workers.dev http://127.0.0.1:38383; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'",
       "capabilities": [
         "main-credentials"
       ]
@@ -26,7 +26,8 @@
     ],
     "macOS": {
       "minimumSystemVersion": "12.0",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist"
     },
     "icon": [
       "icons/32x32.png",

@@ -33,9 +33,9 @@ export function CreationPanel({
   onSettings: () => void;
   inputRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
-  const { apiKey, modelId, setModelId, types, setTypes } = useAppSettings();
+  const { aiReady, models, modelId, setModelId, types, setTypes } = useAppSettings();
   const starter = getStarter(starterId);
-  const hasKey = !!apiKey.trim();
+  const hasKey = aiReady;
 
   // Arrow keys move between templates, as in any radio group; Tab leaves the group in one stop.
   const onTemplateKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -80,6 +80,7 @@ export function CreationPanel({
           disabled={busy}
           sendLabel={busy ? "Creating…" : "Generate"}
           modelId={modelId}
+          models={models}
           onModelChange={setModelId}
           scope="scape"
           onScopeChange={() => {}}
@@ -146,7 +147,7 @@ export function CreationPanel({
         </button>
         {!hasKey && (
           <button type="button" onClick={onSettings} className="text-fg-accent hover:underline">
-            Add API key to generate
+            Connect AI to generate
           </button>
         )}
       </div>

@@ -1038,3 +1038,12 @@ Cross-tab commands for the same target use a Web Lock; a live editor checks the 
 again after flushing autosave. The UI disables cancelled drafts and clears withdrawn share
 links when refreshing status. See [MCP](mcp.md) for tool behavior and [security](security-and-local-data.md)
 for disclosure boundaries.
+
+## Draft routing
+
+`src/ai/router/` supplies pure local heuristics and route decisions, a debounced hook,
+and a lazy TypeSafe client. Both editor composers consume the visible route on Send.
+Manual overrides lock each dimension until the draft clears. Ask remains read-only;
+web search is stripped from write routes. Local command chips require confirmation.
+Deepen starts a separate generation transaction scoped to touched objects. See the
+[combined rollout plan](voice-and-routing-plan.md) for remaining acceptance gates.

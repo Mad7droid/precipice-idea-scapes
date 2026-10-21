@@ -2,19 +2,23 @@
 
 Maintained guides for the current source tree:
 
-| Guide | Purpose |
-| --- | --- |
-| [Product and setup](../README.md) | Browser and desktop workflows, features, screenshots |
-| [Library and templates](library.md) | Sidebar, creation, filters, publication management and instructions |
-| [Release 0.1.6](releases/0.1.6.md) | Deployment record, verification and client acceptance status |
-| [Desktop](desktop.md) | Build/install, Keychain, sign-in, local data and acceptance checks |
-| [Agents and MCP](mcp.md) | Local and hosted client setup, review, scopes and deployment |
-| [Publishing](publishing-runbook.md) | Hosted snapshots, configuration, limits and sharing checks |
-| [Architecture](codebase-architecture.md) | Runtime boundaries and implementation map |
-| [Security and local data](security-and-local-data.md) | Storage, credentials, disclosure and agent trust |
-| [Security policy](../SECURITY.md) | Private vulnerability reporting and repository hygiene |
-| [Design language](design-language.md) | Visual principles and current component rules |
-| [Screenshot provenance](screenshots/README.md) | Public demo images and safe capture procedure |
+| Guide                                                 | Purpose                                                               |
+| ----------------------------------------------------- | --------------------------------------------------------------------- |
+| [Product and setup](../README.md)                     | Browser and desktop workflows, features, screenshots                  |
+| [Library and templates](library.md)                   | Sidebar, creation, filters, publication management and instructions   |
+| [Release 0.1.6](releases/0.1.6.md)                    | Deployment record, verification and client acceptance status          |
+| [Desktop](desktop.md)                                 | Build/install, Keychain, sign-in, local data and acceptance checks    |
+| [Agents and MCP](mcp.md)                              | Local and hosted client setup, review, scopes and deployment          |
+| [Publishing](publishing-runbook.md)                   | Hosted snapshots, configuration, limits and sharing checks            |
+| [Architecture](codebase-architecture.md)              | Runtime boundaries and implementation map                             |
+| [Security and local data](security-and-local-data.md) | Storage, credentials, disclosure and agent trust                      |
+| [Security policy](../SECURITY.md)                     | Private vulnerability reporting and repository hygiene                |
+| [Dictation interactions](dictation-ux-research.md)    | Mobbin references, shortcuts, motion and shared speech-input behavior |
+| [Design language](design-language.md)                 | Visual principles and current component rules                         |
+| [Screenshot provenance](screenshots/README.md)        | Public demo images and safe capture procedure                         |
+
+[Jev routing plan](jev-routing-plan.md) is an unimplemented proposal for intent routing across
+Jev, Claude tiers, voice and MCP.
 
 [Scapi UX reference](scapi-ux-patterns.html) documents the built-in assistant’s interactions;
 it is separate from the external MCP preview UI.

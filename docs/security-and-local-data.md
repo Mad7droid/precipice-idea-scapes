@@ -23,6 +23,55 @@ own Anthropic (Claude) API key.
   contains, so they are not written into a `.scape` export or a publication.
   Pinning a Scape does not change its content or its edited time.
 
+## Dictation (macOS app)
+
+- Speech is transcribed on the Mac by whisper.cpp inside the app process. Audio
+  is held in memory only while a phrase is transcribed; it is never written to
+  disk, IndexedDB, logs, or sent anywhere. Only the resulting text reaches the
+  webview, and it lands in the composer draft — it is never sent on its own.
+- The microphone is opened only between pressing the mic and stopping (or Esc).
+  macOS asks for permission on first use; a denied app is detected and explained.
+- The recogniser is primed with words from the open Scape (its name, card titles
+  and tags) so names transcribe correctly. That prompt stays in the process.
+- The speech model is downloaded once, after an explicit click, from the
+  Precipice model host fixed at build time (`PRECIPICE_MODELS_URL`, HTTPS only,
+  no redirects). Each file is pinned by size and SHA-256 in the app source; a
+  file that fails the check is discarded. Models live in the app data folder
+  under `models/` and contain no user data.
+- The dictation language is a local setting, like the theme.
+
+## Optional smart routing (TypeSafe Jev)
+
+Route chips and Jev are separate opt-in settings, both off by default. Local route
+heuristics send nothing. Enabling Jev with a TypeSafe key sends draft text after a
+pause, before Send, including dictated text. Audio stays on the Mac.
+
+Requests include input kind, selection count/types and available object types. Short
+command requests also include up to 60 object ids/titles as target choices. Object
+bodies, library contents and web results are excluded. The key is sent only as the
+TypeSafe authentication header. Web requests pass through the BYOK Cloudflare proxy;
+desktop requests go directly to TypeSafe. The proxy has no managed key and adds no
+request logging. TypeSafe is a separate processor; do not assume zero retention.
+
+The key uses tab session storage on web and optional macOS Keychain storage on desktop,
+matching Anthropic credentials. Routing times out after 800 ms and falls back locally;
+it never sends a draft or executes a command automatically. Live evaluation is still
+pending, so Jev remains experimental and disabled by default.
+
+## ChatGPT plan connection (local developer preview)
+
+Only the Vite dev server (`apply: "serve"`, bound to 127.0.0.1) offers ChatGPT sign-in; it
+is never part of the hosted build or the BYOK Worker. Sign-in uses OpenAI's open-source
+token-sharing flow: PKCE, per-attempt state and nonce, a 127.0.0.1 loopback callback and
+ID-token verification. Tokens without `chatgpt.tokens.use.direct` are rejected.
+
+Tokens stay in the dev server process and in a 0600 file under
+`~/Library/Application Support/Precipice/local-preview/`. The browser holds only an
+HttpOnly cookie scoped to `/__chatgpt/` and a connection summary (email, model list).
+Companion routes reject other origins. Inference requests send the scape context and tool
+schemas to OpenAI with `store: false`. Disconnect deletes the local session; revoke the
+provider grant in ChatGPT settings.
+
 ## Durability and offline behavior
 
 - Autosave writes locally without a Save button. When a Scape is open in more

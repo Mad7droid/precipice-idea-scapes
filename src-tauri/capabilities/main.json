@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-credentials",
-  "description": "Only the local main window can manage the one Anthropic credential and relay local MCP connections.",
+  "description": "Only the local main window can manage the Anthropic credential and the optional TypeSafe routing credential, relay local MCP connections, and run local dictation.",
   "windows": [
     "main"
   ],
@@ -12,6 +12,9 @@
     "allow-read-api-key",
     "allow-save-api-key",
     "allow-remove-api-key",
+    "allow-read-typesafe-key",
+    "allow-save-typesafe-key",
+    "allow-remove-typesafe-key",
     "allow-mcp-ready",
     "allow-mcp-send",
     "allow-mcp-install-client",
@@ -21,6 +24,13 @@
     "allow-read-agent-session",
     "allow-save-agent-session",
     "allow-open-agent-signin",
-    "deep-link:default"
+    "deep-link:default",
+    "allow-dictation-status",
+    "allow-dictation-install",
+    "allow-dictation-cancel-install",
+    "allow-dictation-prepare",
+    "allow-dictation-start",
+    "allow-dictation-stop",
+    "allow-dictation-cancel"
   ]
 }

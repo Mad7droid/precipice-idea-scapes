@@ -1,3 +1,4 @@
+import { isChatGPTModel, portableHistory, runChatGPT } from "@/ai/connection/runtime";
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropicClient, describeProviderError, providerErrorFacts } from "@/ai/provider";
 import type { ObjectId, Scape } from "@/core/types";
@@ -80,6 +81,42 @@ function userMessage(question: string, pinned: ObjectId[], scape: Scape): ModelM
 }
 
 export async function ask(options: AskOptions): Promise<void> {
+  if (isChatGPTModel(options.modelId)) {
+    const { onEvent, scape } = options;
+    onEvent({
+      kind: "activity",
+      event: { kind: "reading-scape", objects: scape.objectOrder.length },
+    });
+    const user = userMessage(options.question, options.pinned ?? [], scape);
+    try {
+      const text = await runChatGPT({
+        modelId: options.modelId,
+        instructions: scapiSystemPrompt(),
+        input: [
+          { role: "user", content: scapeContextBlock(scape) },
+          ...portableHistory(options.history.slice(-HISTORY_TURNS)),
+          ...portableHistory([{ user, response: [] }]),
+        ],
+        tools: scapiTools({ scape, onActivity: (event) => onEvent({ kind: "activity", event }) }),
+        maxSteps: MAX_STEPS,
+        signal: options.signal,
+        webSearch: options.webSearch ?? false,
+        onText: (text) => onEvent({ kind: "text", text }),
+        onSource: (source) => onEvent({ kind: "source", source }),
+      });
+      onEvent({ kind: "done", turn: { user, response: [{ role: "assistant", content: text }] } });
+    } catch (error) {
+      if (!options.signal?.aborted)
+        onEvent({
+          kind: "error",
+          message: "ChatGPT request failed",
+          detail:
+            error instanceof Error ? error.message : "Reconnect in Settings → AI and try again.",
+        });
+      onEvent({ kind: "done", turn: null });
+    }
+    return;
+  }
   await runAsk(options, options.webSearch ?? true);
 }
 

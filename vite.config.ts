@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
+import { chatgptLocal } from "./scripts/chatgpt-local";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -20,7 +21,9 @@ function publicationCsp(apiOrigin: string | undefined, mcp = ""): Plugin {
   if (apiOrigin) {
     const parsed = new URL(apiOrigin);
     if (parsed.protocol !== "https:" || parsed.pathname !== "/" || parsed.search || parsed.hash) {
-      throw new Error("VITE_PUBLICATION_API_URL must be an HTTPS origin with no path, query, or fragment.");
+      throw new Error(
+        "VITE_PUBLICATION_API_URL must be an HTTPS origin with no path, query, or fragment.",
+      );
     }
     origin = parsed.origin;
   }
@@ -29,10 +32,13 @@ function publicationCsp(apiOrigin: string | undefined, mcp = ""): Plugin {
     closeBundle() {
       const headers = entry("dist/_headers");
       const source = readFileSync(headers, "utf8");
-      if (!source.includes("__PUBLICATION_API_ORIGIN__")) throw new Error("Publication CSP placeholder is missing.");
+      if (!source.includes("__PUBLICATION_API_ORIGIN__"))
+        throw new Error("Publication CSP placeholder is missing.");
       writeFileSync(
         headers,
-        source.replaceAll("__PUBLICATION_API_ORIGIN__", origin).replaceAll(" __MCP_ORIGINS__", mcp ? ` ${mcp}` : ""),
+        source
+          .replaceAll("__PUBLICATION_API_ORIGIN__", origin)
+          .replaceAll(" __MCP_ORIGINS__", mcp ? ` ${mcp}` : ""),
       );
     },
   };
@@ -41,11 +47,14 @@ function publicationCsp(apiOrigin: string | undefined, mcp = ""): Plugin {
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    chatgptLocal(),
     publicationCsp(
       loadEnv(mode, process.cwd(), "VITE_").VITE_PUBLICATION_API_URL,
       mcpOrigins(loadEnv(mode, process.cwd(), "VITE_").VITE_MCP_URL),
     ),
   ],
+  // ChatGPT sign-in requires a 127.0.0.1 loopback callback, never `localhost`.
+  server: { host: "127.0.0.1" },
   build: {
     rollupOptions: {
       /**

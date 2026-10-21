@@ -2,7 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isDesktop } from "./runtime";
 
-export function useCredentials() {
+/**
+ * One Keychain-backed credential. Each has its own restricted Tauri commands and its own
+ * Keychain item, so granting the TypeSafe key never widens what can read the Anthropic one.
+ */
+export interface CredentialSpec {
+  read: string;
+  save: string;
+  remove: string;
+  /** A browser-session copy from before the desktop app, cleared rather than migrated. */
+  legacySessionKey?: string;
+}
+
+export const ANTHROPIC_CREDENTIAL: CredentialSpec = {
+  read: "read_api_key",
+  save: "save_api_key",
+  remove: "remove_api_key",
+  legacySessionKey: "anthropic.apiKey",
+};
+
+export const TYPESAFE_CREDENTIAL: CredentialSpec = {
+  read: "read_typesafe_key",
+  save: "save_typesafe_key",
+  remove: "remove_typesafe_key",
+};
+
+export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL) {
   const desktop = isDesktop();
   const [key, setKey] = useState("");
   const [saved, setSaved] = useState(false);
@@ -18,11 +43,11 @@ export function useCredentials() {
     const version = revision.current;
     // Desktop credentials never go into WebKit's browser storage.
     try {
-      sessionStorage.removeItem("anthropic.apiKey");
+      if (spec.legacySessionKey) sessionStorage.removeItem(spec.legacySessionKey);
     } catch {
       /* unavailable */
     }
-    void invoke<string | null>("read_api_key")
+    void invoke<string | null>(spec.read)
       .then((value) => {
         if (!active) return;
         setSaved(value !== null);
@@ -40,7 +65,7 @@ export function useCredentials() {
     return () => {
       active = false;
     };
-  }, [desktop]);
+  }, [desktop, spec]);
 
   const change = (value: string) => {
     revision.current++;
@@ -53,8 +78,8 @@ export function useCredentials() {
     setBusy(true);
     setError("");
     try {
-      if (value === null) await invoke("remove_api_key");
-      else await invoke("save_api_key", { key: value.trim() });
+      if (value === null) await invoke(spec.remove);
+      else await invoke(spec.save, { key: value.trim() });
       setSaved(value !== null);
       change(value?.trim() ?? "");
       return true;

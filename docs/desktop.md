@@ -29,8 +29,8 @@ the updated installed app. It also
 refuses to overwrite anything in `/Applications/Precipice.app` that is not
 `dev.precipice.desktop`. The script verifies the full app-bundle signature before replacing the installed copy.
 Afterwards it deletes the staged bundle under
-`src-tauri/target`, so only the installed app exists (see *Avoiding duplicate
-apps* below).
+`src-tauri/target`, so only the installed app exists (see _Avoiding duplicate
+apps_ below).
 
 For a distributable disk image instead:
 
@@ -117,6 +117,19 @@ the same bundle identifier preserves its local data and Keychain service name.
 Uninstalling the app does not remove its Keychain item; remove the key in Settings
 first, or remove the item using Keychain Access.
 
+Dictation turns speech into composer text on the Mac (see
+[security and local data](security-and-local-data.md#dictation-macos-app)). The first
+press offers a one-time model download: Whisper large-v3-turbo (574 MB) on Apple
+Silicon, Whisper small (190 MB) on Intel. Measured on a base M1 with 8 GB, a 5 s
+phrase is ready about 1 s after you pause. Pick English, Hindi or Malayalam
+(experimental) under Settings → General. Builds without `PRECIPICE_MODELS_URL` hide
+the mic until a model is placed in the app data `models/` folder by hand, where it is
+hashed before first use. `scripts/upload-speech-models.sh` publishes the pinned files
+to the R2 bucket. Cmd/Ctrl+Shift+Space toggles dictation while the composer field is
+focused. Stop keeps the heard text; the X or Escape drops pending audio and keeps text
+already inserted. Send stays disabled through startup, listening and finishing so you can
+review the complete draft first. See [interaction research](dictation-ux-research.md).
+
 Google sign-in never runs inside the app's webview: Google blocks embedded OAuth and
 the app's CSP blocks Turnstile. **Continue with Google** (Publish sheet or Settings →
 Agents) opens the system browser at `/host/start`; the web app runs Turnstile and
@@ -161,7 +174,6 @@ needed. Local agents ask for review until trusted. Remote setup opens the system
 through `precipice://auth/callback`, bound to the originating app with PKCE. Its scoped host
 credential is stored in Keychain. Select Desktop app when granting agent access; browser and
 desktop libraries have separate relay destinations.
-
 
 ## Flow previews in desktop-connected chats
 

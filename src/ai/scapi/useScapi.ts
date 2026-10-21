@@ -35,6 +35,7 @@ export interface UseScapiOptions {
   getSelection?: () => ObjectId[];
   apiKey: string;
   modelId: string;
+  connectionId?: string;
   scapeId?: string;
 }
 
@@ -114,7 +115,14 @@ export function cleanFinalMarkdown(markdown: string): string {
     .trimEnd();
 }
 
-export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: UseScapiOptions) {
+export function useScapi({
+  getScape,
+  getSelection,
+  apiKey,
+  modelId,
+  scapeId,
+  connectionId,
+}: UseScapiOptions) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [webSearch, setWebSearch] = useState(true);
@@ -130,6 +138,12 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
   const paintTimer = useRef<number | null>(null);
   /** Prevent the initial empty render from overwriting a transcript before it has been read. */
   const storageHydrated = useRef(false);
+
+  useEffect(() => {
+    controller.current?.abort();
+    history.current = [];
+    setSearchAvailability("unknown");
+  }, [connectionId]);
 
   const storageKey = scapeId ? `precipice.scapi.${scapeId}` : null;
   const legacyStorageKey = scapeId ? `precipice.scapey.${scapeId}` : null;
@@ -325,11 +339,15 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
   );
 
   const send = useCallback(
-    async (question: string) => {
+    /** `overrides` carries a routed model and search choice for this one question only. */
+    async (
+      question: string,
+      overrides?: { modelId?: string; webSearch?: boolean; scope?: "scape" | "selection" },
+    ) => {
       const scape = getScape();
       if (!scape || !question.trim() || streaming) return;
 
-      const pinned = getSelection?.() ?? [];
+      const pinned = overrides?.scope === "scape" ? [] : (getSelection?.() ?? []);
       controller.current?.abort();
       controller.current = new AbortController();
 
@@ -348,8 +366,8 @@ export function useScapi({ getScape, getSelection, apiKey, modelId, scapeId }: U
           history: history.current,
           pinned,
           apiKey,
-          modelId,
-          webSearch: webSearch && searchAvailability !== "unavailable",
+          modelId: overrides?.modelId ?? modelId,
+          webSearch: (overrides?.webSearch ?? webSearch) && searchAvailability !== "unavailable",
           signal: controller.current.signal,
           onEvent: handleEvent,
         });

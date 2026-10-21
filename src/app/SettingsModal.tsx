@@ -1,3 +1,5 @@
+import { ConnectionSettings } from "@/ai/connection/ConnectionSettings";
+import { useAppSettings } from "./useAppSettings";
 import { CredentialSettings } from "@/desktop/CredentialSettings";
 import type { DesktopCredentials } from "@/desktop/useCredentials";
 import { useEffect, useState } from "react";
@@ -13,6 +15,7 @@ import { McpBridgePanel } from "./McpBridgePanel";
 import { AgentsPanel } from "./agents/AgentsPanel";
 import type { McpBridge } from "@/mcp/bridge";
 import packageInfo from "../../package.json";
+import { DICTATION_LANGUAGES, type DictationLanguage } from "@/dictation/engine";
 
 export function SettingsModal({
   onClose,
@@ -25,6 +28,7 @@ export function SettingsModal({
   onOpenHelp,
   mcpBridge,
   credentials,
+  routingSettings,
   initialSection = "general",
 }: {
   onClose: () => void;
@@ -38,15 +42,20 @@ export function SettingsModal({
   onOpenHelp?: () => void;
   mcpBridge?: McpBridge;
   credentials?: DesktopCredentials;
+  routingSettings?: ReturnType<typeof useAppSettings>;
   /** Where to open, when the caller already knows which concern brought the person here. */
   initialSection?: SettingsSection;
 }) {
   const dialogRef = useDialogFocus(onClose);
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [section, setSection] = useState<SectionId>(initialSection);
+  const [dictationLanguage, setDictationLanguage] = useState<DictationLanguage>("en");
 
   useEffect(() => {
     void settingsRepository.get<string>(SETTING_KEYS.model).then((m) => m && setModelId(m));
+    void settingsRepository
+      .get<DictationLanguage>(SETTING_KEYS.dictationLanguage)
+      .then((l) => l && setDictationLanguage(l));
   }, []);
 
   return (
@@ -102,61 +111,95 @@ export function SettingsModal({
                   <span className="mb-1 block text-xs text-fg-secondary">Default model</span>
                   <Select
                     label="Default model"
-                    value={modelId}
+                    value={routingSettings?.modelId ?? modelId}
                     onChange={(next) => {
-                      setModelId(next);
-                      void settingsRepository.set(SETTING_KEYS.model, next);
+                      if (routingSettings) routingSettings.setModelId(next);
+                      else {
+                        setModelId(next);
+                        void settingsRepository.set(SETTING_KEYS.model, next);
+                      }
                     }}
-                    options={MODELS.map((m) => ({ value: m.id, label: m.label, title: m.hint }))}
+                    options={(routingSettings?.models ?? MODELS).map((m) => ({
+                      value: m.id,
+                      label: m.label,
+                      title: m.hint,
+                    }))}
                     className="mono w-full"
                   />
                 </div>
 
-                {credentials?.desktop ? (
-                  <CredentialSettings credentials={credentials} />
-                ) : (
-                  <div className="mt-5">
-                    <label
-                      htmlFor="anthropic-api-key"
-                      className="mb-1 block text-xs text-fg-secondary"
-                    >
-                      Anthropic API key
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        id="anthropic-api-key"
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => onApiKeyChange(e.target.value)}
-                        placeholder="sk-ant-…"
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
-                      />
-                      {apiKey && (
-                        <button
-                          type="button"
-                          onClick={() => onApiKeyChange("")}
-                          className={buttonClass({ variant: "secondary", size: "sm" })}
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
+                {credentials?.desktop && (
+                  <div className="mt-5 block">
+                    <span className="mb-1 block text-xs text-fg-secondary">Dictation language</span>
+                    <Select
+                      label="Dictation language"
+                      value={dictationLanguage}
+                      onChange={(next) => {
+                        setDictationLanguage(next as DictationLanguage);
+                        void settingsRepository.set(SETTING_KEYS.dictationLanguage, next);
+                      }}
+                      options={DICTATION_LANGUAGES}
+                      className="w-full"
+                    />
                     <p className="mt-2 text-xs text-fg-tertiary">
-                      Required to generate. Kept for this tab session and cleared when the tab is
-                      closed, then forwarded through the Precipice Worker, which keeps no key of its
-                      own and stores nothing.
+                      Speech is turned into text on this Mac. Audio is never saved or sent.
                     </p>
                   </div>
                 )}
 
-                <p className="mt-5 text-xs text-fg-tertiary">Precipice version {packageInfo.version}</p>
+                <p className="mt-5 text-xs text-fg-tertiary">
+                  Precipice version {packageInfo.version}
+                </p>
               </>
             )}
 
             {section === "ai" && (
               <>
+                {routingSettings && <ConnectionSettings settings={routingSettings} />}
+                <details className="mb-5">
+                  <summary className="cursor-pointer text-xs text-fg-secondary">
+                    Anthropic API key (optional)
+                  </summary>
+                  {credentials?.desktop ? (
+                    <CredentialSettings credentials={credentials} />
+                  ) : (
+                    <div className="mt-5">
+                      <label
+                        htmlFor="anthropic-api-key"
+                        className="mb-1 block text-xs text-fg-secondary"
+                      >
+                        Anthropic API key
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="anthropic-api-key"
+                          type="password"
+                          value={apiKey}
+                          onChange={(e) => onApiKeyChange(e.target.value)}
+                          placeholder="sk-ant-…"
+                          autoComplete="off"
+                          spellCheck={false}
+                          className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
+                        />
+                        {apiKey && (
+                          <button
+                            type="button"
+                            onClick={() => onApiKeyChange("")}
+                            className={buttonClass({ variant: "secondary", size: "sm" })}
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs text-fg-tertiary">
+                        Required to generate. Kept for this tab session and cleared when the tab is
+                        closed, then forwarded through the Precipice Worker, which keeps no key of
+                        its own and stores nothing.
+                      </p>
+                    </div>
+                  )}
+                </details>
+                {routingSettings && <RoutingSettings settings={routingSettings} />}
                 {onInstructionsChange ? (
                   <div>
                     <label
@@ -227,3 +270,64 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "ai", label: "AI" },
   { id: "agent", label: "Agents" },
 ];
+
+function RoutingSettings({ settings: s }: { settings: ReturnType<typeof useAppSettings> }) {
+  return (
+    <div className="mb-5 space-y-3">
+      <label className="flex items-center gap-2 text-sm text-fg">
+        <input
+          type="checkbox"
+          checked={s.routeChips}
+          onChange={(e) => s.setRouteChips(e.target.checked)}
+        />
+        Suggest routes from my draft
+      </label>
+      <p className="text-xs text-fg-tertiary">
+        On-device suggestions for Ask, Edit, scope and model. Review or change the controls before
+        sending. Commands always need confirmation.
+      </p>
+      <label className="flex items-center gap-2 text-sm text-fg">
+        <input
+          type="checkbox"
+          checked={s.jevRouting}
+          disabled={!s.routeChips}
+          onChange={(e) => s.setJevRouting(e.target.checked)}
+        />
+        Enhance routing with Jev (experimental)
+      </label>
+      <p className="text-xs text-fg-tertiary">
+        While you type or dictate, sends draft text, selection counts/types and short-command target
+        titles to TypeSafe before Send. Never sends audio or object bodies. Requires your TypeSafe
+        key. Accuracy evaluation is pending; local suggestions handle failures.
+      </p>
+      {s.jevCredentials.desktop ? (
+        <CredentialSettings
+          credentials={s.jevCredentials}
+          id="typesafe-api-key"
+          label="TypeSafe API key"
+          placeholder="TypeSafe key"
+          vendor="TypeSafe"
+          missing="Optional. Add a key to use Jev."
+        />
+      ) : (
+        <div>
+          <label htmlFor="typesafe-api-key" className="mb-1 block text-xs text-fg-secondary">
+            TypeSafe API key
+          </label>
+          <input
+            id="typesafe-api-key"
+            type="password"
+            value={s.jevKey}
+            onChange={(e) => s.setJevKey(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg focus-self"
+          />
+          <p className="mt-2 text-xs text-fg-tertiary">
+            Kept for this tab session. Requests pass through the Precipice proxy.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

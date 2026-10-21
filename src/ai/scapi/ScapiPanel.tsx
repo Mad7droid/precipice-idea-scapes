@@ -7,6 +7,9 @@ import { ScapiActionIcon } from "@/components/scapi/ScapiActionIcon";
 import type { ObjectId, ScapeObject } from "@/core/types";
 import type { ScapiMood } from "./useScapiMood";
 import { Button } from "@/design/Button";
+import { MicButton } from "@/dictation/MicButton";
+import { useDictation } from "@/dictation/useDictation";
+import { appendPhrase } from "@/dictation/vocabulary";
 import { answerFormatLabel, inferAnswerFormat } from "./answerFormat";
 import { ObjectChip } from "./ObjectChip";
 import type { ActivityEvent, SearchAvailability, Turn } from "./types";
@@ -752,7 +755,13 @@ function ScapiComposer({
   const [localDraft, setLocalDraft] = useState("");
   const draft = value ?? localDraft;
   const setDraft = onValueChange ?? setLocalDraft;
-  const canSend = draft.trim().length > 0 && !disabled && !streaming;
+  const latest = useRef(draft);
+  latest.current = draft;
+  const dictation = useDictation((phrase) => {
+    latest.current = appendPhrase(latest.current, phrase);
+    setDraft(latest.current);
+  });
+  const canSend = draft.trim().length > 0 && !disabled && !streaming && !dictation.active;
 
   const submit = () => {
     if (!canSend) return;
@@ -767,6 +776,7 @@ function ScapiComposer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
+            if (dictation.handleShortcut(e)) return;
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               submit();
@@ -794,23 +804,26 @@ function ScapiComposer({
             )}
             <span className="mono text-fg-tertiary">⌘↵</span>
           </div>
-          {streaming ? (
-            // Matches the canvas composer: stop is a quiet control, not a second primary.
-            <Button variant="neutral" size="sm" shape="icon" onClick={onCancel} aria-label="Stop">
-              <span aria-hidden className="block h-2.5 w-2.5 rounded-xs bg-current" />
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              size="sm"
-              shape="icon"
-              onClick={submit}
-              disabled={!canSend}
-              aria-label="Ask"
-            >
-              <ScapiActionIcon />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {!disabled && <MicButton dictation={dictation} />}
+            {streaming ? (
+              // Matches the canvas composer: stop is a quiet control, not a second primary.
+              <Button variant="neutral" size="sm" shape="icon" onClick={onCancel} aria-label="Stop">
+                <span aria-hidden className="block h-2.5 w-2.5 rounded-xs bg-current" />
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                shape="icon"
+                onClick={submit}
+                disabled={!canSend}
+                aria-label="Ask"
+              >
+                <ScapiActionIcon />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       {searchAvailability === "unavailable" && (
