@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DotMatrix } from "@/ai/DotMatrix";
+import { describeModel } from "@/ai/models";
 import { Scapi } from "@/components/scapi/Scapi";
 import { ScapiActionIcon } from "@/components/scapi/ScapiActionIcon";
 import type { ObjectId, ScapeObject } from "@/core/types";
@@ -352,6 +353,8 @@ const TurnView = memo(function TurnView({
 
       {turn.reasoning && <ReasoningDisclosure turn={turn} />}
 
+      {turn.modelId && <ModelTag modelId={turn.modelId} live={streaming} />}
+
       {streaming ? (
         <WorkingDisclosure
           activity={turn.activity}
@@ -670,6 +673,20 @@ function WorkingDisclosure({
         </div>
       </div>
     </section>
+  );
+}
+
+/** Which service is answering: the same words the Ribbon uses for an edit. */
+function ModelTag({ modelId, live }: { modelId: string; live: boolean }) {
+  const { provider, model } = describeModel(modelId);
+  return (
+    <p
+      className="mono px-1 normal-case tracking-normal text-fg-tertiary"
+      data-provider={provider}
+      title={`${live ? "Answering with" : "Answered by"} ${provider} (${model})`}
+    >
+      <span className="text-fg-secondary">{provider}</span> · {model}
+    </p>
   );
 }
 

@@ -14,6 +14,8 @@ import { appendPhrase } from "@/dictation/vocabulary";
 import { decide } from "./router/decide";
 import { describeCommand } from "./router/commands";
 import { useRoute } from "./router/useRoute";
+import { LivePanel } from "./live/LivePanel";
+import { useLiveVoice } from "./live/useLiveVoice";
 import type { LocalCommand, RouteContext, RouteDimension, SendRoute } from "./router/types";
 
 /** Auto-grow to six lines, then scroll. Roughly six × --leading-base plus the padding. */
@@ -117,6 +119,11 @@ export interface ComposerProps {
   controls?: { scope?: boolean; types?: boolean; instructions?: boolean };
   /** Route chips. Only takes effect where the composer also offers the Ask/Edit choice. */
   routing?: ComposerRouting;
+  /**
+   * True while any ask or edit runs, whichever mode started it. Enables live voice, which
+   * needs to know when the scape is free for the next spoken phrase.
+   */
+  liveBusy?: boolean;
 }
 
 /**
@@ -154,6 +161,7 @@ export function Composer({
   onWebSearchChange,
   webSearchUnavailable,
   routing,
+  liveBusy,
   models = MODELS,
 }: ComposerProps) {
   const routingOn = !!routing?.enabled && !!mode && !!onModeChange;
@@ -240,12 +248,66 @@ export function Composer({
   // Phrases can land faster than React re-renders, so each one appends to the latest draft.
   const latest = useRef(value);
   latest.current = value;
+  // Live voice: phrases run as they are heard instead of collecting in the draft.
+  const liveAvailable = liveBusy !== undefined && !!routing && !!mode && !!onModeChange;
+  const [live, setLive] = useState(false);
+  const liveRef = useRef(false);
+  liveRef.current = live;
+  const liveVoice = useLiveVoice({
+    baseline: () => ({
+      intent: mode ?? "edit",
+      scope,
+      types,
+      modelId,
+      webSearch: !!webSearch,
+      selectionCount,
+    }),
+    context: getRouteContext,
+    jevKey: routing?.jevKey ?? "",
+    busy: !!liveBusy,
+    onSend: (text, route) => onSend(text, route),
+    ...(routing?.onCommand ? { onCommand: routing.onCommand } : {}),
+  });
   const dictation = useDictation((phrase) => {
+    if (liveRef.current) {
+      liveVoice.push(phrase);
+      return;
+    }
     latest.current = appendPhrase(latest.current, phrase);
     inputKind.current = "voice";
     phraseLanded.current();
     setValue(latest.current);
   });
+
+  // Live ends when its dictation session does — Stop, Esc, an error or another composer.
+  useEffect(() => {
+    if (live && !dictation.active && dictation.status?.kind !== "starting") setLive(false);
+  }, [live, dictation.active, dictation.status?.kind]);
+  const startLive = () => {
+    if (dictation.active || disabled) return;
+    liveVoice.clear();
+    setLive(true);
+    dictation.toggle();
+  };
+  // Visible whenever this device can dictate at all; a first press fetches the speech model
+  // and starts live as soon as it is ready.
+  const [liveAfterInstall, setLiveAfterInstall] = useState(false);
+  const voiceKind = dictation.status?.kind;
+  const liveReady = liveAvailable && !disabled && !!voiceKind && voiceKind !== "unavailable";
+  const pressLive = () => {
+    if (voiceKind === "needs-model") {
+      setLiveAfterInstall(true);
+      dictation.install();
+    } else startLive();
+  };
+  useEffect(() => {
+    if (!liveAfterInstall) return;
+    if (voiceKind === "ready") {
+      setLiveAfterInstall(false);
+      startLive();
+    } else if (voiceKind === "error") setLiveAfterInstall(false);
+    // startLive reads current state; only the status transition should trigger it.
+  }, [liveAfterInstall, voiceKind]);
 
   useLayoutEffect(() => {
     const el = textarea.current;
@@ -272,12 +334,37 @@ export function Composer({
     routing?.onCommand?.(command);
     setValue("");
   };
+  // Who decided the chips, said in the pill itself: Jev, Jev still thinking, or this device.
+  const decider =
+    route.jev === "asking"
+      ? "jev-asking"
+      : decision?.source === "jev"
+        ? "jev"
+        : route.jev === "fallback"
+          ? "fallback"
+          : "local";
   const autoTitle =
-    decision && routed.length > 0
-      ? `Set ${routed.map((d) => DIMENSION_NAMES[d]).join(", ")} from your draft ` +
-        (decision.source === "jev" ? `with Jev in ${decision.ms} ms` : "on this device") +
-        ". Click to keep your own choices for this draft."
-      : "Reading your draft…";
+    decider === "jev-asking"
+      ? "Jev is reading your draft. On-device suggestions apply until it answers."
+      : decision && routed.length > 0
+        ? `Set ${routed.map((d) => DIMENSION_NAMES[d]).join(", ")} from your draft ` +
+          (decider === "jev"
+            ? `with Jev in ${decision.ms} ms`
+            : decider === "fallback"
+              ? "on this device, because Jev did not answer in time"
+              : "on this device") +
+          ". Click to keep your own choices for this draft."
+        : decider === "fallback"
+          ? "Jev did not answer in time; nothing changed."
+          : "Reading your draft…";
+  const autoLabel =
+    decider === "jev-asking"
+      ? null
+      : decider === "jev"
+        ? "Jev"
+        : decider === "fallback"
+          ? "local"
+          : "auto";
 
   return (
     <div
@@ -286,6 +373,16 @@ export function Composer({
         (focused ? "border-focus shadow-md" : "border-default")
       }
     >
+      {(live || liveVoice.entries.length > 0) && (
+        <LivePanel
+          listening={live && dictation.active}
+          partial={dictation.partial}
+          entries={liveVoice.entries}
+          jevOn={!!routing?.jevKey.trim()}
+          onStop={dictation.toggle}
+          onClear={liveVoice.clear}
+        />
+      )}
       <textarea
         ref={textarea}
         rows={1}
@@ -367,15 +464,22 @@ export function Composer({
         onFocus={() => route.hold(true)}
         onBlur={() => route.hold(false)}
       >
-        {routingOn && (routed.length > 0 || route.pending) && (
+        {routingOn && (routed.length > 0 || route.pending || route.jev !== "off") && (
           <button
             type="button"
             onClick={() => setLocked(ALL_LOCKS)}
             title={autoTitle}
-            aria-label={routed.length > 0 ? autoTitle : "Reading your draft"}
-            className={PILL + " text-fg-accent"}
+            aria-label={autoTitle}
+            data-decider={decider}
+            className={PILL + (decider === "fallback" ? " text-fg-secondary" : " text-fg-accent")}
           >
-            {routed.length > 0 ? "auto" : <DotMatrix label="auto" />}
+            {autoLabel === null ? (
+              <DotMatrix label="Jev" />
+            ) : routed.length > 0 || decider !== "local" ? (
+              autoLabel
+            ) : (
+              <DotMatrix label="auto" />
+            )}
           </button>
         )}
         {mode && onModeChange && (
@@ -528,7 +632,24 @@ export function Composer({
               ⌘↵ to send
             </span>
           )}
-          {!disabled && <MicButton dictation={dictation} size="md" />}
+          {!disabled && !live && <MicButton dictation={dictation} size="md" />}
+          {liveReady && !live && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={pressLive}
+              disabled={voiceKind === "installing" || voiceKind === "starting" || dictation.active}
+              title={
+                voiceKind === "needs-model"
+                  ? "Live voice needs a one-time speech model. Press to download it and start."
+                  : "Talk to Scapi: each pause runs what you said as an Ask, Edit or command. Every edit can be undone."
+              }
+              aria-label="Start live voice"
+            >
+              <span aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-danger" />
+              {voiceKind === "installing" ? "Preparing…" : "Live"}
+            </Button>
+          )}
         </div>
 
         {busy ? (

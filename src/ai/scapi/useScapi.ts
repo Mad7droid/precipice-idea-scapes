@@ -353,7 +353,10 @@ export function useScapi({
 
       queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
       streamTiming.current = { startedAt: performance.now(), lastEventAt: performance.now() };
-      setTurns((prev) => [...prev, startTurn(question.trim(), pinned)]);
+      setTurns((prev) => [
+        ...prev,
+        startTurn(question.trim(), pinned, overrides?.modelId ?? modelId),
+      ]);
       setStreaming(true);
 
       try {

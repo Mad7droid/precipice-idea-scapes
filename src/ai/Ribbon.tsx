@@ -1,3 +1,4 @@
+import { describeModel } from "@/ai/models";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DotMatrix } from "./DotMatrix";
 import type { GenerationState } from "./useGeneration";
@@ -107,6 +108,8 @@ export function Ribbon({
         <div className="flex items-center justify-between border-t border-subtle px-3 py-1.5">
           <span className="mono flex items-center gap-2">
             {state.lines.length > 0 && <DotMatrix />}
+            <ModelTag modelId={state.model} />
+            <Dot />
             {state.applied} {state.applied === 1 ? "action" : "actions"}
             {state.skipped.length > 0 && ` · ${state.skipped.length} skipped`}
           </span>
@@ -163,7 +166,7 @@ export function Ribbon({
           </>
         )}
         <Dot />
-        <span className="mono normal-case tracking-normal">{state.model}</span>
+        <ModelTag modelId={state.model} />
         <Dot />
         <button
           type="button"
@@ -272,5 +275,21 @@ function RibbonButton({ onClick, children }: { onClick: () => void; children: Re
     >
       {children}
     </button>
+  );
+}
+
+/** Who is doing the work: `Claude · Sonnet 5` or `ChatGPT · gpt-5`. */
+function ModelTag({ modelId }: { modelId: string }) {
+  if (!modelId) return null;
+  const { provider, model } = describeModel(modelId);
+  return (
+    <span
+      className="mono normal-case tracking-normal"
+      data-provider={provider}
+      title={`${provider} (${model})`}
+    >
+      <span className="text-fg">{provider}</span>
+      <span className="text-fg-secondary"> · {model}</span>
+    </span>
   );
 }

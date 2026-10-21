@@ -108,8 +108,11 @@ export function MicButton({
   }
 
   const installing = status.kind === "installing";
-  const percent = installing
-    ? Math.min(100, Math.max(0, Math.floor((status.received / Math.max(status.total, 1)) * 100)))
+  // Browsers download their own language packs and report no size or progress.
+  const progress = status.kind === "installing" && status.total > 0 ? status : null;
+  const measured = !!progress;
+  const percent = progress
+    ? Math.min(100, Math.max(0, Math.floor((progress.received / progress.total) * 100)))
     : 0;
   const onClick = () => {
     if (status.kind === "ready") dictation.toggle();
@@ -146,7 +149,13 @@ export function MicButton({
         aria-controls={open ? dialogId : undefined}
         aria-keyshortcuts="Meta+Shift+Space Control+Shift+Space"
         onFocus={dictation.prepare}
-        aria-label={installing ? `Downloading speech model, ${percent}%` : "Dictate"}
+        aria-label={
+          installing
+            ? measured
+              ? `Downloading speech model, ${percent}%`
+              : "Downloading speech model"
+            : "Dictate"
+        }
         title={
           status.kind === "error"
             ? status.message
@@ -156,8 +165,10 @@ export function MicButton({
         }
         className="relative"
       >
-        {installing ? (
+        {measured ? (
           <span className="mono text-xs normal-case tracking-normal">{percent}%</span>
+        ) : installing ? (
+          <DotMatrix />
         ) : (
           <MicGlyph />
         )}
@@ -175,11 +186,24 @@ export function MicButton({
         >
           {status.kind === "needs-model" && (
             <>
-              <p className="text-fg">Dictate on this Mac</p>
-              <p className="mt-1">
-                Speech becomes text here, on your Mac. Audio is never saved or sent. It needs a
-                one-time {megabytes(status.bytes)} speech model from Precipice.
-              </p>
+              {/* The Mac app ships its own sized model; a browser downloads an unsized pack. */}
+              {status.bytes > 0 ? (
+                <>
+                  <p className="text-fg">Dictate on this Mac</p>
+                  <p className="mt-1">
+                    Speech becomes text here, on your Mac. Audio is never saved or sent. It needs a
+                    one-time {megabytes(status.bytes)} speech model from Precipice.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-fg">Dictate in this browser</p>
+                  <p className="mt-1">
+                    Your browser turns speech into text on this device. Audio is never saved or
+                    sent. It needs a one-time language pack, downloaded by your browser.
+                  </p>
+                </>
+              )}
               <div className="mt-3 flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={closeDialog}>
                   Not now
@@ -197,7 +221,12 @@ export function MicButton({
               </div>
             </>
           )}
-          {installing && (
+          {installing && !measured && (
+            <p className="text-fg" role="status">
+              Your browser is downloading its speech model. The mic is ready when it finishes.
+            </p>
+          )}
+          {measured && (
             <>
               <p className="text-fg">Downloading the speech model</p>
               <div
@@ -214,7 +243,7 @@ export function MicButton({
                 />
               </div>
               <p className="mono mt-1.5 normal-case tracking-normal">
-                {megabytes(status.received)} of {megabytes(status.total)}
+                {megabytes(progress!.received)} of {megabytes(progress!.total)}
               </p>
               <div className="mt-3 flex justify-end">
                 <Button

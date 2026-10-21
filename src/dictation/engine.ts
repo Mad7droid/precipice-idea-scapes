@@ -1,9 +1,10 @@
 import { isDesktop } from "@/desktop/runtime";
+import { webEngine, webSpeechSupported } from "./webEngine";
 
 /**
  * Speech to text, on this device. Every platform implements the same contract so the composer
- * UI never knows which engine is behind it: the desktop app runs whisper.cpp natively; a web
- * engine can slot in later without touching the button or the hook.
+ * UI never knows which engine is behind it: the desktop app runs whisper.cpp natively; the web
+ * app uses the browser's on-device speech recognition (see webEngine.ts).
  */
 export type DictationLanguage = "en" | "hi" | "ml";
 
@@ -29,6 +30,11 @@ export interface DictationHandlers {
   level?: (rms: number) => void;
   /** A finished phrase, in order. Never partial text that is later revised. */
   phrase?: (text: string) => void;
+  /**
+   * The words heard so far in the current phrase, revised as speech continues. Display only:
+   * never inserted, never sent. Engines without interim results (the Mac app) never call it.
+   */
+  partial?: (text: string) => void;
 }
 
 export interface DictationEngine {
@@ -48,7 +54,8 @@ export interface DictationEngine {
 const unavailable: DictationEngine = {
   status: async () => ({
     kind: "unavailable",
-    reason: "Dictation runs in the Precipice desktop app for now.",
+    reason:
+      "This browser cannot transcribe speech on this device. Use a current Chrome or Edge, or the Precipice Mac app.",
   }),
   install: async () => {},
   cancelInstall: async () => {},
@@ -79,6 +86,7 @@ function tauriEngine(): DictationEngine {
           ["dictation:status", handlers.status],
           ["dictation:level", handlers.level],
           ["dictation:phrase", handlers.phrase],
+          ["dictation:partial", handlers.partial],
         ] as const;
         for (const [event, handler] of pairs) {
           if (!handler) continue;
@@ -100,7 +108,7 @@ function tauriEngine(): DictationEngine {
 let engine: DictationEngine | null = null;
 
 export function dictationEngine(): DictationEngine {
-  engine ??= isDesktop() ? tauriEngine() : unavailable;
+  engine ??= isDesktop() ? tauriEngine() : webSpeechSupported() ? webEngine() : unavailable;
   return engine;
 }
 

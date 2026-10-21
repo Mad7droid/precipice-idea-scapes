@@ -5,6 +5,23 @@ does not use formal release numbers yet; entries are grouped by date and commit.
 
 ## Unreleased
 
+### Added
+
+- Live voice in the Scapi panel: press Live and talk. Each pause runs what you said as an Ask, Edit, Connect or local command, with no Send. Each
+  phrase shows who routed it (Jev or on-device), which model ran it, and how long routing
+  and the run took. On the web, words also appear while you speak. Every edit stays one-step
+  undoable.
+- Dictation in the web app, using the browser's on-device speech recognition (current Chrome
+  and Edge). Audio stays on the device; no cloud recogniser is used.
+
+### Changed
+
+- The routing pill names its decider: `Jev`, a Jev-in-progress indicator, `auto` for
+  on-device, or `local` when Jev did not answer in time.
+- Generation and Scapi answers name the provider and model doing the work, such as
+  `Claude · Sonnet 5` or `ChatGPT · gpt-5`.
+- Web dictation keeps listening across pauses until you stop it.
+
 ## 2026-10-22 — 0.1.11
 
 ### Added
