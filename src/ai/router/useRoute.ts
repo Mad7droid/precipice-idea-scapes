@@ -13,6 +13,8 @@ export interface UseRouteOptions {
   enabled: boolean;
   /** A TypeSafe key, when the person has opted in to Jev. Empty means heuristics only. */
   jevKey: string;
+  /** No on-device suggestion: Jev alone decides, with a longer wait and a visible failure. */
+  jevOnly?: boolean;
   /** Read when a route is computed, never per keystroke. */
   getContext: () => RouteContext;
 }
@@ -20,9 +22,9 @@ export interface UseRouteOptions {
 /**
  * What Jev did for the current draft, so the composer can say who decided. `off` means no key,
  * Jev disabled or a draft too short to ask about; `fallback` means Jev failed or timed out and
- * the on-device suggestion stands.
+ * the on-device suggestion stands; `failed` is Jev-only, where nothing stands in for Jev.
  */
-export type JevStatus = "off" | "asking" | "answered" | "fallback";
+export type JevStatus = "off" | "asking" | "answered" | "fallback" | "failed";
 
 function normalise(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
@@ -36,10 +38,11 @@ function normalise(text: string): string {
  * in flight per composer and a newer draft aborts it. Nothing here ever blocks sending: a send
  * uses whatever suggestion is current, including none.
  */
-export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions) {
+export function useRoute({ text, enabled, jevKey, jevOnly = false, getContext }: UseRouteOptions) {
   const [suggestion, setSuggestion] = useState<RouteSuggestion | null>(null);
   const [pending, setPending] = useState(false);
   const [jev, setJev] = useState<JevStatus>("off");
+  const [jevError, setJevError] = useState("");
   const held = useRef(false);
   const queued = useRef<RouteSuggestion | null | undefined>(undefined);
   const controller = useRef<AbortController | null>(null);
@@ -67,19 +70,25 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
         publish(null);
         return;
       }
-      const local = heuristicRoute(draft, context);
-      publish(local);
+      const only = jevOnly && !!jevKey.trim();
+      // Jev-only shows nothing until Jev answers; an on-device guess would be a fallback.
+      const local = only
+        ? ({ source: "heuristic", ms: 0 } as RouteSuggestion)
+        : heuristicRoute(draft, context);
+      publish(only ? null : local);
+      setJevError("");
 
-      if (!jevKey.trim() || normalized.split(" ").length < MIN_JEV_WORDS) {
+      // Jev-only asks Jev even for one-word commands; nothing else would route them.
+      if (!jevKey.trim() || (!only && normalized.split(" ").length < MIN_JEV_WORDS)) {
         setPending(false);
         setJev("off");
         return;
       }
       const cached = cache.current.get(key);
-      if (cached !== undefined) {
-        publish(merge(local, cached));
+      if (cached) {
+        publish(only ? cached : merge(local, cached));
         setPending(false);
-        setJev(cached ? "answered" : "fallback");
+        setJev("answered");
         return;
       }
       const current = new AbortController();
@@ -87,15 +96,25 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
       setPending(true);
       setJev("asking");
       void import("./jev")
-        .then(({ askJev }) => askJev(draft, context, jevKey, current.signal))
-        .then((answer) => {
+        .then(({ requestJev, JEV_ONLY_TIMEOUT_MS }) =>
+          requestJev(draft, context, jevKey, {
+            signal: current.signal,
+            ...(only ? { timeoutMs: JEV_ONLY_TIMEOUT_MS } : {}),
+          }),
+        )
+        .then((result) => {
           if (current.signal.aborted) return;
-          cache.current.set(key, answer);
-          if (cache.current.size > CACHE_SIZE) {
-            cache.current.delete(cache.current.keys().next().value!);
+          const answer = result.ok ? result.suggestion : null;
+          // Failures are not cached: the next pause asks again.
+          if (answer) {
+            cache.current.set(key, answer);
+            if (cache.current.size > CACHE_SIZE) {
+              cache.current.delete(cache.current.keys().next().value!);
+            }
           }
-          publish(merge(local, answer));
-          setJev(answer ? "answered" : "fallback");
+          publish(only ? answer : merge(local, answer));
+          setJev(answer ? "answered" : only ? "failed" : "fallback");
+          if (!result.ok) setJevError(result.reason);
         })
         .catch(() => {
           if (!current.signal.aborted) setJev("fallback");
@@ -107,13 +126,13 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
           }
         });
     },
-    [jevKey, publish],
+    [jevKey, jevOnly, publish],
   );
 
   // A new key, or turning Jev off, must not leave an answer from the old one in place.
   useEffect(() => {
     cache.current.clear();
-  }, [jevKey]);
+  }, [jevKey, jevOnly]);
 
   useEffect(() => {
     controller.current?.abort();
@@ -162,6 +181,7 @@ export function useRoute({ text, enabled, jevKey, getContext }: UseRouteOptions)
     suggestion: enabled ? suggestion : null,
     pending,
     jev: enabled ? jev : ("off" as JevStatus),
+    jevError: enabled ? jevError : "",
     hold,
     phraseLanded,
   };

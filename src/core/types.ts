@@ -204,6 +204,8 @@ export const SETTING_KEYS = {
   routeChips: "ai.routeChips",
   /** Opt-in: refine routing with TypeSafe Jev. The key itself is never stored here. */
   jevRouting: "ai.jevRouting",
+  /** Jev decides alone: no on-device fallback, a longer wait, and failures shown, not hidden. */
+  jevOnly: "ai.jevOnly",
 } as const;
 
 /**

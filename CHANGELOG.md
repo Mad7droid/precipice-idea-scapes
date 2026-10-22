@@ -3,7 +3,21 @@
 All notable user-visible changes to Precipice are recorded here. This project
 does not use formal release numbers yet; entries are grouped by date and commit.
 
-## Unreleased
+## 2026-10-22 — 0.1.14
+
+### Added
+
+- "Use Jev only" in Settings → AI. Jev routes alone with up to 4 s to answer and no on-device
+  fallback. When Jev cannot answer, the reason is shown, such as a rejected key or no answer
+  in time, and live voice does not run that phrase.
+
+### Changed
+
+- Live voice understands speech better. Softened requests like "can you just simplify this?"
+  route as edits, both on-device and in Jev's rubric. Edits are told to change or remove what
+  exists when asked to simplify, shorten, merge or clean up, instead of adding objects. Spoken
+  requests reach the model marked as speech, with the last three phrases and what the previous
+  run changed, so "it" and "that" keep their meaning. Spoken questions get short answers.
 
 ## 2026-10-22 — 0.1.13
 

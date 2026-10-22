@@ -25,6 +25,38 @@ export interface SystemPromptOptions {
    * travels with it through an export. Both optional, and most generations have neither.
    */
   instructions?: { global?: string; scape?: string };
+  /** The request was spoken in live voice; `recent` holds the phrases said just before it. */
+  spoken?: { recent: string[]; lastChanged?: string[] };
+}
+
+/**
+ * Live voice requests are said, not written: informal, sometimes misheard, and part of a running
+ * conversation. Without this the model treats each one as a fresh brief and over-builds.
+ */
+export function spokenSection(spoken?: { recent: string[]; lastChanged?: string[] }): string {
+  if (!spoken) return "";
+  const recent = spoken.recent
+    .map((phrase) => phrase.trim().slice(0, 300))
+    .filter(Boolean)
+    .slice(-3);
+  const changed = (spoken.lastChanged ?? []).slice(0, 30);
+  const before = recent.length
+    ? "- Said just before, oldest first — context, not new requests:\n" +
+      recent.map((phrase) => `  - "${phrase}"`).join("\n") +
+      "\n"
+    : "";
+  return `
+## This request was spoken
+
+The person said this aloud while looking at the canvas; it was transcribed live. Read it as
+speech: ignore filler and false starts, and correct obvious mishearings from context.
+
+- Do what was said, literally and minimally, right now. Do not plan, propose or ask a
+  follow-up question. One spoken sentence is usually one small change.
+- "This", "it", "that" mean the selected objects, or else what the last request changed${
+    changed.length ? ` (${changed.join(", ")})` : ""
+  }.
+${before}`;
 }
 
 /** Longer than this is a brief, not a preference, and it crowds out the actual request. */
@@ -120,6 +152,10 @@ ${dataShapeExamples(allowedTypes)}
 - Create both endpoints before you connect them. A relationship to an object that does not
   exist yet is dropped.
 - Never send coordinates. The engine lays out the canvas; positions you invent are wrong.
+- When the scape already has objects, a request is an edit of what is there. Change only
+  what was asked. "Simplify", "shorten", "condense", "clean up", "merge" and "remove" mean
+  fewer or shorter objects: use UpdateObject and DeleteObject, and do not add objects to
+  explain the change.
 - Make the smallest useful map. For a simple request, three to six substantial objects may be
   enough; use eight to fourteen only when the brief genuinely needs that much structure.
 ${
@@ -137,7 +173,8 @@ ${
 - Add relationships when they clarify a real dependency, sequence or trade-off. Do not invent
   a connection merely to make the canvas look like a map.
 - Rename the scape once, first, if it is untitled.
-- Write in sentence case. No exclamation marks. No filler.`;
+- Write in sentence case. No exclamation marks. No filler.
+${spokenSection(options.spoken)}`;
 }
 
 /**

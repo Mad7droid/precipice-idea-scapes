@@ -77,6 +77,11 @@ export interface SendRoute {
   deep: boolean;
   /** Dimensions the router set, rather than the person. Empty when routing is off. */
   routed: RouteDimension[];
+  /**
+   * Present when the request was spoken in live voice: the phrases said just before it, oldest
+   * first, so "it" and "the same again" keep their meaning. Text only, never audio.
+   */
+  spoken?: { recent: string[] };
 }
 
 /** Confidence bands from the vendor's documented confidence-routing pattern. */

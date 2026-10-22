@@ -17,8 +17,11 @@ Maintained guides for the current source tree:
 | [Design language](design-language.md)                 | Visual principles and current component rules                         |
 | [Screenshot provenance](screenshots/README.md)        | Public demo images and safe capture procedure                         |
 
-[Jev routing plan](jev-routing-plan.md) is an unimplemented proposal for intent routing across
-Jev, Claude tiers, voice and MCP.
+[Jev architecture review](jev-architecture-review.md) describes the current routing and live
+voice pipeline, its limitations, and proposed changes for review. The
+[original Jev routing plan](jev-routing-plan.md) and
+[combined voice and routing plan](voice-and-routing-plan.md) are historical designs;
+parts are implemented and parts have been superseded by the current source.
 
 [Scapi UX reference](scapi-ux-patterns.html) documents the built-in assistant’s interactions;
 it is separate from the external MCP preview UI.
