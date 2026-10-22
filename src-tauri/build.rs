@@ -1,6 +1,17 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
+            "chatgpt_status",
+            "chatgpt_connect",
+            "chatgpt_disconnect",
+            "chatgpt_cancel_login",
+            "chatgpt_select",
+            "chatgpt_request",
+            "ai_cancel",
+            "claude_status",
+            "claude_connect",
+            "claude_request",
+            "open_ai_settings",
             "read_agent_session",
             "save_agent_session",
             "open_agent_signin",

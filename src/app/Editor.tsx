@@ -225,6 +225,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
   }, [selectionKey, scope]);
 
   const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
+  useEffect(() => {
+    generation.cancel();
+  }, [appSettings.connection.provider, appSettings.connection.connectionId, generation.cancel]);
   const scapi = useScapi({
     getScape: () => useScapeStore.getState().scape,
     getSelection: () => useScapeStore.getState().selection,

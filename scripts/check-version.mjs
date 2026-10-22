@@ -11,9 +11,13 @@ const read = (path) => readFileSync(fileURLToPath(new URL(path, root)), 'utf8')
 
 const pkg = JSON.parse(read('package.json')).version
 const cargo = read('src-tauri/Cargo.toml').match(/^version\s*=\s*"([^"]+)"/m)?.[1]
+const locked = read('src-tauri/Cargo.lock').match(/name = "precipice-desktop"\nversion = "([^"]+)"/)?.[1]
 const tauri = JSON.parse(read('src-tauri/tauri.conf.json')).version
 
 const problems = []
+if (locked !== pkg) {
+  problems.push(`src-tauri/Cargo.lock desktop version ${locked} does not match package.json ${pkg}`)
+}
 if (tauri !== '../package.json') {
   problems.push(`src-tauri/tauri.conf.json version should be "../package.json", found ${JSON.stringify(tauri)}`)
 }

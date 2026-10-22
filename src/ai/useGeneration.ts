@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { notify } from "@/core/notify";
 import { useScapeStore } from "@/core/store";
 import { starterFor } from "@/starters";
@@ -48,6 +48,7 @@ export interface UseGenerationOptions {
 export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
   const [state, setState] = useState<GenerationState>(IDLE);
   const controller = useRef<AbortController | null>(null);
+  useEffect(() => () => controller.current?.abort(), []);
   const lineKey = useRef(0);
 
   const handleEvent = useCallback((event: GenerationEvent) => {

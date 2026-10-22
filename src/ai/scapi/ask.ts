@@ -1,4 +1,5 @@
-import { isChatGPTModel, portableHistory, runChatGPT } from "@/ai/connection/runtime";
+import { isConnectedModel, portableHistory, runConnectedModel } from "@/ai/connection/runtime";
+import { describeModel } from "@/ai/models";
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropicClient, describeProviderError, providerErrorFacts } from "@/ai/provider";
 import type { ObjectId, Scape } from "@/core/types";
@@ -96,7 +97,7 @@ function userMessage(question: string, pinned: ObjectId[], scape: Scape): ModelM
 }
 
 export async function ask(options: AskOptions): Promise<void> {
-  if (isChatGPTModel(options.modelId)) {
+  if (isConnectedModel(options.modelId)) {
     const { onEvent, scape } = options;
     onEvent({
       kind: "activity",
@@ -104,7 +105,7 @@ export async function ask(options: AskOptions): Promise<void> {
     });
     const user = userMessage(options.question, options.pinned ?? [], scape);
     try {
-      const text = await runChatGPT({
+      const text = await runConnectedModel({
         modelId: options.modelId,
         instructions: askSystem(options.spoken),
         input: [
@@ -124,7 +125,7 @@ export async function ask(options: AskOptions): Promise<void> {
       if (!options.signal?.aborted)
         onEvent({
           kind: "error",
-          message: "ChatGPT request failed",
+          message: `${describeModel(options.modelId).provider} request failed`,
           detail:
             error instanceof Error ? error.message : "Reconnect in Settings → AI and try again.",
         });

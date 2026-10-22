@@ -82,10 +82,34 @@ matching Anthropic credentials. Routing times out after 800 ms and falls back lo
 it never sends a draft or executes a command automatically. Live evaluation is still
 pending, so Jev remains experimental and disabled by default.
 
+## Desktop AI connections
+
+The Mac app can use a ChatGPT plan, a Claude plan through Claude Code, or an Anthropic API
+key. These are explicit billing choices. A plan connection failure never falls back to an API key.
+See [desktop AI connections](desktop-ai-connections.md) for setup and verification status.
+
+ChatGPT uses a native loopback sign-in listener bound to `127.0.0.1`, with per-attempt state,
+nonce and PKCE, signature/issuer/audience/expiry/identity validation, and explicit plan
+permission. Tokens, refresh tokens, retained ID tokens, account registrations and the stable
+host identity stay in macOS Keychain. The webview receives account summaries and model
+choices, never tokens. Requests go natively to OpenAI's public Responses endpoint with
+`store: false` and `stream: true`; redirects are disabled. Refreshes serialize, and account
+changes invalidate pending work. Disconnect attempts remote session revocation and removes
+local credentials; an unconfirmed revocation is disclosed with a link to manage access.
+
+Claude Code manages its own sign-in and credentials. Precipice invokes its documented CLI
+without a shell, with API/provider environment overrides removed, customizations disabled,
+no built-in or MCP tools, no persisted session, and bounded input/output/time. Only a
+first-party `claude.ai` login is accepted for the plan connection. The CLI returns structured
+proposals; Precipice validates these against the offered tools before applying canvas changes.
+Scape context, relevant history and tool schemas reach Claude as they do for other providers.
+The CLI cannot browse for this connection; Scapi shows search as unavailable. Precipice does
+not read Claude Desktop's credential files or reuse its login.
+
 ## ChatGPT plan connection (local developer preview)
 
-Only the Vite dev server (`apply: "serve"`, bound to 127.0.0.1) offers ChatGPT sign-in; it
-is never part of the hosted build or the BYOK Worker. Sign-in uses OpenAI's open-source
+The Vite dev server (`apply: "serve"`, bound to 127.0.0.1) also offers ChatGPT sign-in; that
+Node helper is never part of the hosted build or the BYOK Worker. Sign-in uses OpenAI's open-source
 token-sharing flow: PKCE, per-attempt state and nonce, a 127.0.0.1 loopback callback and
 ID-token verification. Tokens without `chatgpt.tokens.use.direct` are rejected.
 

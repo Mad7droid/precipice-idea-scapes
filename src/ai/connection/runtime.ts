@@ -1,6 +1,10 @@
 import { asSchema, type ModelMessage, type ToolSet } from "ai";
+import { isDesktop } from "@/desktop/runtime";
 
 export const isChatGPTModel = (model: string) => model.startsWith("chatgpt/");
+export const isClaudePlanModel = (model: string) => model.startsWith("claude-plan/");
+export const isConnectedModel = (model: string) =>
+  isChatGPTModel(model) || isClaudePlanModel(model);
 interface OutputItem {
   type: string;
   name?: string;
@@ -68,7 +72,7 @@ export async function consumeResponses(
       const { value, done } = await reader.read();
       buffer += decoder.decode(value, { stream: !done });
       if (buffer.length > 2_000_000)
-        throw new Error("ChatGPT response exceeded the stream buffer limit.");
+        throw new Error("AI response exceeded the stream buffer limit.");
       let match: RegExpExecArray | null;
       while ((match = /\r?\n\r?\n/.exec(buffer))) {
         parse(buffer.slice(0, match.index));
@@ -86,8 +90,18 @@ export async function consumeResponses(
 }
 
 /** Bounded tool loop using the same tool schemas/executors as the existing canvas pipeline. */
-export async function runChatGPT(options: RuntimeOptions): Promise<string> {
-  const fetcher = options.fetcher ?? fetch;
+export async function runConnectedModel(options: RuntimeOptions): Promise<string> {
+  const claude = isClaudePlanModel(options.modelId);
+  const provider = claude ? "Claude" : "ChatGPT";
+  const fetcher =
+    options.fetcher ??
+    (isDesktop()
+      ? claude
+        ? (await import("./desktop")).claudeFetcher()
+        : (await import("./desktop")).desktopChatGPTFetch
+      : fetch);
+  if (claude && !isDesktop() && !options.fetcher)
+    throw new Error("Claude plan connections are available in the Mac app.");
   const statusResponse = await fetcher("/__chatgpt/status", {
     credentials: "same-origin",
     cache: "no-store",
@@ -99,7 +113,7 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
     status.status !== "connected" ||
     typeof status.connectionId !== "string"
   )
-    throw new Error("Connect ChatGPT in Settings → AI first.");
+    throw new Error(`Connect ${provider} in Settings → AI first.`);
   const input = [...options.input];
   const functions = await Promise.all(
     Object.entries(options.tools).map(async ([name, tool]) => ({
@@ -120,7 +134,7 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
         },
       ]
     : [];
-  if (options.webSearch) tools.push({ type: "web_search" });
+  if (options.webSearch && !claude) tools.push({ type: "web_search" });
   const seen = new Set<string>();
   let answer = "";
   for (let step = 0; step < options.maxSteps; step++) {
@@ -131,7 +145,7 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         connectionId: status.connectionId,
-        model: options.modelId.slice("chatgpt/".length),
+        model: options.modelId.slice(claude ? "claude-plan/".length : "chatgpt/".length),
         instructions: options.instructions,
         input,
         tools,
@@ -143,10 +157,10 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
       throw new Error(
         typeof message?.error === "string"
           ? message.error
-          : "ChatGPT could not complete the request. Reconnect or try later.",
+          : `${provider} could not complete the request. Reconnect or try later.`,
       );
     }
-    if (!response.body) throw new Error("ChatGPT returned no response stream.");
+    if (!response.body) throw new Error(`${provider} returned no response stream.`);
     let output: OutputItem[] | null = null;
     await consumeResponses(
       response.body,
@@ -159,20 +173,33 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
           event.type === "response.failed" ||
           event.type === "response.incomplete" ||
           event.type === "error"
-        )
+        ) {
+          const failure =
+            (event.response as { error?: { code?: string } } | undefined)?.error ??
+            (event.error as { code?: string } | undefined) ??
+            (event as { code?: string });
+          if (failure?.code === "subscription_sharing_usage_limit_exceeded")
+            throw new Error(
+              "ChatGPT plan usage limit reached. Manage usage in Settings → AI, or try after the limit resets.",
+            );
+          if (failure?.code === "subscription_sharing_usage_unavailable")
+            throw new Error(
+              "ChatGPT plan usage is unavailable. Manage app access in Settings → AI and allow plan usage, or reconnect.",
+            );
           throw new Error(
-            "ChatGPT did not complete this response. Retry the request or check your plan usage.",
+            `${provider} did not complete this response. Retry the request or check your plan usage.`,
           );
+        }
         if (event.type === "response.completed") {
           const result = event.response as { status?: string; output?: OutputItem[] } | undefined;
           if (result?.status !== "completed" || !Array.isArray(result.output))
-            throw new Error("ChatGPT returned an incomplete response.");
+            throw new Error(`${provider} returned an incomplete response.`);
           output = result.output;
         }
       },
       options.signal,
     );
-    if (!output) throw new Error("ChatGPT stream ended before completion. Retry the request.");
+    if (!output) throw new Error(`${provider} stream ended before completion. Retry the request.`);
     const items = output as OutputItem[];
     for (const item of items)
       for (const part of item.content ?? [])
@@ -202,17 +229,17 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
         seen.has(call.call_id)
       )
         throw new Error(
-          "ChatGPT requested an unavailable or repeated operation. No operation was repeated.",
+          `${provider} requested an unavailable or repeated operation. No operation was repeated.`,
         );
       seen.add(call.call_id);
       const tool = options.tools[name];
       if (!tool.execute || typeof call.arguments !== "string")
-        throw new Error("ChatGPT returned an invalid operation.");
+        throw new Error(`${provider} returned an invalid operation.`);
       let value: unknown;
       try {
         value = JSON.parse(call.arguments);
       } catch {
-        throw new Error("ChatGPT returned invalid operation arguments.");
+        throw new Error(`${provider} returned invalid operation arguments.`);
       }
       const schema = asSchema(tool.inputSchema);
       const validated = await schema.validate?.(value);
@@ -238,6 +265,8 @@ export async function runChatGPT(options: RuntimeOptions): Promise<string> {
     }
   }
   throw new Error(
-    "ChatGPT reached the step limit. Changes already applied can be undone together.",
+    `${provider} reached the step limit. Changes already applied can be undone together.`,
   );
 }
+/** Backward-compatible export for the local preview tests. */
+export const runChatGPT = runConnectedModel;

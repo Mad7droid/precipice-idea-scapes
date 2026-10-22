@@ -444,7 +444,9 @@ export function useScapi({
     retry,
     webSearch,
     setWebSearch,
-    searchAvailability,
+    searchAvailability: modelId.startsWith("claude-plan/")
+      ? ("unavailable" as const)
+      : searchAvailability,
     restored,
     /** Exposed for the dev harness and for tests. Never rendered. */
     historyLength: () => history.current.length,

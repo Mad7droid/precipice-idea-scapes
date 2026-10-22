@@ -1,4 +1,5 @@
-import { isChatGPTModel, runChatGPT } from "./connection/runtime";
+import { isConnectedModel, runConnectedModel } from "./connection/runtime";
+import { describeModel } from "./models";
 import { stepCountIs, streamText, tool, type ToolSet } from "ai";
 import type { ObjectId, Scape } from "@/core/types";
 import { anthropicProvider, describeProviderError } from "./provider";
@@ -67,8 +68,8 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   });
 
   try {
-    if (isChatGPTModel(options.modelId)) {
-      await runChatGPT({
+    if (isConnectedModel(options.modelId)) {
+      await runConnectedModel({
         modelId: options.modelId,
         instructions: systemPrompt({
           allowedTypes: options.allowedTypes,
@@ -116,9 +117,9 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     if (!cancelled) {
       options.onEvent({
         kind: "error",
-        ...(isChatGPTModel(options.modelId)
+        ...(isConnectedModel(options.modelId)
           ? {
-              message: "ChatGPT request failed",
+              message: `${describeModel(options.modelId).provider} request failed`,
               detail:
                 error instanceof Error
                   ? error.message

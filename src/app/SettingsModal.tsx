@@ -156,49 +156,51 @@ export function SettingsModal({
             {section === "ai" && (
               <>
                 {routingSettings && <ConnectionSettings settings={routingSettings} />}
-                <details className="mb-5">
-                  <summary className="cursor-pointer text-xs text-fg-secondary">
-                    Anthropic API key (optional)
-                  </summary>
-                  {credentials?.desktop ? (
-                    <CredentialSettings credentials={credentials} />
-                  ) : (
-                    <div className="mt-5">
-                      <label
-                        htmlFor="anthropic-api-key"
-                        className="mb-1 block text-xs text-fg-secondary"
-                      >
-                        Anthropic API key
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          id="anthropic-api-key"
-                          type="password"
-                          value={apiKey}
-                          onChange={(e) => onApiKeyChange(e.target.value)}
-                          placeholder="sk-ant-…"
-                          autoComplete="off"
-                          spellCheck={false}
-                          className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
-                        />
-                        {apiKey && (
-                          <button
-                            type="button"
-                            onClick={() => onApiKeyChange("")}
-                            className={buttonClass({ variant: "secondary", size: "sm" })}
-                          >
-                            Clear
-                          </button>
-                        )}
+                {(!routingSettings || routingSettings.connection.provider === "anthropic") && (
+                  <details className="mb-5" open>
+                    <summary className="cursor-pointer text-xs text-fg-secondary">
+                      Anthropic API key
+                    </summary>
+                    {credentials?.desktop ? (
+                      <CredentialSettings credentials={credentials} />
+                    ) : (
+                      <div className="mt-5">
+                        <label
+                          htmlFor="anthropic-api-key"
+                          className="mb-1 block text-xs text-fg-secondary"
+                        >
+                          Anthropic API key
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            id="anthropic-api-key"
+                            type="password"
+                            value={apiKey}
+                            onChange={(e) => onApiKeyChange(e.target.value)}
+                            placeholder="sk-ant-…"
+                            autoComplete="off"
+                            spellCheck={false}
+                            className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
+                          />
+                          {apiKey && (
+                            <button
+                              type="button"
+                              onClick={() => onApiKeyChange("")}
+                              className={buttonClass({ variant: "secondary", size: "sm" })}
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs text-fg-tertiary">
+                          Required to generate. Kept for this tab session and cleared when the tab
+                          is closed, then forwarded through the Precipice Worker, which keeps no key
+                          of its own and stores nothing.
+                        </p>
                       </div>
-                      <p className="mt-2 text-xs text-fg-tertiary">
-                        Required to generate. Kept for this tab session and cleared when the tab is
-                        closed, then forwarded through the Precipice Worker, which keeps no key of
-                        its own and stores nothing.
-                      </p>
-                    </div>
-                  )}
-                </details>
+                    )}
+                  </details>
+                )}
                 {routingSettings && <RoutingSettings settings={routingSettings} />}
                 {onInstructionsChange ? (
                   <div>
@@ -310,8 +312,8 @@ function RoutingSettings({ settings: s }: { settings: ReturnType<typeof useAppSe
         Use Jev only
       </label>
       <p className="ml-6 text-xs text-fg-tertiary">
-        No on-device fallback. Waits up to 4 s for Jev, and when Jev cannot answer, says why
-        instead of guessing. Live voice skips a phrase Jev could not route.
+        No on-device fallback. Waits up to 4 s for Jev, and when Jev cannot answer, says why instead
+        of guessing. Live voice skips a phrase Jev could not route.
       </p>
       {s.jevCredentials.desktop ? (
         <CredentialSettings

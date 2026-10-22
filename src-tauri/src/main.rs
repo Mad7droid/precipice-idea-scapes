@@ -2,6 +2,8 @@
 
 mod dictation;
 mod mcp;
+mod ai_connection;
+mod claude_connection;
 
 use security_framework::passwords::{
     delete_generic_password_options, generic_password, set_generic_password_options,
@@ -184,6 +186,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
         .manage(dictation::Dictation::default())
+        .manage(ai_connection::Connections::default())
         .setup(|app| {
             mcp::start_listener(app.handle().clone());
             dictation::start_idle_unloader(app.handle().clone());
@@ -204,6 +207,17 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            ai_connection::chatgpt_status,
+            ai_connection::chatgpt_connect,
+            ai_connection::chatgpt_disconnect,
+            ai_connection::chatgpt_cancel_login,
+            ai_connection::chatgpt_select,
+            ai_connection::chatgpt_request,
+            ai_connection::ai_cancel,
+            claude_connection::claude_status,
+            claude_connection::claude_connect,
+            claude_connection::claude_request,
+            ai_connection::open_ai_settings,
             read_agent_session,
             save_agent_session,
             open_agent_signin,
