@@ -3,7 +3,7 @@
 All notable user-visible changes to Precipice are recorded here. This project
 does not use formal release numbers yet; entries are grouped by date and commit.
 
-## Unreleased
+## 2026-10-22 — 0.1.16
 
 ### Changed
 
