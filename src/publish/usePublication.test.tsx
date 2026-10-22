@@ -24,10 +24,16 @@ async function viewOf(scape: Scape, row?: PublicationRecord): Promise<Publicatio
     return null;
   }
   const mounted = render(<Probe />);
-  // The row read and the hash are both async; let them settle.
-  for (let i = 0; i < 5; i++) await act(async () => {});
-  mounted.unmount();
-  return view;
+  try {
+    // Web Crypto finishes on a later event-loop turn, not a fixed number of microtasks.
+    for (let i = 0; i < 100; i++) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+      if (!row || row.status !== "published" || view.localHash !== null) return view;
+    }
+    throw new Error("Publication hash did not settle");
+  } finally {
+    mounted.unmount();
+  }
 }
 
 describe("usePublication", () => {
