@@ -10,15 +10,34 @@ import { deletePublication } from "@/publish/client";
 import { navigate } from "./router";
 import { downloadScape, importScape } from "@/persistence/portable";
 import { exportScapePdf } from "@/export/pdf";
-const mocks = vi.hoisted(() => ({ key: "", subscription: false, settings: {} as Record<string, unknown> }));
+const mocks = vi.hoisted(() => ({
+  key: "",
+  subscription: false,
+  settings: {} as Record<string, unknown>,
+}));
 vi.mock("./useAppSettings", () => ({
   useAppSettings: () => ({
     apiKey: mocks.key,
     aiReady: mocks.subscription || !!mocks.key,
     models: [],
-    connection: { available: false, status: "disconnected", provider: "anthropic", models: [], choose: vi.fn() },
-    routeChips: false, setRouteChips: vi.fn(), jevRouting: false, setJevRouting: vi.fn(),
-    jevKey: "", setJevKey: vi.fn(), jevCredentials: { desktop: false },
+    connection: {
+      providers: ["anthropic"],
+      provider: "anthropic",
+      status: "connected",
+      models: [],
+      chatgpt: { available: false, status: "disconnected", models: [] },
+      claude: { installed: false, connected: false, checked: false },
+      choose: vi.fn(),
+    },
+    credentials: { desktop: false },
+    keychainDenied: false,
+    routeChips: false,
+    setRouteChips: vi.fn(),
+    jevRouting: false,
+    setJevRouting: vi.fn(),
+    jevKey: "",
+    setJevKey: vi.fn(),
+    jevCredentials: { desktop: false },
     setApiKey: vi.fn(),
     ready: true,
     modelId: "test",

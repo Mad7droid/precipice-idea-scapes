@@ -100,9 +100,29 @@ async fn output(
     }
     Ok(value)
 }
+/// The last account check. Each check starts a Claude Code process that reads Claude's own
+/// Keychain item, so requests reuse a recent answer instead of checking every time.
+static LAST_STATUS: std::sync::Mutex<Option<(std::time::Instant, Value)>> =
+    std::sync::Mutex::new(None);
+const STATUS_REUSE: Duration = Duration::from_secs(60);
+
+fn forget_status() {
+    if let Ok(mut last) = LAST_STATUS.lock() {
+        *last = None;
+    }
+}
+async fn recent_status() -> Result<Value, String> {
+    if let Ok(last) = LAST_STATUS.lock() {
+        if let Some((_, status)) = last.as_ref().filter(|(at, _)| at.elapsed() < STATUS_REUSE) {
+            return Ok(status.clone());
+        }
+    }
+    claude_status().await
+}
 #[tauri::command]
 pub async fn claude_status() -> Result<Value, String> {
     if executable().is_none() {
+        forget_status();
         return Ok(json!({"installed":false,"connected":false}));
     }
     let mut cmd = command()?;
@@ -111,10 +131,12 @@ pub async fn claude_status() -> Result<Value, String> {
         .await
         .map_err(|_| "Claude connection check timed out.")??;
     let connected = plan_connected(&status);
-    Ok(
-        json!({"installed":true,"connected":connected,"email":if connected{status["email"].clone()}else{Value::Null},
-            "connectionId":if connected{json!(crate::ai_connection::digest(&format!("{}:{}",status["email"],status["orgId"])))}else{Value::Null}}),
-    )
+    let summary = json!({"installed":true,"connected":connected,"email":if connected{status["email"].clone()}else{Value::Null},
+        "connectionId":if connected{json!(crate::ai_connection::digest(&format!("{}:{}",status["email"],status["orgId"])))}else{Value::Null}});
+    if let Ok(mut last) = LAST_STATUS.lock() {
+        *last = Some((std::time::Instant::now(), summary.clone()));
+    }
+    Ok(summary)
 }
 fn plan_connected(status: &Value) -> bool {
     status["loggedIn"] == true
@@ -124,6 +146,7 @@ fn plan_connected(status: &Value) -> bool {
 #[tauri::command]
 pub async fn claude_connect(state: State<'_, Connections>, id: String) -> Result<(), String> {
     let cancel = state.register(&id).await?;
+    forget_status();
     let result = tokio::select! {biased;
         _=cancel.notified()=>Err("Claude sign-in cancelled.".into()),
         result=async {
@@ -149,6 +172,7 @@ pub async fn claude_connect(state: State<'_, Connections>, id: String) -> Result
         }=>result
     };
     state.unregister(&id).await;
+    forget_status();
     result
 }
 fn validate(model: &str, prompt: &str, schema: &Value) -> Result<(), String> {
@@ -179,7 +203,7 @@ pub async fn claude_request(
         _=cancel.notified()=>Err("Request cancelled.".into()),
         result=tokio::time::timeout(Duration::from_secs(180),async {
             // Refuse API-backed Claude Code sessions so the plan option cannot silently bill API usage.
-            let status=claude_status().await?;
+            let status=recent_status().await?;
             if status["connected"]!=true {return Err("Sign in to your Claude plan with claude auth login in Terminal, then check the connection.".into());}
             if status["connectionId"].as_str()!=Some(connection_id.as_str()) {return Err("Claude account changed. Send the request again.".into());}
             let mut cmd=command()?;

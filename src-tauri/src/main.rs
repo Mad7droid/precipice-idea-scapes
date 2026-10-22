@@ -4,13 +4,9 @@ mod dictation;
 mod mcp;
 mod ai_connection;
 mod claude_connection;
+mod vault;
 
-use security_framework::passwords::{
-    delete_generic_password_options, generic_password, set_generic_password_options,
-    PasswordOptions,
-};
-const SERVICE: &str = "dev.precipice.desktop.anthropic";
-const ACCOUNT: &str = "api-key";
+use security_framework::passwords::PasswordOptions;
 const NOT_FOUND: i32 = -25300;
 
 fn credential_options(service: &str, account: &str) -> PasswordOptions {
@@ -23,15 +19,13 @@ fn valid_key(key: &str) -> bool {
     key.starts_with("sk-ant-") && key.len() <= 4096 && !key.chars().any(char::is_whitespace)
 }
 
+fn read_secret(name: &str) -> Result<Option<String>, &'static str> {
+    vault::get(name)
+}
+
 #[tauri::command]
 fn read_api_key() -> Result<Option<String>, &'static str> {
-    match generic_password(credential_options(SERVICE, ACCOUNT)) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map(Some)
-            .map_err(|_| "Invalid credential encoding"),
-        Err(error) if error.code() == NOT_FOUND => Ok(None),
-        Err(_) => Err("Keychain read failed"),
-    }
+    read_secret("anthropic")
 }
 
 #[tauri::command]
@@ -40,22 +34,13 @@ fn save_api_key(key: String) -> Result<(), &'static str> {
     if !valid_key(key) {
         return Err("Invalid Anthropic key");
     }
-    set_generic_password_options(key.as_bytes(), credential_options(SERVICE, ACCOUNT))
-        .map_err(|_| "Keychain save failed")
+    vault::set("anthropic", Some(key))
 }
 
 #[tauri::command]
 fn remove_api_key() -> Result<(), &'static str> {
-    match delete_generic_password_options(credential_options(SERVICE, ACCOUNT)) {
-        Ok(()) => Ok(()),
-        Err(error) if error.code() == NOT_FOUND => Ok(()),
-        Err(_) => Err("Keychain removal failed"),
-    }
+    vault::set("anthropic", None)
 }
-
-/// The optional TypeSafe (Jev) routing key. A separate Keychain item and separate commands, so
-/// the routing key and the Anthropic key can never be read through each other's grant.
-const TYPESAFE_SERVICE: &str = "dev.precipice.desktop.typesafe";
 
 /// TypeSafe does not document a key prefix, so this checks shape only.
 fn valid_typesafe_key(key: &str) -> bool {
@@ -64,13 +49,7 @@ fn valid_typesafe_key(key: &str) -> bool {
 
 #[tauri::command]
 fn read_typesafe_key() -> Result<Option<String>, &'static str> {
-    match generic_password(credential_options(TYPESAFE_SERVICE, ACCOUNT)) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map(Some)
-            .map_err(|_| "Invalid credential encoding"),
-        Err(error) if error.code() == NOT_FOUND => Ok(None),
-        Err(_) => Err("Keychain read failed"),
-    }
+    read_secret("typesafe")
 }
 
 #[tauri::command]
@@ -79,22 +58,17 @@ fn save_typesafe_key(key: String) -> Result<(), &'static str> {
     if !valid_typesafe_key(key) {
         return Err("Invalid TypeSafe key");
     }
-    set_generic_password_options(key.as_bytes(), credential_options(TYPESAFE_SERVICE, ACCOUNT))
-        .map_err(|_| "Keychain save failed")
+    vault::set("typesafe", Some(key))
 }
 
 #[tauri::command]
 fn remove_typesafe_key() -> Result<(), &'static str> {
-    match delete_generic_password_options(credential_options(TYPESAFE_SERVICE, ACCOUNT)) {
-        Ok(()) => Ok(()),
-        Err(error) if error.code() == NOT_FOUND => Ok(()),
-        Err(_) => Err("Keychain removal failed"),
-    }
+    vault::set("typesafe", None)
 }
 
 /// Jev routing from the Mac app. TypeSafe's API does not allow the app's `tauri://` origin in
-/// CORS, so the request is made natively. The key is read from Keychain here and never passes
-/// back through the webview; the body is the bounded routing request the webview built.
+/// CORS, so the request is made natively with the vault's cached key; the body is the bounded
+/// routing request the webview built.
 const TYPESAFE_URL: &str = "https://api.typesafe.ai/v1/systemone";
 const JEV_MAX_BODY: usize = 64 * 1024;
 
@@ -139,32 +113,20 @@ async fn jev_route(body: String) -> Result<String, &'static str> {
     .map_err(|_| "Routing failed")?
 }
 
-const AGENT_SERVICE: &str = "dev.precipice.desktop.agent";
-
 #[tauri::command]
 fn read_agent_session() -> Result<Option<String>, &'static str> {
-    match generic_password(credential_options(AGENT_SERVICE, "session")) {
-        Ok(bytes) => String::from_utf8(bytes).map(Some).map_err(|_| "Invalid session"),
-        Err(error) if error.code() == NOT_FOUND => Ok(None),
-        Err(_) => Err("Keychain read failed"),
-    }
+    read_secret("agent")
 }
 
 #[tauri::command]
 fn save_agent_session(value: Option<String>) -> Result<(), &'static str> {
-    if let Some(value) = value {
+    if let Some(value) = &value {
         if value.len() > 4096 { return Err("Invalid session"); }
-        let parsed: serde_json::Value = serde_json::from_str(&value).map_err(|_| "Invalid session")?;
+        let parsed: serde_json::Value = serde_json::from_str(value).map_err(|_| "Invalid session")?;
         let token = parsed["token"].as_str().ok_or("Invalid session")?;
         if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) { return Err("Invalid session"); }
-        set_generic_password_options(value.as_bytes(), credential_options(AGENT_SERVICE, "session")).map_err(|_| "Keychain save failed")
-    } else {
-        match delete_generic_password_options(credential_options(AGENT_SERVICE, "session")) {
-            Ok(()) => Ok(()),
-            Err(error) if error.code() == NOT_FOUND => Ok(()),
-            Err(_) => Err("Keychain removal failed"),
-        }
     }
+    vault::set("agent", value.as_deref())
 }
 
 #[tauri::command]
@@ -188,6 +150,7 @@ fn main() {
         .manage(dictation::Dictation::default())
         .manage(ai_connection::Connections::default())
         .setup(|app| {
+            vault::init(&app.config().identifier);
             mcp::start_listener(app.handle().clone());
             dictation::start_idle_unloader(app.handle().clone());
             tauri::WebviewWindowBuilder::new(
@@ -218,6 +181,7 @@ fn main() {
             claude_connection::claude_connect,
             claude_connection::claude_request,
             ai_connection::open_ai_settings,
+            vault::keychain_retry,
             read_agent_session,
             save_agent_session,
             open_agent_signin,
@@ -266,6 +230,9 @@ mod tests {
     #[test]
     #[ignore = "writes a disposable credential to the local login Keychain"]
     fn keychain_round_trip() {
+        use security_framework::passwords::{
+            delete_generic_password_options, generic_password, set_generic_password_options,
+        };
         let service = "dev.precipice.desktop.test";
         let account = format!("test-{}", std::process::id());
         set_generic_password_options(b"test-value", credential_options(service, &account)).unwrap();

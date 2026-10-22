@@ -58,7 +58,7 @@ place; the bundle identifier does not change, so Scapes and the Keychain item
 survive. A real update channel needs Developer ID signing and notarization
 first: local builds are ad-hoc signed, their code directory hash changes on
 every build, and macOS therefore treats each build as a different app. That is
-why Keychain access is requested again after installing a new local build.
+why Keychain access is requested again, once, after installing a new local build.
 
 ## Avoiding duplicate apps
 
@@ -78,19 +78,15 @@ manual GitHub workflow produces unsigned test artifacts, not public releases.
 
 ## Remember a key
 
-Open Settings, paste an Anthropic key, check **Remember securely on this Mac**,
-and click **Save in Keychain**. On later launches the app loads that key. To
-replace it, paste a new key, check the same option, and choose **Replace saved
-key**. **Remove key** deletes the Keychain item and clears the active session key.
-If macOS denies deletion, the UI reports that the stored key remains.
+The Mac app defaults to the Claude plan. To use an API key instead, open Settings → AI,
+choose **Anthropic API key**, paste the key and click **Save**. On later launches the app
+loads it while that connection is selected. Paste a new key and click **Replace** to change
+it; **Remove** deletes it. If macOS denies access, the UI says so and nothing asks again
+until you click **Allow access**. No failed operation falls back to disk storage.
 
-Without the checkbox, **Use for this session** keeps the key only in memory until
-quit/reload. A temporary replacement does not overwrite a saved key. If the login
-keychain is locked or access is denied, unlock it and reopen the app to retry
-loading, or enter a temporary key. No failed operation falls back to disk storage.
-
-The credential is a non-synchronizing generic-password item in the login Keychain,
-service `dev.precipice.desktop.anthropic`, account `api-key`. The app never stores
+The credential lives in the app's single credential vault: a non-synchronizing
+generic-password item in the login Keychain, service = the bundle identifier, account
+`credentials`. The app never stores
 it in localStorage, sessionStorage, IndexedDB, exports, configuration files, or
 logs. Native errors return fixed messages. The key is present in the running
 app's memory and JavaScript context for the shared AI SDK; Keychain protects it
@@ -114,8 +110,8 @@ ownership and MCP pairing do not. The file is plain JSON: keep it private and ou
 of Git. Export individual `.scape` files for selective transfer. Neither route
 automatically synchronizes future edits. Updating the app with
 the same bundle identifier preserves its local data and Keychain service name.
-Uninstalling the app does not remove its Keychain item; remove the key in Settings
-first, or remove the item using Keychain Access.
+Uninstalling the app does not remove its Keychain item; remove keys and sign out in
+Settings first, or remove the item using Keychain Access.
 
 Dictation turns speech into composer text on the Mac (see
 [security and local data](security-and-local-data.md#dictation-macos-app)). The first
@@ -153,13 +149,13 @@ See [publishing troubleshooting](publishing-runbook.md#share-link-troubleshootin
 pnpm build
 pnpm test
 cargo test --manifest-path src-tauri/Cargo.toml
-# Optional: writes, replaces, reads, and deletes a disposable test Keychain item:
-cargo test --manifest-path src-tauri/Cargo.toml keychain_round_trip -- --ignored
+# Optional: writes, replaces, reads, and deletes disposable test Keychain items:
+cargo test --manifest-path src-tauri/Cargo.toml -- --ignored
 ```
 
 Manual installed-app acceptance: save a test key, quit/reopen, generate; replace,
 quit/reopen and generate; remove, quit/reopen and confirm a key is requested. Deny
-Keychain access and verify the error and temporary-session flow. Use your own
+Keychain access, confirm no further prompt appears on refocus, then use **Allow access**. Use your own
 throwaway API key for paid generation checks. Confirm a `Precipice-library.json`
 transfer before moving important work from the browser.
 Also copy a published link and open it in a signed-out browser. Verify the hosted viewer loads

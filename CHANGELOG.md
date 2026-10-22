@@ -3,6 +3,28 @@
 All notable user-visible changes to Precipice are recorded here. This project
 does not use formal release numbers yet; entries are grouped by date and commit.
 
+## 2026-10-22 — 0.1.16
+
+### Changed
+
+- The Mac app now defaults to the Claude plan. The Anthropic API key is an explicit, optional
+  choice and is never selected automatically.
+- Settings → AI is reorganized as Connection → Model → Routing suggestions → Instructions.
+  Each connection is a card that shows its status and only its own controls; the model picker
+  moved here from General and remembers a choice per connection. Routing is one Off / On
+  device / Jev control, with the TypeSafe key shown only for Jev.
+- Desktop keys are saved straight to Keychain; the separate session-only mode is gone.
+
+### Fixed
+
+- Far fewer Keychain prompts. All desktop secrets share one Keychain item that is read at
+  most once per launch, only when a feature needs it. Jev no longer reads Keychain while you
+  type, unused connections are never checked, and a refused prompt is not asked again until
+  you click **Allow access**. Preview builds no longer share the installed app's item.
+- Switching between Claude plan and ChatGPT no longer forgets the chosen model.
+- ChatGPT errors no longer appear under other connections, and Deepen is hidden where it
+  would rerun the same ChatGPT model.
+
 ## 2026-10-22 — 0.1.15
 
 ### Added

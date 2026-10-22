@@ -11,25 +11,28 @@ function credentials(): DesktopCredentials {
     ready: true,
     busy: false,
     error: "",
+    denied: false,
     change: vi.fn(),
     persist: vi.fn(async () => true),
+    reload: vi.fn(),
   };
 }
+function submit(view: ReturnType<typeof render>) {
+  return act(async () =>
+    view.container.querySelector<HTMLButtonElement>('button[type="submit"]')!.click(),
+  );
+}
 describe("desktop credential controls", () => {
-  it("keeps the saved key out of the input and requires an explicit opt-in for replacement", async () => {
+  it("keeps the saved key out of the input and saves a replacement to Keychain", async () => {
     const c = credentials();
     const view = render(<CredentialSettings credentials={c} />);
     const input = view.container.querySelector<HTMLInputElement>('input[type="password"]')!;
     expect(input.value).toBe("");
     expect(view.container.textContent).not.toContain(c.key);
-    type(input, "sk-ant-temporary");
-    await act(async () => view.container.querySelector("button")!.click());
-    expect(c.change).toHaveBeenCalledWith("sk-ant-temporary");
-    expect(c.persist).not.toHaveBeenCalled();
     type(input, "sk-ant-replacement");
-    act(() => view.container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
-    await act(async () => view.container.querySelector("button")!.click());
+    await submit(view);
     expect(c.persist).toHaveBeenCalledWith("sk-ant-replacement");
+    expect(c.change).not.toHaveBeenCalled();
     expect(input.value).toBe("");
     view.unmount();
   });
@@ -39,9 +42,18 @@ describe("desktop credential controls", () => {
     const view = render(<CredentialSettings credentials={c} />);
     const input = view.container.querySelector<HTMLInputElement>('input[type="password"]')!;
     type(input, "sk-ant-replacement");
-    act(() => view.container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
-    await act(async () => view.container.querySelector("button")!.click());
+    await submit(view);
     expect(input.value).toBe("sk-ant-replacement");
+    view.unmount();
+  });
+  it("removes a saved key only from an explicit click", async () => {
+    const c = credentials();
+    const view = render(<CredentialSettings credentials={c} />);
+    const remove = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Remove",
+    )!;
+    await act(async () => remove.click());
+    expect(c.persist).toHaveBeenCalledWith(null);
     view.unmount();
   });
 });

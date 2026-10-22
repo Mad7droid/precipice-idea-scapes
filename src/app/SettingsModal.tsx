@@ -1,12 +1,10 @@
-import { ConnectionSettings } from "@/ai/connection/ConnectionSettings";
-import { useAppSettings } from "./useAppSettings";
-import { CredentialSettings } from "@/desktop/CredentialSettings";
+import { AISettings } from "@/ai/connection/ConnectionSettings";
+import type { useAppSettings } from "./useAppSettings";
 import type { DesktopCredentials } from "@/desktop/useCredentials";
 import { useEffect, useState } from "react";
 import { MAX_INSTRUCTIONS, SETTING_KEYS, type ThemePreference } from "@/core/types";
 import { settingsRepository } from "@/persistence/settings";
-import { DEFAULT_MODEL, MODELS } from "@/ai/models";
-import { Button, buttonClass } from "@/design/Button";
+import { Button } from "@/design/Button";
 import { Select } from "@/design/Select";
 import { InstructionsField } from "@/ai/Instructions";
 import { ThemeControl } from "./ThemeControl";
@@ -47,12 +45,10 @@ export function SettingsModal({
   initialSection?: SettingsSection;
 }) {
   const dialogRef = useDialogFocus(onClose);
-  const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const [section, setSection] = useState<SectionId>(initialSection);
   const [dictationLanguage, setDictationLanguage] = useState<DictationLanguage>("en");
 
   useEffect(() => {
-    void settingsRepository.get<string>(SETTING_KEYS.model).then((m) => m && setModelId(m));
     void settingsRepository
       .get<DictationLanguage>(SETTING_KEYS.dictationLanguage)
       .then((l) => l && setDictationLanguage(l));
@@ -107,27 +103,6 @@ export function SettingsModal({
                   <ThemeControl value={theme} onChange={onThemeChange} />
                 </div>
 
-                <div className="mt-5 block">
-                  <span className="mb-1 block text-xs text-fg-secondary">Default model</span>
-                  <Select
-                    label="Default model"
-                    value={routingSettings?.modelId ?? modelId}
-                    onChange={(next) => {
-                      if (routingSettings) routingSettings.setModelId(next);
-                      else {
-                        setModelId(next);
-                        void settingsRepository.set(SETTING_KEYS.model, next);
-                      }
-                    }}
-                    options={(routingSettings?.models ?? MODELS).map((m) => ({
-                      value: m.id,
-                      label: m.label,
-                      title: m.hint,
-                    }))}
-                    className="mono w-full"
-                  />
-                </div>
-
                 {credentials?.desktop && (
                   <div className="mt-5 block">
                     <span className="mb-1 block text-xs text-fg-secondary">Dictation language</span>
@@ -155,78 +130,37 @@ export function SettingsModal({
 
             {section === "ai" && (
               <>
-                {routingSettings && <ConnectionSettings settings={routingSettings} />}
-                {(!routingSettings || routingSettings.connection.provider === "anthropic") && (
-                  <details className="mb-5" open>
-                    <summary className="cursor-pointer text-xs text-fg-secondary">
-                      Anthropic API key
-                    </summary>
-                    {credentials?.desktop ? (
-                      <CredentialSettings credentials={credentials} />
-                    ) : (
-                      <div className="mt-5">
-                        <label
-                          htmlFor="anthropic-api-key"
-                          className="mb-1 block text-xs text-fg-secondary"
-                        >
-                          Anthropic API key
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            id="anthropic-api-key"
-                            type="password"
-                            value={apiKey}
-                            onChange={(e) => onApiKeyChange(e.target.value)}
-                            placeholder="sk-ant-…"
-                            autoComplete="off"
-                            spellCheck={false}
-                            className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg placeholder:text-fg-tertiary focus-self"
-                          />
-                          {apiKey && (
-                            <button
-                              type="button"
-                              onClick={() => onApiKeyChange("")}
-                              className={buttonClass({ variant: "secondary", size: "sm" })}
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        <p className="mt-2 text-xs text-fg-tertiary">
-                          Required to generate. Kept for this tab session and cleared when the tab
-                          is closed, then forwarded through the Precipice Worker, which keeps no key
-                          of its own and stores nothing.
-                        </p>
-                      </div>
-                    )}
-                  </details>
-                )}
-                {routingSettings && <RoutingSettings settings={routingSettings} />}
-                {onInstructionsChange ? (
-                  <div>
-                    <label
-                      htmlFor="global-instructions"
-                      className="mb-1 block text-xs text-fg-secondary"
-                    >
-                      Generation instructions
-                    </label>
-                    <InstructionsField
-                      id="global-instructions"
-                      value={instructions ?? ""}
-                      onChange={onInstructionsChange}
-                      maxLength={MAX_INSTRUCTIONS}
-                      rows={6}
-                    />
-                    <p className="mt-2 text-xs text-fg-tertiary">
-                      Optional. Applied to every generation in this browser. Each scape can add its
-                      own on top, from the composer.
+                {routingSettings ? (
+                  <AISettings
+                    settings={routingSettings}
+                    apiKey={apiKey}
+                    onApiKeyChange={onApiKeyChange}
+                  />
+                ) : null}
+                <section aria-label="Instructions" className="mt-6 space-y-2">
+                  <h3 className="text-sm font-medium text-fg">
+                    <label htmlFor="global-instructions">Instructions</label>
+                  </h3>
+                  {onInstructionsChange ? (
+                    <>
+                      <InstructionsField
+                        id="global-instructions"
+                        value={instructions ?? ""}
+                        onChange={onInstructionsChange}
+                        maxLength={MAX_INSTRUCTIONS}
+                        rows={4}
+                      />
+                      <p className="text-xs text-fg-tertiary">
+                        Optional. Applied to every generation in this browser. Each scape can add
+                        its own from the composer.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-fg-tertiary">
+                      Open a scape to set generation instructions.
                     </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-fg-tertiary">
-                    Open a scape to set generation instructions.
-                  </p>
-                )}
+                  )}
+                </section>
               </>
             )}
 
@@ -272,77 +206,3 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "ai", label: "AI" },
   { id: "agent", label: "Agents" },
 ];
-
-function RoutingSettings({ settings: s }: { settings: ReturnType<typeof useAppSettings> }) {
-  return (
-    <div className="mb-5 space-y-3">
-      <label className="flex items-center gap-2 text-sm text-fg">
-        <input
-          type="checkbox"
-          checked={s.routeChips}
-          onChange={(e) => s.setRouteChips(e.target.checked)}
-        />
-        Suggest routes from my draft
-      </label>
-      <p className="text-xs text-fg-tertiary">
-        On-device suggestions for Ask, Edit, scope and model. Review or change the controls before
-        sending. Commands always need confirmation.
-      </p>
-      <label className="flex items-center gap-2 text-sm text-fg">
-        <input
-          type="checkbox"
-          checked={s.jevRouting}
-          disabled={!s.routeChips}
-          onChange={(e) => s.setJevRouting(e.target.checked)}
-        />
-        Enhance routing with Jev (experimental)
-      </label>
-      <p className="text-xs text-fg-tertiary">
-        While you type or dictate, sends draft text, selection counts/types and short-command target
-        titles to TypeSafe before Send. Never sends audio or object bodies. Requires your TypeSafe
-        key. Accuracy evaluation is pending; local suggestions handle failures.
-      </p>
-      <label className="ml-6 flex items-center gap-2 text-sm text-fg">
-        <input
-          type="checkbox"
-          checked={s.jevOnly}
-          disabled={!s.routeChips || !s.jevRouting}
-          onChange={(e) => s.setJevOnly(e.target.checked)}
-        />
-        Use Jev only
-      </label>
-      <p className="ml-6 text-xs text-fg-tertiary">
-        No on-device fallback. Waits up to 4 s for Jev, and when Jev cannot answer, says why instead
-        of guessing. Live voice skips a phrase Jev could not route.
-      </p>
-      {s.jevCredentials.desktop ? (
-        <CredentialSettings
-          credentials={s.jevCredentials}
-          id="typesafe-api-key"
-          label="TypeSafe API key"
-          placeholder="TypeSafe key"
-          vendor="TypeSafe"
-          missing="Optional. Add a key to use Jev."
-        />
-      ) : (
-        <div>
-          <label htmlFor="typesafe-api-key" className="mb-1 block text-xs text-fg-secondary">
-            TypeSafe API key
-          </label>
-          <input
-            id="typesafe-api-key"
-            type="password"
-            value={s.jevKey}
-            onChange={(e) => s.setJevKey(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-            className="w-full rounded-md border border-subtle bg-inset px-3 py-2 text-sm text-fg focus-self"
-          />
-          <p className="mt-2 text-xs text-fg-tertiary">
-            Kept for this tab session. Requests pass through the Precipice proxy.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}

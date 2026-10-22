@@ -4,7 +4,11 @@ import { render, type Mounted } from "@/test/react";
 const native = vi.hoisted(() => ({ desktop: true, invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => native.desktop, invoke: native.invoke }));
 vi.mock("@/persistence/settings", () => ({
-  settingsRepository: { get: vi.fn(async () => undefined), set: vi.fn() },
+  // The Anthropic key is read only while the API connection is the one in use.
+  settingsRepository: {
+    get: vi.fn(async (key: string) => (key === "ai.connection" ? "anthropic" : undefined)),
+    set: vi.fn(),
+  },
 }));
 import { AppSettingsProvider, useAppSettings } from "@/app/useAppSettings";
 import { transportSettings } from "@/ai/provider";
@@ -20,7 +24,8 @@ async function mount() {
       <Probe />
     </AppSettingsProvider>,
   );
-  await act(async () => {});
+  for (let round = 0; round < 3; round++)
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 }
 beforeEach(() => {
   native.desktop = true;
@@ -46,7 +51,7 @@ describe("desktop credentials", () => {
       native.invoke.mock.calls
         .map(([command]) => command)
         .filter((command) => command.includes("api_key") || command.includes("typesafe_key")),
-    ).toEqual(["read_api_key", "read_typesafe_key"]);
+    ).toEqual(["read_api_key"]);
     expect(sessionStorage.getItem("anthropic.apiKey")).toBeNull();
     expect(sessionWrite).not.toHaveBeenCalled();
     await act(async () => {

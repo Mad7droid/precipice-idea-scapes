@@ -412,10 +412,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
 
   const requireKey = () => {
     if (appSettings.aiReady) return true;
-    notify.error(
-      "Connect AI",
-      "Connect ChatGPT or choose another connection in Settings → AI, then send your draft.",
-    );
+    notify.error("Connect AI", "Finish connecting in Settings → AI, then send your draft.");
     setSettingsOpen(true);
     return false;
   };
@@ -585,8 +582,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
       { scope: "selection", modelId: modelForTier("deep", modelId) },
     );
   };
+  // ChatGPT has no deeper model to move to, so Deepen would rerun the same model.
   const canDeepen =
-    !readOnly && generation.state.touched.length > 0 && tierOf(generation.state.model) !== "deep";
+    !readOnly &&
+    generation.state.touched.length > 0 &&
+    tierOf(generation.state.model) !== "deep" &&
+    !generation.state.model.startsWith("chatgpt/");
 
   /**
    * The local agent bridge is intentionally routed through the same model-facing action applier
@@ -858,10 +859,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 {...(canDeepen
                   ? {
                       onDeepen: deepen,
-                      deepenLabel:
-                        appSettings.connection.provider === "chatgpt"
-                          ? "Deepen"
-                          : "Deepen with Opus",
+                      deepenLabel: "Deepen with Opus",
                     }
                   : {})}
               />
@@ -1141,10 +1139,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                                 {...(canDeepen
                                   ? {
                                       onDeepen: deepen,
-                                      deepenLabel:
-                                        appSettings.connection.provider === "chatgpt"
-                                          ? "Deepen"
-                                          : "Deepen with Opus",
+                                      deepenLabel: "Deepen with Opus",
                                     }
                                   : {})}
                               />

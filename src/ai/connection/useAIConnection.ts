@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isDesktop } from "@/desktop/runtime";
 import { settingsRepository } from "@/persistence/settings";
-import type { ModelChoice } from "@/ai/models";
+import {
+  availableProviders,
+  isProviderId,
+  modelsFor,
+  PROVIDERS,
+  type ProviderId,
+} from "./providers";
+import { isKeychainDenied } from "@/desktop/keychain";
 
 export interface ConnectionSummary {
   available: boolean;
@@ -12,132 +19,188 @@ export interface ConnectionSummary {
   error?: string;
   profiles?: { id: string; email: string }[];
 }
+export interface ClaudeSummary {
+  installed: boolean;
+  connected: boolean;
+  checked: boolean;
+  email?: string;
+  connectionId?: string;
+  error?: string;
+}
 const EMPTY: ConnectionSummary = { available: false, status: "disconnected", models: [] };
+/** Each Claude check starts a Claude Code process, so focus changes reuse a recent answer. */
+const CLAUDE_FOCUS_REUSE_MS = 60_000;
+
+async function nativeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return args ? invoke<T>(command, args) : invoke<T>(command);
+}
+
+/**
+ * The one AI connection Scapi uses, and the model chosen for it.
+ *
+ * Only the selected connection is ever checked. Checking ChatGPT reads the Keychain and
+ * checking Claude starts Claude Code, so connections nobody chose never cost a prompt or a
+ * process. Each connection remembers its own model.
+ */
 export function useAIConnection() {
   const desktop = isDesktop();
-  const local =
+  const localDev =
     import.meta.env.DEV &&
-    !isDesktop() &&
+    !desktop &&
     typeof location !== "undefined" &&
     location.hostname === "127.0.0.1";
-  const [summary, setSummary] = useState<ConnectionSummary>(
-    local ? { ...EMPTY, status: "checking" } : EMPTY,
-  );
-  const [provider, setProvider] = useState<"anthropic" | "chatgpt" | "claude-plan">("anthropic");
-  const [claude, setClaude] = useState<{
-    installed: boolean;
-    connected: boolean;
-    email?: string;
-    connectionId?: string;
-    error?: string;
-  }>({ installed: false, connected: false });
-  const [preferredModel, setPreferredModel] = useState("");
+  const providers = availableProviders({ desktop, localDev });
+  const [provider, setProvider] = useState<ProviderId>(providers[0]);
+  const [restored, setRestored] = useState(false);
+  const [chosenModels, setChosenModels] = useState<Partial<Record<ProviderId, string>>>({});
+  const [summary, setSummary] = useState<ConnectionSummary>(EMPTY);
+  const [claude, setClaude] = useState<ClaudeSummary>({
+    installed: false,
+    connected: false,
+    checked: false,
+  });
   const [signInUrl, setSignInUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [claudeConnecting, setClaudeConnecting] = useState(false);
   const claudeLogin = useRef<string | null>(null);
-  const refresh = useCallback(
-    async (includeClaude = true) => {
-      if (desktop) {
-        const { invoke } = await import("@tauri-apps/api/core");
-        await Promise.all([
-          invoke<ConnectionSummary>("chatgpt_status")
-            .then((next) => {
-              if (
-                !next ||
-                !Array.isArray(next.models) ||
-                !["connected", "connecting", "disconnected"].includes(next.status)
-              )
-                throw new Error("Invalid connection summary");
-              setSummary(next);
-            })
-            .catch(() =>
-              setSummary({
-                ...EMPTY,
-                available: true,
-                error:
-                  "Could not read your ChatGPT connection. Check Keychain access and try again.",
-              }),
-            ),
-          includeClaude
-            ? invoke<typeof claude>("claude_status")
-                .then((next) => {
-                  if (
-                    !next ||
-                    typeof next.installed !== "boolean" ||
-                    typeof next.connected !== "boolean"
-                  )
-                    throw new Error(
-                      "Could not check Claude Code. Update the app and check the connection again.",
-                    );
-                  setClaude(next);
-                })
-                .catch((error) =>
-                  setClaude({ installed: true, connected: false, error: String(error) }),
-                )
-            : Promise.resolve(),
-        ]);
-        return;
-      }
-      if (!local) return;
+  const claudeCheckedAt = useRef(0);
+
+  const checkChatGPT = useCallback(async () => {
+    if (desktop) {
       try {
-        const response = await fetch("/__chatgpt/status", {
-          credentials: "same-origin",
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error();
-        const next = (await response.json()) as ConnectionSummary;
+        const next = await nativeInvoke<ConnectionSummary>("chatgpt_status");
         if (
+          !next ||
           !Array.isArray(next.models) ||
           !["connected", "connecting", "disconnected"].includes(next.status)
         )
-          throw new Error();
+          throw new Error("Invalid connection summary");
         setSummary(next);
-        if (next.status === "connected") setSignInUrl("");
-      } catch {
+      } catch (error) {
         setSummary({
           ...EMPTY,
-          error:
-            "Local ChatGPT connection is unavailable. Restart the dev server or use another connection.",
+          available: true,
+          error: isKeychainDenied(error)
+            ? "Precipice needs Keychain access to use your saved ChatGPT connection."
+            : "Could not read your ChatGPT connection. Check Keychain access and try again.",
         });
       }
+      return;
+    }
+    if (!localDev) return;
+    try {
+      const response = await fetch("/__chatgpt/status", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error();
+      const next = (await response.json()) as ConnectionSummary;
+      if (
+        !Array.isArray(next.models) ||
+        !["connected", "connecting", "disconnected"].includes(next.status)
+      )
+        throw new Error();
+      setSummary(next);
+      if (next.status === "connected") setSignInUrl("");
+    } catch {
+      setSummary({
+        ...EMPTY,
+        error:
+          "Local ChatGPT connection is unavailable. Restart the dev server or use another connection.",
+      });
+    }
+  }, [desktop, localDev]);
+
+  const checkClaude = useCallback(async () => {
+    if (!desktop) return;
+    claudeCheckedAt.current = Date.now();
+    try {
+      const next = await nativeInvoke<ClaudeSummary>("claude_status");
+      if (!next || typeof next.installed !== "boolean" || typeof next.connected !== "boolean")
+        throw new Error("Could not check Claude Code. Update the app and check again.");
+      setClaude({ ...next, checked: true });
+    } catch (error) {
+      setClaude({ installed: true, connected: false, checked: true, error: String(error) });
+    }
+  }, [desktop]);
+
+  /** Checks the selected connection now. */
+  const refresh = useCallback(
+    async (target: ProviderId = provider) => {
+      if (target === "chatgpt") await checkChatGPT();
+      else if (target === "claude-plan") await checkClaude();
     },
-    [local, desktop],
+    [provider, checkChatGPT, checkClaude],
   );
+
   useEffect(() => {
-    void settingsRepository.get<string>("ai.connection").then((saved) => {
-      if (saved === "chatgpt" || saved === "claude-plan") setProvider(saved);
-    });
-    void settingsRepository.get<string>("ai.chatgpt.model").then((saved) => {
-      if (saved) setPreferredModel(saved);
-    });
-    void refresh();
-    const onFocus = () => void refresh();
+    let active = true;
+    void (async () => {
+      const saved = await settingsRepository.get<string>("ai.connection");
+      const models = await Promise.all(
+        providers.map(
+          async (id) => [id, await settingsRepository.get<string>(PROVIDERS[id].modelKey)] as const,
+        ),
+      );
+      if (!active) return;
+      if (isProviderId(saved) && providers.includes(saved)) setProvider(saved);
+      setChosenModels(Object.fromEntries(models.filter(([, model]) => !!model)));
+      setRestored(true);
+    })();
+    return () => {
+      active = false;
+    };
+    // The environment cannot change while the app runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    void refresh(provider);
+    const onFocus = () => {
+      if (
+        provider === "claude-plan" &&
+        Date.now() - claudeCheckedAt.current < CLAUDE_FOCUS_REUSE_MS
+      )
+        return;
+      void refresh(provider);
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [refresh]);
+    // Re-check only when the selection changes, not when a callback identity does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored, provider]);
+
   useEffect(() => {
-    if (summary.status !== "connecting") return;
-    const timer = window.setInterval(() => void refresh(false), 1200);
+    if (provider !== "chatgpt" || summary.status !== "connecting") return;
+    const timer = window.setInterval(() => void checkChatGPT(), 1200);
     return () => window.clearInterval(timer);
-  }, [summary.status, refresh]);
-  const choose = (next: "anthropic" | "chatgpt" | "claude-plan") => {
+  }, [provider, summary.status, checkChatGPT]);
+
+  const choose = (next: ProviderId) => {
+    if (!providers.includes(next)) return;
     setProvider(next);
     void settingsRepository.set("ai.connection", next);
   };
+
+  const models = modelsFor(provider, summary.models);
+  const chosen = chosenModels[provider];
+  const modelId = chosen && models.some((model) => model.id === chosen) ? chosen : models[0].id;
   const changeModel = (id: string) => {
-    setPreferredModel(id);
-    void settingsRepository.set("ai.chatgpt.model", id);
+    if (!models.some((model) => model.id === id)) return;
+    setChosenModels((prev) => ({ ...prev, [provider]: id }));
+    void settingsRepository.set(PROVIDERS[provider].modelKey, id);
   };
+
   const connect = async (newAccount = false) => {
-    if (busy || (!local && !desktop)) return;
+    if (busy || (!localDev && !desktop)) return;
     if (desktop) {
       setBusy(true);
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        await invoke("chatgpt_connect", { newAccount });
+        await nativeInvoke("chatgpt_connect", { newAccount });
         choose("chatgpt");
-        await refresh();
+        await checkChatGPT();
       } catch (error) {
         setSummary((prev) => ({ ...prev, error: String(error) }));
       } finally {
@@ -173,19 +236,19 @@ export function useAIConnection() {
       setBusy(false);
     }
   };
+
   const disconnect = async () => {
-    if (busy || (!local && !desktop)) return;
+    if (busy || (!localDev && !desktop)) return;
     setBusy(true);
     try {
       if (desktop) {
-        const { invoke } = await import("@tauri-apps/api/core");
         if (summary.status === "connecting") {
-          await invoke("chatgpt_cancel_login");
-          await refresh();
+          await nativeInvoke("chatgpt_cancel_login");
+          await checkChatGPT();
           return;
         }
-        const result = await invoke<{ revocationConfirmed: boolean }>("chatgpt_disconnect");
-        await refresh();
+        const result = await nativeInvoke<{ revocationConfirmed: boolean }>("chatgpt_disconnect");
+        await checkChatGPT();
         if (!result.revocationConfirmed)
           setSummary((prev) => ({
             ...prev,
@@ -200,7 +263,7 @@ export function useAIConnection() {
       });
       if (!response.ok) throw new Error("Could not disconnect ChatGPT. Try again.");
       setSignInUrl("");
-      await refresh();
+      await checkChatGPT();
       // Keep ChatGPT selected. Never switch a subscription user to API billing automatically.
     } catch (failure) {
       setSummary((prev) => ({
@@ -211,63 +274,30 @@ export function useAIConnection() {
       setBusy(false);
     }
   };
-  const models: ModelChoice[] =
-    provider === "claude-plan"
-      ? [
-          {
-            id: "claude-plan/sonnet",
-            label: "Claude Sonnet",
-            tier: "standard",
-            hint: "Uses your Claude plan through Claude Code. Web search is unavailable.",
-          },
-          {
-            id: "claude-plan/haiku",
-            label: "Claude Haiku",
-            tier: "instant",
-            hint: "Uses your Claude plan through Claude Code.",
-          },
-          {
-            id: "claude-plan/opus",
-            label: "Claude Opus",
-            tier: "deep",
-            hint: "Uses your Claude plan through Claude Code.",
-          },
-        ]
-      : (summary.models.length
-          ? summary.models
-          : [{ id: "chatgpt/unavailable", label: "Connect ChatGPT" }]
-        ).map((model) => ({
-          ...model,
-          tier: "standard",
-          hint: "Uses your connected ChatGPT plan. Availability and usage limits depend on your account.",
-        }));
-  const modelId = models.some((model) => model.id === preferredModel)
-    ? preferredModel
-    : (models[0]?.id ?? "chatgpt/unavailable");
+
   const selectAccount = async (connectionId: string) => {
     if (busy || !desktop) return;
     setBusy(true);
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("chatgpt_select", { connectionId });
+      await nativeInvoke("chatgpt_select", { connectionId });
       choose("chatgpt");
-      await refresh();
+      await checkChatGPT();
     } catch (error) {
       setSummary((prev) => ({ ...prev, error: String(error) }));
     } finally {
       setBusy(false);
     }
   };
+
   const connectClaude = async () => {
     if (!desktop || claudeConnecting) return;
     setClaudeConnecting(true);
     const id = crypto.randomUUID();
     claudeLogin.current = id;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("claude_connect", { id });
+      await nativeInvoke("claude_connect", { id });
       choose("claude-plan");
-      await refresh();
+      await checkClaude();
     } catch (error) {
       if (!String(error).includes("cancelled"))
         setClaude((prev) => ({ ...prev, error: String(error) }));
@@ -276,16 +306,16 @@ export function useAIConnection() {
       claudeLogin.current = null;
     }
   };
+
   const cancelClaudeLogin = async () => {
     if (!claudeLogin.current) return;
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("ai_cancel", { id: claudeLogin.current }).catch(() => {});
+    await nativeInvoke("ai_cancel", { id: claudeLogin.current }).catch(() => {});
   };
+
   const openSettings = async (target: "chatgpt-usage" | "claude-usage" | "claude-install") => {
     if (desktop) {
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        await invoke("open_ai_settings", { target });
+        await nativeInvoke("open_ai_settings", { target });
       } catch {
         setSummary((prev) => ({
           ...prev,
@@ -294,35 +324,56 @@ export function useAIConnection() {
       }
     } else window.open("https://chatgpt.com/settings/usage", "_blank", "noopener,noreferrer");
   };
+
+  const status: ConnectionSummary["status"] =
+    provider === "claude-plan"
+      ? claudeConnecting
+        ? "connecting"
+        : !claude.checked
+          ? "checking"
+          : claude.connected
+            ? "connected"
+            : "disconnected"
+      : provider === "chatgpt"
+        ? summary.status
+        : "connected";
+
   return {
-    ...summary,
-    available: summary.available || desktop,
-    chatgptStatus: summary.status,
-    chatgptConnectionId: summary.connectionId,
-    status:
-      provider === "claude-plan"
-        ? claude.connected
-          ? ("connected" as const)
-          : ("disconnected" as const)
-        : summary.status,
-    connectionId:
-      provider === "claude-plan" ? (claude.connectionId ?? claude.email) : summary.connectionId,
     desktop,
+    providers,
+    provider,
+    choose,
+    /** False until the saved connection and models are restored, so nothing flickers. */
+    restored,
+    status,
+    connectionId:
+      provider === "claude-plan"
+        ? (claude.connectionId ?? claude.email)
+        : provider === "chatgpt"
+          ? summary.connectionId
+          : undefined,
+    error:
+      provider === "chatgpt"
+        ? summary.error
+        : provider === "claude-plan"
+          ? claude.error
+          : undefined,
+    models,
+    modelId,
+    changeModel,
+    refresh,
+    chatgpt: summary,
+    chatgptAvailable: summary.available || desktop,
+    connect,
+    disconnect,
+    selectAccount,
+    signInUrl,
+    busy,
     claude,
     claudeConnecting,
     connectClaude,
     cancelClaudeLogin,
     openSettings,
-    provider,
-    choose,
-    models,
-    modelId,
-    changeModel,
-    connect,
-    disconnect,
-    refresh,
-    selectAccount,
-    signInUrl,
-    busy,
   };
 }
+export type AIConnection = ReturnType<typeof useAIConnection>;
