@@ -20,7 +20,6 @@ use tokio::{
 
 const AUTH: &str = "https://auth.openai.com";
 const API: &str = "https://api.openai.com/v1";
-const SERVICE: &str = "dev.precipice.desktop.chatgpt";
 const MAX_BODY: usize = 2 * 1024 * 1024;
 type Result<T> = std::result::Result<T, String>;
 
@@ -69,22 +68,10 @@ pub fn open_ai_settings(target: String) -> Result<()> {
     }
 }
 fn read_secret(account: &str) -> Result<Option<String>> {
-    match security_framework::passwords::generic_password(crate::credential_options(
-        SERVICE, account,
-    )) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map(Some)
-            .map_err(|_| "Invalid saved ChatGPT connection.".into()),
-        Err(e) if e.code() == crate::NOT_FOUND => Ok(None),
-        Err(_) => Err("Allow Precipice access to its ChatGPT connection in Keychain.".into()),
-    }
+    crate::vault::get(&format!("chatgpt.{account}")).map_err(String::from)
 }
 fn save_secret(account: &str, value: &str) -> Result<()> {
-    security_framework::passwords::set_generic_password_options(
-        value.as_bytes(),
-        crate::credential_options(SERVICE, account),
-    )
-    .map_err(|_| "Could not save ChatGPT connection in Keychain.".into())
+    crate::vault::set(&format!("chatgpt.{account}"), Some(value)).map_err(String::from)
 }
 
 #[derive(Clone, Serialize, Deserialize)]

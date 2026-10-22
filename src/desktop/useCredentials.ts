@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isDesktop } from "./runtime";
+import { isKeychainDenied } from "./keychain";
 
 /**
- * One Keychain-backed credential. Each has its own restricted Tauri commands and its own
- * Keychain item, so granting the TypeSafe key never widens what can read the Anthropic one.
+ * One desktop credential. Each has its own restricted Tauri commands; the native side keeps
+ * them all in one Keychain item so macOS asks at most once per launch.
  */
 export interface CredentialSpec {
   read: string;
@@ -27,18 +28,25 @@ export const TYPESAFE_CREDENTIAL: CredentialSpec = {
   remove: "remove_typesafe_key",
 };
 
-export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL) {
+/**
+ * `enabled` defers the Keychain read until the credential is actually needed, so a feature
+ * nobody uses never causes a Keychain prompt.
+ */
+export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL, enabled = true) {
   const desktop = isDesktop();
   const [key, setKey] = useState("");
   const [saved, setSaved] = useState(false);
-  const [ready, setReady] = useState(!desktop);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [denied, setDenied] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const revision = useRef(0);
   const locked = useRef(false);
+  const ready = !desktop || !enabled || loaded;
 
   useEffect(() => {
-    if (!desktop) return;
+    if (!desktop || !enabled) return;
     let active = true;
     const version = revision.current;
     // Desktop credentials never go into WebKit's browser storage.
@@ -51,21 +59,32 @@ export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL) {
       .then((value) => {
         if (!active) return;
         setSaved(value !== null);
+        setDenied(false);
+        setError("");
         if (revision.current === version) setKey(value ?? "");
       })
-      .catch(() => {
-        if (active)
-          setError(
-            "Could not read Keychain. Unlock your login keychain and reopen the app, or use a key for this session.",
-          );
+      .catch((failure) => {
+        if (!active) return;
+        setDenied(isKeychainDenied(failure));
+        setError(
+          isKeychainDenied(failure)
+            ? "Precipice needs Keychain access to use your saved key."
+            : "Could not read Keychain. Unlock your login keychain and try again.",
+        );
       })
       .finally(() => {
-        if (active) setReady(true);
+        if (active) setLoaded(true);
       });
     return () => {
       active = false;
     };
-  }, [desktop, spec]);
+  }, [desktop, spec, enabled, attempt]);
+
+  /** Reads the saved key again, after Keychain access is allowed. */
+  const reload = () => {
+    setLoaded(false);
+    setAttempt((value) => value + 1);
+  };
 
   const change = (value: string) => {
     revision.current++;
@@ -83,11 +102,14 @@ export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL) {
       setSaved(value !== null);
       change(value?.trim() ?? "");
       return true;
-    } catch {
+    } catch (failure) {
+      setDenied(isKeychainDenied(failure));
       setError(
-        value === null
-          ? "Could not remove the saved key. It is still in Keychain. Unlock your login keychain and try again."
-          : "Could not save the replacement in Keychain. The previous saved key, if any, is unchanged.",
+        isKeychainDenied(failure)
+          ? "Precipice needs Keychain access to save or remove keys."
+          : value === null
+            ? "Could not remove the saved key. It is still in Keychain. Unlock your login keychain and try again."
+            : "Could not save the replacement in Keychain. The previous saved key, if any, is unchanged.",
       );
       return false;
     } finally {
@@ -96,6 +118,6 @@ export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL) {
     }
   };
 
-  return { desktop, key, change, saved, ready, busy, error, persist };
+  return { desktop, key, change, saved, ready, busy, error, denied, persist, reload };
 }
 export type DesktopCredentials = ReturnType<typeof useCredentials>;

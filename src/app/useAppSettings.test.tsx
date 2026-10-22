@@ -23,7 +23,7 @@ function FirstProbe() {
       <button type="button" onClick={() => setApiKey("")}>
         Clear key
       </button>
-      <button type="button" onClick={() => setModelId("model-next")}>
+      <button type="button" onClick={() => setModelId("claude-opus-5-5")}>
         Set model
       </button>
       <button type="button" onClick={() => setTypes(["note"])}>
@@ -47,7 +47,7 @@ describe("app settings", () => {
   it("restores an API key from the current tab session, not IndexedDB", async () => {
     sessionStorage.setItem("anthropic.apiKey", "sk-ant-session-key");
     settings.get.mockImplementation(async (key) => {
-      if (key === SETTING_KEYS.model) return "saved-model";
+      if (key === SETTING_KEYS.model) return "claude-haiku-5-5";
       if (key === SETTING_KEYS.generateTypes) return ["journey"];
       return "stale-api-key";
     });
@@ -66,7 +66,7 @@ describe("app settings", () => {
       '"apiKey":"sk-ant-session-key"',
     );
     expect(view.container.querySelector('[data-testid="first"]')!.textContent).toContain(
-      '"modelId":"saved-model"',
+      '"modelId":"claude-haiku-5-5"',
     );
     expect(settings.get).not.toHaveBeenCalledWith("anthropic.apiKey");
 
@@ -83,7 +83,7 @@ describe("app settings", () => {
 
     act(() => buttons[2].click());
     act(() => buttons[3].click());
-    expect(settings.set).toHaveBeenCalledWith(SETTING_KEYS.model, "model-next");
+    expect(settings.set).toHaveBeenCalledWith(SETTING_KEYS.model, "claude-opus-5-5");
     expect(settings.set).toHaveBeenCalledWith(SETTING_KEYS.generateTypes, ["note"]);
 
     view.unmount();

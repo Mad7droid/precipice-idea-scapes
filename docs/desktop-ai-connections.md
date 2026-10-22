@@ -5,12 +5,14 @@ installation are separate steps; the checks below distinguish implemented behavi
 
 ## Connecting Scapi
 
-Settings → AI offers three explicit connections:
+Settings → AI offers three explicit connections. The Claude plan is the default; the API key
+is never chosen automatically. Only the selected connection is checked, and each remembers
+its own model:
 
 | Connection | Setup | Billing | Runtime |
 | --- | --- | --- | --- |
-| ChatGPT plan | Continue with ChatGPT; approve plan usage in the system browser | Selected ChatGPT plan and its limits | Native OAuth + Responses API |
-| Claude plan | Install Claude Code; Sign in to Claude; Use Claude plan | Selected Claude plan and its limits | Local Claude Code CLI |
+| Claude plan | Install Claude Code; Sign in to Claude | Selected Claude plan and its limits | Local Claude Code CLI |
+| ChatGPT plan | Sign in to ChatGPT; approve plan usage in the system browser | Selected ChatGPT plan and its limits | Native OAuth + Responses API |
 | Anthropic API | Enter an Anthropic API key | Separate API billing | Existing Anthropic SDK transport |
 
 Being signed in to ChatGPT Desktop or Claude Desktop does not automatically connect Scapi.
@@ -27,7 +29,8 @@ Claude requires a current Claude Code installation supporting `--safe-mode`, `--
 `~/.local/bin`, `/opt/homebrew/bin`, or `/usr/local/bin`. The sign-in button runs
 `claude auth login --claudeai`; `claude auth login` in Terminal is a recovery option.
 Claude manages the underlying account, so logging out or changing accounts there affects
-Precipice. Precipice never copies its tokens. Sonnet, Haiku and Opus use Claude Code's model
+Precipice. Each account check starts Claude Code, so requests reuse a check from the last
+60 seconds and window focus re-checks at most once a minute. Precipice never copies its tokens. Sonnet, Haiku and Opus use Claude Code's model
 aliases; account availability still applies. Claude plan web search is unavailable.
 
 ## Request lifecycle

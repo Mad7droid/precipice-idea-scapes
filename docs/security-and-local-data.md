@@ -73,19 +73,19 @@ Requests include input kind, selection count/types and available object types. S
 command requests also include up to 60 object ids/titles as target choices. Object
 bodies, library contents and web results are excluded. The key is sent only as the
 TypeSafe authentication header. Web requests pass through the BYOK Cloudflare proxy;
-the Mac app sends them from its native process (`jev_route`), which reads the key from
-Keychain itself, because TypeSafe's CORS policy does not allow the app's origin. The proxy
+the Mac app sends them from its native process (`jev_route`), which uses the key from its
+cached Keychain vault, because TypeSafe's CORS policy does not allow the app's origin. The proxy
 has no managed key and adds no request logging. TypeSafe is a separate processor; do not assume zero retention.
 
-The key uses tab session storage on web and optional macOS Keychain storage on desktop,
-matching Anthropic credentials. Routing times out after 800 ms and falls back locally;
+The key uses tab session storage on web and macOS Keychain storage on desktop, matching
+Anthropic credentials. The desktop key is read only while Jev routing is on. Routing times out after 800 ms and falls back locally;
 it never sends a draft or executes a command automatically. Live evaluation is still
 pending, so Jev remains experimental and disabled by default.
 
 ## Desktop AI connections
 
-The Mac app can use a ChatGPT plan, a Claude plan through Claude Code, or an Anthropic API
-key. These are explicit billing choices. A plan connection failure never falls back to an API key.
+The Mac app can use a Claude plan through Claude Code (the default), a ChatGPT plan, or an
+Anthropic API key. These are explicit billing choices. Only the selected connection is checked. A plan connection failure never falls back to an API key.
 See [desktop AI connections](desktop-ai-connections.md) for setup and verification status.
 
 ChatGPT uses a native loopback sign-in listener bound to `127.0.0.1`, with per-attempt state,
@@ -171,17 +171,21 @@ API plan you use.
 ## The macOS app, and what installing an update trusts
 
 The Mac app is a separate local store from the browser: its Scapes, preferences, and key never
-reach browser storage, and no route synchronizes the two. An Anthropic key is only written to the
-login Keychain when you ask for it, as a non-synchronizing generic-password item under service
-`dev.precipice.desktop.anthropic`. It is never written to a file, IndexedDB, an export, or a log.
+reach browser storage, and no route synchronizes the two. Desktop secrets (Anthropic and
+TypeSafe keys, ChatGPT connection data and the agent host credential) share one
+non-synchronizing generic-password item in the login Keychain: service = the app's bundle
+identifier, account `credentials`. The native process reads it at most once per launch and
+only when a feature needs a secret; a refusal is remembered until **Allow access** in
+Settings → AI. The installed app moves items from earlier versions into it once; other
+identities, such as a preview build, start empty. It is never written to a file, IndexedDB, an export, or a log.
 Desktop AI calls reach Anthropic directly rather than through the Worker. See
 [desktop notes](desktop.md) for the full native boundary.
 
 Installing a build is the moment you extend trust, so treat it as a security step:
 
 - Local builds are ad-hoc signed. Their code directory hash changes on every build, so macOS
-  treats each build as a different app and asks for Keychain access again. That prompt is
-  expected on a rebuild; a prompt you did not trigger by installing is not.
+  treats each build as a different app and asks for Keychain access again, at most once per
+  launch. That prompt is expected on a rebuild; a prompt you did not trigger by installing is not.
 - The app version comes from `package.json` and is checked against `src-tauri/Cargo.toml` by
   `pnpm check:version`. Two builds that claim the same version cannot be told apart after
   installation, which is a problem for auditing what is running, not only for convenience.
@@ -189,7 +193,8 @@ Installing a build is the moment you extend trust, so treat it as a security ste
   notarization exist. An updater downloads and runs code; without a stable signing identity
   and an update-manifest signature, installing an update would trust whatever the download
   endpoint served.
-- Uninstalling the app does not remove its Keychain item. Remove the key in Settings first.
+- Uninstalling the app does not remove its Keychain item. Remove keys and sign out in
+  Settings first; the item is deleted once it holds nothing.
 
 ## Deployment and repository hygiene
 
@@ -260,7 +265,7 @@ Desktop local MCP uses the app's `--mcp` stdio mode and a socket in its user-pri
 support directory (directory 0700, socket 0600). It authorizes same-user local processes, not
 remote web content. Local MCP has the library access explicitly enabled in Agents and shares
 one local review policy. The app can update its entry in supported client configuration files
-when the user presses Add; unrelated client settings must be preserved. Desktop host credentials live in a separate Keychain item. System-browser sign-in returns a
+when the user presses Add; unrelated client settings must be preserved. Desktop host credentials live in the desktop credential vault. System-browser sign-in returns a
 one-minute single-use code bound to an in-memory/session PKCE verifier, never a bearer token.
 Host credentials permit relay connection, connection management, and bounded publication
 snapshots. They cannot approve new OAuth grants, administer users, or access account deletion.

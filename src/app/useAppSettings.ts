@@ -1,11 +1,13 @@
 import {
+  ANTHROPIC_CREDENTIAL,
   TYPESAFE_CREDENTIAL,
   useCredentials,
   type DesktopCredentials,
 } from "@/desktop/useCredentials";
 import { useAIConnection } from "@/ai/connection/useAIConnection";
-import { MODELS, type ModelChoice } from "@/ai/models";
+import type { ModelChoice } from "@/ai/models";
 import { isDesktop } from "@/desktop/runtime";
+import { retryKeychain } from "@/desktop/keychain";
 import {
   createContext,
   createElement,
@@ -16,7 +18,6 @@ import {
   type ReactNode,
 } from "react";
 import { MAX_INSTRUCTIONS, SETTING_KEYS } from "@/core/types";
-import { DEFAULT_MODEL } from "@/ai/models";
 import { settingsRepository } from "@/persistence/settings";
 
 /**
@@ -55,6 +56,9 @@ interface AppSettings {
   jevKey: string;
   setJevKey: (next: string) => void;
   jevCredentials: DesktopCredentials;
+  /** macOS refused Keychain access; nothing asks again until `allowKeychain`. */
+  keychainDenied: boolean;
+  allowKeychain: () => Promise<void>;
   ready: boolean;
 }
 
@@ -74,33 +78,32 @@ function readSessionApiKey(name = API_KEY_SESSION_KEY): string {
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const connection = useAIConnection();
-  const credentials = useCredentials();
-  const jevCredentials = useCredentials(TYPESAFE_CREDENTIAL);
-  const [sessionKey, setApiKeyState] = useState(() => readSessionApiKey());
-  const [jevSessionKey, setJevKeyState] = useState(() => readSessionApiKey(JEV_KEY_SESSION_KEY));
   const [routeChips, setRouteChipsState] = useState(false);
   const [jevRouting, setJevRoutingState] = useState(false);
+  // Keys are read from Keychain only once the feature that sends them is turned on.
+  const credentials = useCredentials(ANTHROPIC_CREDENTIAL, connection.provider === "anthropic");
+  const jevCredentials = useCredentials(TYPESAFE_CREDENTIAL, routeChips && jevRouting);
+  const [sessionKey, setApiKeyState] = useState(() => readSessionApiKey());
+  const [jevSessionKey, setJevKeyState] = useState(() => readSessionApiKey(JEV_KEY_SESSION_KEY));
   const [jevOnly, setJevOnlyState] = useState(false);
-  const [modelId, setModelIdState] = useState(DEFAULT_MODEL);
   const [types, setTypesState] = useState<string[]>([]);
   const [instructions, setInstructionsState] = useState("");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     void (async () => {
-      const [model, savedTypes, savedInstructions, savedChips, savedJev, savedJevOnly] =
-        await Promise.all([
-        settingsRepository.get<string>(SETTING_KEYS.model),
-        settingsRepository.get<string[]>(SETTING_KEYS.generateTypes),
-        settingsRepository.get<string>(SETTING_KEYS.instructions),
-        settingsRepository.get<boolean>(SETTING_KEYS.routeChips),
-        settingsRepository.get<boolean>(SETTING_KEYS.jevRouting),
-        settingsRepository.get<boolean>(SETTING_KEYS.jevOnly),
-      ]);
+      const [savedTypes, savedInstructions, savedChips, savedJev, savedJevOnly] = await Promise.all(
+        [
+          settingsRepository.get<string[]>(SETTING_KEYS.generateTypes),
+          settingsRepository.get<string>(SETTING_KEYS.instructions),
+          settingsRepository.get<boolean>(SETTING_KEYS.routeChips),
+          settingsRepository.get<boolean>(SETTING_KEYS.jevRouting),
+          settingsRepository.get<boolean>(SETTING_KEYS.jevOnly),
+        ],
+      );
       if (savedChips === true) setRouteChipsState(true);
       if (savedJev === true) setJevRoutingState(true);
       if (savedJevOnly === true) setJevOnlyState(true);
-      if (model) setModelIdState(model);
       if (Array.isArray(savedTypes)) setTypesState(savedTypes);
       if (typeof savedInstructions === "string") setInstructionsState(savedInstructions);
       setReady(true);
@@ -152,13 +155,15 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     void settingsRepository.set(SETTING_KEYS.jevRouting, next);
   };
 
-  const setModelId = (next: string) => {
-    if (connection.provider !== "anthropic") {
-      connection.changeModel(next);
-      return;
-    }
-    setModelIdState(next);
-    void settingsRepository.set(SETTING_KEYS.model, next);
+  const keychainDenied =
+    connection.error?.includes("Keychain access") === true ||
+    credentials.denied ||
+    jevCredentials.denied;
+  const allowKeychain = async () => {
+    await retryKeychain().catch(() => undefined);
+    credentials.reload();
+    jevCredentials.reload();
+    await connection.refresh();
   };
 
   const setTypes = (next: string[]) => {
@@ -175,14 +180,14 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       connection,
-      models: connection.provider !== "anthropic" ? connection.models : MODELS,
+      models: connection.models,
       aiReady:
-        connection.provider !== "anthropic" ? connection.status === "connected" : !!apiKey.trim(),
+        connection.provider === "anthropic" ? !!apiKey.trim() : connection.status === "connected",
       credentials,
       apiKey,
       setApiKey,
-      modelId: connection.provider !== "anthropic" ? connection.modelId : modelId,
-      setModelId,
+      modelId: connection.modelId,
+      setModelId: connection.changeModel,
       types,
       setTypes,
       instructions,
@@ -196,7 +201,9 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       jevKey,
       setJevKey,
       jevCredentials,
-      ready: ready && credentials.ready,
+      keychainDenied,
+      allowKeychain,
+      ready: ready && connection.restored && credentials.ready,
     }),
     [
       connection,
@@ -204,7 +211,6 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       jevCredentials,
       apiKey,
       jevKey,
-      modelId,
       types,
       instructions,
       routeChips,

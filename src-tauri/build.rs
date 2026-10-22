@@ -12,6 +12,7 @@ fn main() {
             "claude_connect",
             "claude_request",
             "open_ai_settings",
+            "keychain_retry",
             "read_agent_session",
             "save_agent_session",
             "open_agent_signin",
