@@ -130,6 +130,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     setInstructions,
     routeChips,
     jevRouting,
+    jevOnly,
     jevKey,
     ready,
   } = appSettings;
@@ -451,7 +452,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     request: string,
     origin: "canvas" | "panel" = "canvas",
     /** A routed send's choices, or a Deepen pass's. Absent means the controls' own state. */
-    route?: Partial<Pick<SendRoute, "scope" | "types" | "modelId" | "deep">>,
+    route?: Partial<Pick<SendRoute, "scope" | "types" | "modelId" | "deep" | "spoken">>,
   ) => {
     if (busy || scapi.streaming || !requireLease()) return;
     if (!requireKey()) return;
@@ -467,6 +468,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
       scope: route?.scope ?? scope,
       globalInstructions: instructions,
       ...(route?.deep ? { deepSuggested: true } : {}),
+      // Spoken requests carry what the previous run changed, so "it" can mean that.
+      ...(route?.spoken
+        ? { spoken: { ...route.spoken, lastChanged: generation.state.touched } }
+        : {}),
     });
   };
 
@@ -474,7 +479,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const handleAsk = (
     question: string,
     origin: "canvas" | "panel" = "canvas",
-    route?: Pick<SendRoute, "modelId" | "webSearch" | "scope">,
+    route?: Pick<SendRoute, "modelId" | "webSearch" | "scope" | "spoken">,
   ) => {
     if (busy || !requireLease() || !requireKey()) return;
     setLastOrigin(origin);
@@ -538,6 +543,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const routing: ComposerRouting = {
     enabled: routeChips,
     jevKey: jevRouting ? jevKey : "",
+    jevOnly: jevRouting && jevOnly,
     getContext: () => {
       const { scape: current, selection: selected } = useScapeStore.getState();
       const objects = current

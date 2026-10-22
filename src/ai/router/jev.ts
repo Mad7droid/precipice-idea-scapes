@@ -32,8 +32,8 @@ export function jevUrl(): string {
 // The order of each option list is deliberate: Jev leans toward earlier options, so the most
 // common answer goes first and a wrong lean costs the least.
 const INTENTS: Record<RouteIntent, string> = {
-  edit: "Change the canvas: create, rewrite, expand or restructure objects such as notes, journeys and wireframes.",
-  ask: "A question or a request for analysis, explanation or a summary. Nothing on the canvas should change.",
+  edit: 'Change the canvas: create, rewrite, expand, simplify, shorten, merge or remove objects such as notes, journeys and wireframes. A polite request to change something, such as "can you simplify this?", is an edit.',
+  ask: "A genuine question or a request for analysis, explanation or a summary, where the person wants an answer, not a change. Nothing on the canvas should change.",
   connect:
     "Only draw relationships between objects that already exist. Nothing new is created and no content changes.",
   command:
@@ -246,38 +246,62 @@ export function parseAnswers(
   return suggestion;
 }
 
+/** What one Jev request produced: a route, or the plain reason it did not. */
+export type JevResult =
+  { ok: true; suggestion: RouteSuggestion } | { ok: false; reason: string; ms: number };
+
+/** Jev-only routing waits longer: with no on-device fallback, an answer beats a fast miss. */
+export const JEV_ONLY_TIMEOUT_MS = 4000;
+
 /**
- * One routing request. Resolves to null on any failure — timeout, offline, bad key, a schema
- * the vendor changed — because a missing route is always safe and an error is never shown.
+ * One routing request, reporting why it failed. Callers that fall back on-device use
+ * `askJev`; Jev-only routing shows the reason, since nothing else will route the phrase.
  */
-export async function askJev(
+export async function requestJev(
   text: string,
   context: RouteContext,
   apiKey: string,
-  signal?: AbortSignal,
-  fetcher: typeof fetch = fetch,
-): Promise<RouteSuggestion | null> {
-  if (!apiKey.trim() || signal?.aborted) return null;
+  {
+    signal,
+    timeoutMs = JEV_TIMEOUT_MS,
+    fetcher = fetch,
+  }: { signal?: AbortSignal; timeoutMs?: number; fetcher?: typeof fetch } = {},
+): Promise<JevResult> {
+  const started = performance.now();
+  const fail = (reason: string): JevResult => ({
+    ok: false,
+    reason,
+    ms: Math.round(performance.now() - started),
+  });
+  if (!apiKey.trim()) return fail("No TypeSafe key");
+  if (signal?.aborted) return fail("Cancelled");
   const controller = new AbortController();
+  let timedOut = false;
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
-  const timer = setTimeout(abort, JEV_TIMEOUT_MS);
-  const started = performance.now();
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const parse = (raw: unknown): JevResult => {
+    const suggestion = parseAnswers(raw, context, Math.round(performance.now() - started));
+    return suggestion ? { ok: true, suggestion } : fail("Jev gave no usable answer");
+  };
   try {
     if (isDesktop() && fetcher === fetch) {
       // TypeSafe does not allow the app's origin in CORS, so the Mac app routes natively; the
       // key stays in Keychain and only this bounded request crosses the bridge.
       const { invoke } = await import("@tauri-apps/api/core");
-      const timedOut = new Promise<never>((_, reject) =>
+      const aborted = new Promise<never>((_, reject) =>
         controller.signal.addEventListener("abort", () => reject(new Error("aborted")), {
           once: true,
         }),
       );
       const raw = await Promise.race([
         invoke<string>("jev_route", { body: JSON.stringify(buildRequest(text, context)) }),
-        timedOut,
+        aborted,
       ]);
-      return parseAnswers(JSON.parse(raw), context, Math.round(performance.now() - started));
+      return parse(JSON.parse(raw));
     }
     const result = await fetcher(jevUrl(), {
       method: "POST",
@@ -288,12 +312,38 @@ export async function askJev(
       body: JSON.stringify(buildRequest(text, context)),
       signal: controller.signal,
     });
-    if (!result.ok) return null;
-    return parseAnswers(await result.json(), context, Math.round(performance.now() - started));
-  } catch {
-    return null;
+    if (!result.ok)
+      return fail(
+        result.status === 401 || result.status === 403
+          ? `TypeSafe rejected the key (${result.status})`
+          : `TypeSafe returned ${result.status}`,
+      );
+    return parse(await result.json());
+  } catch (error) {
+    if (timedOut) return fail(`No answer within ${(timeoutMs / 1000).toFixed(1)} s`);
+    if (signal?.aborted) return fail("Cancelled");
+    // Native errors arrive as plain strings from the Rust command.
+    return fail(typeof error === "string" ? error : "Could not reach TypeSafe");
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
   }
+}
+
+/**
+ * One routing request. Resolves to null on any failure — timeout, offline, bad key, a schema
+ * the vendor changed — because a missing route is always safe and on-device routing stands.
+ */
+export async function askJev(
+  text: string,
+  context: RouteContext,
+  apiKey: string,
+  signal?: AbortSignal,
+  fetcher: typeof fetch = fetch,
+): Promise<RouteSuggestion | null> {
+  const result = await requestJev(text, context, apiKey, {
+    ...(signal ? { signal } : {}),
+    fetcher,
+  });
+  return result.ok ? result.suggestion : null;
 }

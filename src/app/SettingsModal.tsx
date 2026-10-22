@@ -300,6 +300,19 @@ function RoutingSettings({ settings: s }: { settings: ReturnType<typeof useAppSe
         titles to TypeSafe before Send. Never sends audio or object bodies. Requires your TypeSafe
         key. Accuracy evaluation is pending; local suggestions handle failures.
       </p>
+      <label className="ml-6 flex items-center gap-2 text-sm text-fg">
+        <input
+          type="checkbox"
+          checked={s.jevOnly}
+          disabled={!s.routeChips || !s.jevRouting}
+          onChange={(e) => s.setJevOnly(e.target.checked)}
+        />
+        Use Jev only
+      </label>
+      <p className="ml-6 text-xs text-fg-tertiary">
+        No on-device fallback. Waits up to 4 s for Jev, and when Jev cannot answer, says why
+        instead of guessing. Live voice skips a phrase Jev could not route.
+      </p>
       {s.jevCredentials.desktop ? (
         <CredentialSettings
           credentials={s.jevCredentials}

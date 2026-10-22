@@ -48,6 +48,9 @@ interface AppSettings {
   /** Whether routing may ask TypeSafe Jev. Needs `jevKey` as well; both default off. */
   jevRouting: boolean;
   setJevRouting: (next: boolean) => void;
+  /** Route with Jev alone. Only meaningful while Jev routing is on. */
+  jevOnly: boolean;
+  setJevOnly: (next: boolean) => void;
   /** Stored exactly like the Anthropic key: tab session on the web, optional Keychain on Mac. */
   jevKey: string;
   setJevKey: (next: string) => void;
@@ -77,6 +80,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const [jevSessionKey, setJevKeyState] = useState(() => readSessionApiKey(JEV_KEY_SESSION_KEY));
   const [routeChips, setRouteChipsState] = useState(false);
   const [jevRouting, setJevRoutingState] = useState(false);
+  const [jevOnly, setJevOnlyState] = useState(false);
   const [modelId, setModelIdState] = useState(DEFAULT_MODEL);
   const [types, setTypesState] = useState<string[]>([]);
   const [instructions, setInstructionsState] = useState("");
@@ -84,15 +88,18 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      const [model, savedTypes, savedInstructions, savedChips, savedJev] = await Promise.all([
+      const [model, savedTypes, savedInstructions, savedChips, savedJev, savedJevOnly] =
+        await Promise.all([
         settingsRepository.get<string>(SETTING_KEYS.model),
         settingsRepository.get<string[]>(SETTING_KEYS.generateTypes),
         settingsRepository.get<string>(SETTING_KEYS.instructions),
         settingsRepository.get<boolean>(SETTING_KEYS.routeChips),
         settingsRepository.get<boolean>(SETTING_KEYS.jevRouting),
+        settingsRepository.get<boolean>(SETTING_KEYS.jevOnly),
       ]);
       if (savedChips === true) setRouteChipsState(true);
       if (savedJev === true) setJevRoutingState(true);
+      if (savedJevOnly === true) setJevOnlyState(true);
       if (model) setModelIdState(model);
       if (Array.isArray(savedTypes)) setTypesState(savedTypes);
       if (typeof savedInstructions === "string") setInstructionsState(savedInstructions);
@@ -133,6 +140,11 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const setRouteChips = (next: boolean) => {
     setRouteChipsState(next);
     void settingsRepository.set(SETTING_KEYS.routeChips, next);
+  };
+
+  const setJevOnly = (next: boolean) => {
+    setJevOnlyState(next);
+    void settingsRepository.set(SETTING_KEYS.jevOnly, next);
   };
 
   const setJevRouting = (next: boolean) => {
@@ -179,6 +191,8 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       setRouteChips,
       jevRouting,
       setJevRouting,
+      jevOnly,
+      setJevOnly,
       jevKey,
       setJevKey,
       jevCredentials,
@@ -195,6 +209,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       instructions,
       routeChips,
       jevRouting,
+      jevOnly,
       ready,
     ],
   );

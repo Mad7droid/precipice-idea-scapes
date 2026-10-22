@@ -22,6 +22,8 @@ export interface LiveEntry {
   action?: string;
   /** Who decided: Jev, or this device (including when Jev did not answer). */
   decider?: "jev" | "local" | "fallback";
+  /** Jev-only: why Jev could not route this phrase, so it was not run. */
+  error?: string;
   routeMs?: number;
   modelId?: string;
   /** Spoken → started running, and started → finished. */
@@ -36,6 +38,8 @@ export interface UseLiveVoiceOptions {
   baseline: () => RouteBaseline;
   context: () => RouteContext;
   jevKey: string;
+  /** Jev alone decides; a phrase Jev cannot route is shown as failed and not run. */
+  jevOnly?: boolean;
   /** True while any ask or edit is running, whichever mode started it. */
   busy: boolean;
   /** True when the most recent ask or edit ended in an error, so a run is not shown as done. */
@@ -62,6 +66,7 @@ export function useLiveVoice({
   baseline,
   context,
   jevKey,
+  jevOnly = false,
   busy,
   failed = false,
   onSend,
@@ -75,8 +80,8 @@ export function useLiveVoice({
   const decisions = useRef(new Map<number, { route: SendRoute; command?: LocalCommand } | null>());
   const running = useRef<{ id: number; startedAt: number; seenBusy: boolean } | null>(null);
   const sequence = useRef(0);
-  const latest = useRef({ baseline, context, jevKey, onSend, onCommand });
-  latest.current = { baseline, context, jevKey, onSend, onCommand };
+  const latest = useRef({ baseline, context, jevKey, jevOnly, onSend, onCommand });
+  latest.current = { baseline, context, jevKey, jevOnly, onSend, onCommand };
 
   const update = useCallback((id: number, patch: Partial<LiveEntry>) => {
     setEntries((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
@@ -87,7 +92,7 @@ export function useLiveVoice({
       const version = (versions.current.get(id) ?? 0) + 1;
       versions.current.set(id, version);
       decisions.current.delete(id);
-      const { baseline: base, context: ctx, jevKey: key } = latest.current;
+      const { baseline: base, context: ctx, jevKey: key, jevOnly: only } = latest.current;
       const routeContext = { ...ctx(), input: "voice" as const };
       const local = heuristicRoute(text, routeContext);
       const started = performance.now();
@@ -108,6 +113,37 @@ export function useLiveVoice({
       };
       if (!key.trim()) {
         finish(null);
+        return;
+      }
+      if (only) {
+        void loadJev()
+          .then(({ requestJev, JEV_ONLY_TIMEOUT_MS }) =>
+            requestJev(text, routeContext, key, { timeoutMs: JEV_ONLY_TIMEOUT_MS }),
+          )
+          .catch(() => ({ ok: false as const, reason: "Could not load Jev", ms: 0 }))
+          .then((result) => {
+            if (versions.current.get(id) !== version) return;
+            if (result.ok) {
+              // Jev alone: its answer is the whole suggestion, no on-device merge.
+              const decision = decide(base(), result.suggestion, new Set());
+              const command = latest.current.onCommand ? decision.command : undefined;
+              decisions.current.set(id, { route: decision.route, ...(command ? { command } : {}) });
+              update(id, {
+                stage: "queued",
+                action: command ? command.kind : labelFor(decision.route.intent),
+                decider: "jev",
+                routeMs: Math.round(performance.now() - started),
+                ...(command ? {} : { modelId: decision.route.modelId }),
+              });
+            } else {
+              update(id, {
+                stage: "failed",
+                decider: "jev",
+                error: result.reason,
+                routeMs: Math.round(performance.now() - started),
+              });
+            }
+          });
         return;
       }
       void loadJev()
@@ -195,7 +231,12 @@ export function useLiveVoice({
     }
     running.current = { id: next.id, startedAt, seenBusy: false };
     update(next.id, { stage: "running", waitMs });
-    latest.current.onSend(next.text, decision.route);
+    // The phrases said just before this one give "it" and "that" their meaning.
+    const recent = entries
+      .filter((entry) => entry.id < next.id)
+      .slice(-3)
+      .map((entry) => entry.text);
+    latest.current.onSend(next.text, { ...decision.route, spoken: { recent } });
   }, [busy, entries, failed, update, tick]);
 
   const clear = useCallback(() => {

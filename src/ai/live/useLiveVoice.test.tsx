@@ -1,11 +1,15 @@
 import { act, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, type Mounted } from "@/test/react";
-import type { RouteContext, RouteSuggestion } from "@/ai/router/types";
+import type { RouteContext, RouteSuggestion, SendRoute } from "@/ai/router/types";
 import { SETTLE_MS, useLiveVoice } from "./useLiveVoice";
 
-const remote = vi.hoisted(() => ({ ask: vi.fn() }));
-vi.mock("@/ai/router/jev", () => ({ askJev: remote.ask }));
+const remote = vi.hoisted(() => ({ ask: vi.fn(), request: vi.fn() }));
+vi.mock("@/ai/router/jev", () => ({
+  askJev: remote.ask,
+  requestJev: remote.request,
+  JEV_ONLY_TIMEOUT_MS: 4000,
+}));
 
 const context: RouteContext = {
   input: "voice",
@@ -28,10 +32,12 @@ afterEach(() => {
   view?.unmount();
   vi.useRealTimers();
   remote.ask.mockReset();
+  remote.request.mockReset();
 });
 
-function mount(jevKey = "", failed = false) {
+function mount(jevKey = "", failed = false, jevOnly = false) {
   const sent: string[] = [];
+  const routes: SendRoute[] = [];
   const commands: string[] = [];
   let latest!: ReturnType<typeof useLiveVoice>;
   let setBusy!: (busy: boolean) => void;
@@ -42,15 +48,25 @@ function mount(jevKey = "", failed = false) {
       baseline,
       context: () => context,
       jevKey,
+      jevOnly,
       busy,
       failed,
-      onSend: (text) => sent.push(text),
+      onSend: (text, route) => {
+        sent.push(text);
+        routes.push(route);
+      },
       onCommand: (command) => commands.push(command.kind),
     });
     return null;
   }
   view = render(<Probe />);
-  return { sent, commands, live: () => latest, busy: (b: boolean) => act(() => setBusy(b)) };
+  return {
+    sent,
+    routes,
+    commands,
+    live: () => latest,
+    busy: (b: boolean) => act(() => setBusy(b)),
+  };
 }
 
 const flush = () => act(async () => {});
@@ -137,5 +153,46 @@ describe("live voice", () => {
     act(() => live().push("add a note about churn"));
     await wait(SETTLE_MS);
     expect(sent).toEqual(["add a note about pricing", "add a note about churn"]);
+  });
+
+  it("passes the phrases said just before as spoken context", async () => {
+    vi.useFakeTimers();
+    const { routes, live, busy } = mount();
+    act(() => live().push("add a checkout step"));
+    await wait(SETTLE_MS);
+    busy(true);
+    busy(false);
+    act(() => live().push("make it shorter"));
+    await wait(SETTLE_MS);
+    expect(routes[1]?.spoken).toEqual({ recent: ["add a checkout step"] });
+  });
+
+  it("with Jev only, never routes on-device and shows why Jev failed", async () => {
+    remote.request.mockResolvedValue({
+      ok: false,
+      reason: "TypeSafe rejected the key (401)",
+      ms: 120,
+    });
+    const { sent, commands, live } = mount("key", false, true);
+    act(() => live().push("undo that"));
+    await vi.waitFor(() => expect(live().entries[0]!.stage).toBe("failed"));
+    expect(live().entries[0]!.error).toBe("TypeSafe rejected the key (401)");
+    expect(commands).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(remote.ask).not.toHaveBeenCalled();
+  });
+
+  it("with Jev only, runs Jev's own answer", async () => {
+    vi.useFakeTimers();
+    remote.request.mockResolvedValue({
+      ok: true,
+      suggestion: { source: "jev", ms: 300, intent: { value: "edit", confidence: 0.9 } },
+    });
+    const { sent, live } = mount("key", false, true);
+    act(() => live().push("can you just simplify this"));
+    await vi.waitFor(() => expect(live().entries[0]!.stage).toBe("queued"));
+    await wait(SETTLE_MS);
+    expect(sent).toEqual(["can you just simplify this"]);
+    expect(live().entries[0]).toMatchObject({ decider: "jev", action: "Edit" });
   });
 });

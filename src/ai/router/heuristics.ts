@@ -12,7 +12,13 @@ import type { LocalCommand, RouteContext, RouteIntent, RouteSuggestion } from ".
 const QUESTION_START =
   /^(what|why|how|which|who|where|when|is|are|does|do|did|can|could|should|would|will|explain|summari[sz]e|compare|tell me|list|kya|kaise|kyun|kaun|kahan)\b/i;
 const EDIT_START =
-  /^(add|create|make|draw|build|generate|insert|put|write|draft|turn|convert|split|merge|rename|move|replace|rewrite|change|update|expand|extend|fill|sketch|design|mock|bana|banao|jodo|likho)\b/i;
+  /^(add|create|make|draw|build|generate|insert|put|write|draft|turn|convert|split|merge|rename|move|replace|rewrite|change|update|expand|extend|fill|sketch|design|mock|simplify|shorten|condense|trim|reduce|remove|delete|drop|cut|clean|tidy|combine|consolidate|restructure|reorgani[sz]e|organi[sz]e|fix|improve|refine|detail|elaborate|bana|banao|jodo|likho)\b/i;
+/**
+ * Speech softens instructions: "so can you just simplify this?" is an edit, not a question.
+ * Stripped before the edit check only, so "can you explain…" still reads as a question.
+ */
+const SOFTENER =
+  /^((so|okay|ok|now|and|right|well|hmm|um|uh)[, ]+)*((can|could|would|will) you |please |just |i want you to |i'd like you to |let'?s |go ahead and )*/i;
 const CONNECT =
   /^(connect|link|wire|join)\b(?!.*\b(add|create|new)\b)|\b(draw|add|suggest) (the )?(relationships|connections|links)\b/i;
 const SELECTION_WORDS =
@@ -104,7 +110,8 @@ export function heuristicRoute(text: string, context: RouteContext): RouteSugges
 
   let intent: RouteIntent | undefined;
   if (CONNECT.test(phrase)) intent = "connect";
-  else if (EDIT_START.test(phrase)) intent = "edit";
+  else if (EDIT_START.test(phrase) || EDIT_START.test(phrase.replace(SOFTENER, "")))
+    intent = "edit";
   else if (QUESTION_START.test(phrase) || /\?\s*$/.test(text)) intent = "ask";
   if (intent) {
     suggestion.intent = { value: intent, confidence: 0.75 };

@@ -39,7 +39,22 @@ export interface AskOptions {
   signal?: AbortSignal;
   /** Web search is an enhancement, never a condition for asking about the canvas. */
   webSearch?: boolean;
+  /** Asked aloud in live voice, with the phrases said just before it. */
+  spoken?: { recent: string[] };
   onEvent: (event: AskEvent) => void;
+}
+
+/** A spoken question gets a spoken-length answer: short, direct, no document. */
+function askSystem(spoken?: { recent: string[] }): string {
+  if (!spoken) return scapiSystemPrompt();
+  const before = spoken.recent.length
+    ? ` Said just before, for context: ${spoken.recent.map((phrase) => `"${phrase.slice(0, 300)}"`).join(", ")}.`
+    : "";
+  return (
+    scapiSystemPrompt() +
+    "\n\n## This question was spoken\n\nThe person asked this aloud; it was transcribed live, so ignore filler and fix obvious mishearings. Answer in two or three short sentences, the answer first. No headings, no lists unless they asked for one, no follow-up questions." +
+    before
+  );
 }
 
 /**
@@ -91,7 +106,7 @@ export async function ask(options: AskOptions): Promise<void> {
     try {
       const text = await runChatGPT({
         modelId: options.modelId,
-        instructions: scapiSystemPrompt(),
+        instructions: askSystem(options.spoken),
         input: [
           { role: "user", content: scapeContextBlock(scape) },
           ...portableHistory(options.history.slice(-HISTORY_TURNS)),
@@ -156,7 +171,7 @@ async function runAsk(
 
     const result = streamText({
       model: client(options.modelId),
-      system: scapiSystemPrompt(),
+      system: askSystem(options.spoken),
       maxOutputTokens: responseTokenBudget(options.question),
       messages: assembleMessages(scape, options.history, options.question, pinned),
       tools,

@@ -32,6 +32,8 @@ export interface ComposerRouting {
   enabled: boolean;
   /** A TypeSafe key when the person opted in to Jev; empty for on-device heuristics only. */
   jevKey: string;
+  /** Jev decides alone: no on-device fallback, and a failure is shown with its reason. */
+  jevOnly?: boolean;
   /** Read when a route is computed, never per keystroke. Titles and types only. */
   getContext: () => Pick<RouteContext, "selection" | "objects">;
   /** Runs a recognised local command. Absent means this composer offers none. */
@@ -194,6 +196,7 @@ export function Composer({
     text: value,
     enabled: routingOn,
     jevKey: routing?.jevKey ?? "",
+    jevOnly: !!routing?.jevOnly,
     getContext: getRouteContext,
   });
   phraseLanded.current = route.phraseLanded;
@@ -267,6 +270,7 @@ export function Composer({
     }),
     context: getRouteContext,
     jevKey: routing?.jevKey ?? "",
+    jevOnly: !!routing?.jevOnly,
     busy: !!liveBusy,
     failed: !!liveFailed,
     onSend: (text, route) => onSend(text, route),
@@ -344,31 +348,39 @@ export function Composer({
       ? "jev-asking"
       : decision?.source === "jev"
         ? "jev"
-        : route.jev === "fallback"
-          ? "fallback"
-          : "local";
+        : route.jev === "failed"
+          ? "failed"
+          : route.jev === "fallback"
+            ? "fallback"
+            : "local";
   const autoTitle =
-    decider === "jev-asking"
-      ? "Jev is reading your draft. On-device suggestions apply until it answers."
-      : decision && routed.length > 0
-        ? `Set ${routed.map((d) => DIMENSION_NAMES[d]).join(", ")} from your draft ` +
-          (decider === "jev"
-            ? `with Jev in ${decision.ms} ms`
-            : decider === "fallback"
-              ? "on this device, because Jev did not answer"
-              : "on this device") +
-          ". Click to keep your own choices for this draft."
-        : decider === "fallback"
-          ? "Jev did not answer; on-device routing stands."
-          : "Reading your draft…";
+    decider === "failed"
+      ? `Jev could not route this draft: ${route.jevError}. Your own choices apply.`
+      : decider === "jev-asking"
+        ? routing?.jevOnly
+          ? "Jev is reading your draft."
+          : "Jev is reading your draft. On-device suggestions apply until it answers."
+        : decision && routed.length > 0
+          ? `Set ${routed.map((d) => DIMENSION_NAMES[d]).join(", ")} from your draft ` +
+            (decider === "jev"
+              ? `with Jev in ${decision.ms} ms`
+              : decider === "fallback"
+                ? "on this device, because Jev did not answer"
+                : "on this device") +
+            ". Click to keep your own choices for this draft."
+          : decider === "fallback"
+            ? "Jev did not answer; on-device routing stands."
+            : "Reading your draft…";
   const autoLabel =
     decider === "jev-asking"
       ? null
       : decider === "jev"
         ? "Jev"
-        : decider === "fallback"
-          ? "local"
-          : "auto";
+        : decider === "failed"
+          ? "Jev failed"
+          : decider === "fallback"
+            ? "local"
+            : "auto";
 
   return (
     <div
@@ -474,7 +486,14 @@ export function Composer({
             title={autoTitle}
             aria-label={autoTitle}
             data-decider={decider}
-            className={PILL + (decider === "fallback" ? " text-fg-secondary" : " text-fg-accent")}
+            className={
+              PILL +
+              (decider === "failed"
+                ? " text-danger"
+                : decider === "fallback"
+                  ? " text-fg-secondary"
+                  : " text-fg-accent")
+            }
           >
             {autoLabel === null ? (
               <DotMatrix label="Jev" />

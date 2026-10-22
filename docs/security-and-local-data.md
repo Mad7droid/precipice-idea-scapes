@@ -57,6 +57,9 @@ own Anthropic (Claude) API key.
   (on-device, or Jev when enabled) and run without Send: Ask, Edit, Connect, or a
   local command. Runs are sequential in spoken order; each edit is its own undoable
   transaction and Ask still cannot write.
+- Spoken requests include up to three earlier phrases from the same live session and the
+  ids of objects the previous run changed, so the model can resolve "it". Jev receives only
+  the current phrase.
 - Phrase text is sent to the selected AI connection exactly as a typed request would
   be, and to Jev when Jev routing is on. Audio is never sent. Stop or Esc ends it.
 

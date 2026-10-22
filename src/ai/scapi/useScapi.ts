@@ -342,7 +342,12 @@ export function useScapi({
     /** `overrides` carries a routed model and search choice for this one question only. */
     async (
       question: string,
-      overrides?: { modelId?: string; webSearch?: boolean; scope?: "scape" | "selection" },
+      overrides?: {
+        modelId?: string;
+        webSearch?: boolean;
+        scope?: "scape" | "selection";
+        spoken?: { recent: string[] };
+      },
     ) => {
       const scape = getScape();
       if (!scape || !question.trim() || streaming) return;
@@ -372,6 +377,7 @@ export function useScapi({
           modelId: overrides?.modelId ?? modelId,
           webSearch: (overrides?.webSearch ?? webSearch) && searchAvailability !== "unavailable",
           signal: controller.current.signal,
+          ...(overrides?.spoken ? { spoken: overrides.spoken } : {}),
           onEvent: handleEvent,
         });
       } catch (error) {

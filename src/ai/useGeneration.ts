@@ -104,6 +104,8 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
       globalInstructions?: string;
       /** Set by routing; only changes how prominently Deepen is offered afterwards. */
       deepSuggested?: boolean;
+      /** Spoken in live voice: the phrases just before it and what the last run changed. */
+      spoken?: { recent: string[]; lastChanged?: string[] };
     }) => {
       const scape = useScapeStore.getState().scape;
       if (!scape || !options.request.trim()) return;
@@ -160,6 +162,7 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
           ...(options.mode ? { mode: options.mode } : {}),
           ...(starter.promptHint ? { starterHint: starter.promptHint } : {}),
           ...(Object.keys(instructions).length > 0 ? { instructions } : {}),
+          ...(options.spoken ? { spoken: options.spoken } : {}),
           dispatch: (action) => useScapeStore.getState().dispatch(action),
           onEvent: handleEvent,
           ...(requestLayout ? { requestLayout } : {}),

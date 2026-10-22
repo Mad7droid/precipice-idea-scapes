@@ -23,6 +23,8 @@ export interface GenerateOptions extends ApplyOptions {
   mode?: GenerationMode;
   /** The user's standing instructions: browser-wide, and this scape's own. Both optional. */
   instructions?: { global?: string; scape?: string };
+  /** Spoken in live voice, with the phrases said just before it. */
+  spoken?: { recent: string[]; lastChanged?: string[] };
   apiKey: string;
   modelId: string;
   signal?: AbortSignal;
@@ -73,6 +75,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
           starterHint: options.starterHint,
           mode: options.mode,
           instructions: options.instructions,
+          spoken: options.spoken,
         }),
         input: [{ role: "user", content: prompt.text }],
         tools,
@@ -89,6 +92,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
           ...(options.starterHint ? { starterHint: options.starterHint } : {}),
           ...(options.mode ? { mode: options.mode } : {}),
           ...(options.instructions ? { instructions: options.instructions } : {}),
+          ...(options.spoken ? { spoken: options.spoken } : {}),
         }),
         prompt: prompt.text,
         tools,

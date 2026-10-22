@@ -117,6 +117,7 @@ export function LiveHistory({ entries, onClear }: { entries: LiveEntry[]; onClea
 
 function EntryMeta({ entry, compact = false }: { entry: LiveEntry; compact?: boolean }) {
   if (entry.stage === "routing") return <DotMatrix label="routing" />;
+  if (entry.error) return <span data-stage="failed">{`Jev failed · ${entry.error}`}</span>;
   const parts: string[] = [];
   if (entry.action) parts.push(entry.action);
   parts.push(

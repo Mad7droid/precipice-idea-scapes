@@ -7,7 +7,15 @@ import { useRoute } from "./useRoute";
 import type { RouteContext, RouteSuggestion } from "./types";
 
 const remote = vi.hoisted(() => ({ ask: vi.fn() }));
-vi.mock("./jev", () => ({ askJev: remote.ask }));
+vi.mock("./jev", () => ({
+  askJev: remote.ask,
+  JEV_ONLY_TIMEOUT_MS: 4000,
+  // The hook asks through requestJev; the tests script answers through `remote.ask`.
+  requestJev: (text: string, context: unknown, key: string, options: { signal?: AbortSignal }) =>
+    Promise.resolve(remote.ask(text, context, key, options.signal)).then((suggestion) =>
+      suggestion ? { ok: true, suggestion } : { ok: false, reason: "no answer", ms: 0 },
+    ),
+}));
 const context: RouteContext = {
   input: "typed",
   selection: { count: 1, types: ["note"] },
@@ -158,4 +166,28 @@ describe("who decided the route", () => {
     expect(latest().jev).toBe("fallback");
     expect(latest().suggestion?.source).toBe("heuristic");
   });
+});
+
+it("with Jev only, shows no on-device route and reports why Jev failed", async () => {
+  vi.useFakeTimers();
+  remote.ask.mockResolvedValue(null);
+  let latest!: ReturnType<typeof useRoute>;
+  function Probe() {
+    latest = useRoute({
+      text: "add a checkout step",
+      enabled: true,
+      jevKey: "test",
+      jevOnly: true,
+      getContext: () => context,
+    });
+    return null;
+  }
+  view = render(<Probe />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(500);
+  });
+  await act(async () => {});
+  expect(latest.jev).toBe("failed");
+  expect(latest.jevError).toBe("no answer");
+  expect(latest.suggestion).toBeNull();
 });
