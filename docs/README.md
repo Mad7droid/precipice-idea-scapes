@@ -17,7 +17,10 @@ Maintained guides for the current source tree:
 | [Design language](design-language.md)                 | Visual principles and current component rules                         |
 | [Screenshot provenance](screenshots/README.md)        | Public demo images and safe capture procedure                         |
 
-[Jev architecture review](jev-architecture-review.md) describes the current routing and live
+[Desktop AI connections](desktop-ai-connections.md) describes the ChatGPT/Claude plan
+candidate, its test coverage and release gates.
+
+[Jev architecture review](jev-architecture-review.md) describes the routing and live
 voice pipeline, its limitations, and proposed changes for review. The
 [original Jev routing plan](jev-routing-plan.md) and
 [combined voice and routing plan](voice-and-routing-plan.md) are historical designs;

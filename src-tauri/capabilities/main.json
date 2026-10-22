@@ -9,6 +9,17 @@
     "macOS"
   ],
   "permissions": [
+    "allow-chatgpt-status",
+    "allow-chatgpt-connect",
+    "allow-chatgpt-disconnect",
+    "allow-chatgpt-cancel-login",
+    "allow-chatgpt-select",
+    "allow-chatgpt-request",
+    "allow-ai-cancel",
+    "allow-claude-status",
+    "allow-claude-connect",
+    "allow-claude-request",
+    "allow-open-ai-settings",
     "allow-read-api-key",
     "allow-save-api-key",
     "allow-remove-api-key",

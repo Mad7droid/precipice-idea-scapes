@@ -3,6 +3,28 @@
 All notable user-visible changes to Precipice are recorded here. This project
 does not use formal release numbers yet; entries are grouped by date and commit.
 
+## 2026-10-22 — 0.1.15
+
+### Added
+
+- Native ChatGPT plan sign-in in the Mac app, with PKCE and verified identity, Keychain
+  storage, account-specific model discovery, saved account selection, token renewal,
+  cancellation, and sign-out with remote revocation status.
+- Claude plan connection through locally installed Claude Code. Scapi Ask, Edit, Connect,
+  Deepen and live voice use the same validated tools and undo pipeline. The CLI runs with
+  its filesystem, shell, MCP and customizations disabled. Claude plan web search is disabled.
+- Connection tests for native transport, authentication validation, cancellation, billing
+  separation, actual canvas mutations and undo, read-only Ask, and selected-object limits.
+
+### Fixed
+
+- Changing an AI connection stops an active generation. Leaving the generation screen
+  cancels pending requests.
+- Release version checks now include Cargo.lock so locked native builds cannot drift.
+
+Live ChatGPT authorization and successful Claude plan responses remain unverified; see
+[desktop AI connections](docs/desktop-ai-connections.md) for checks and remaining limitations.
+
 ## 2026-10-22 — 0.1.14
 
 ### Added

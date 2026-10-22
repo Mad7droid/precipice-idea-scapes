@@ -175,4 +175,17 @@ describe("ChatGPT subscription runtime", () => {
     await expect(runChatGPT({ ...options, signal: abort.signal, fetcher })).rejects.toThrow();
     expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith("responses"))).toHaveLength(0);
   });
+  it.each([
+    ["subscription_sharing_usage_limit_exceeded", "plan usage limit reached"],
+    ["subscription_sharing_usage_unavailable", "allow plan usage"],
+  ])("explains mid-stream plan errors without executing operations: %s", async (code, message) => {
+    const fetcher = fetcherFor(
+      event({
+        type: "response.failed",
+        response: { error: { code, message: "PRIVATE DIAGNOSTIC" } },
+      }),
+    );
+    await expect(runChatGPT({ ...options, fetcher })).rejects.toThrow(message);
+    expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith("responses"))).toHaveLength(1);
+  });
 });

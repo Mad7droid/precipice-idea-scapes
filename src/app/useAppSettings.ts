@@ -153,7 +153,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   };
 
   const setModelId = (next: string) => {
-    if (connection.provider === "chatgpt") {
+    if (connection.provider !== "anthropic") {
       connection.changeModel(next);
       return;
     }
@@ -175,13 +175,13 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       connection,
-      models: connection.provider === "chatgpt" ? connection.models : MODELS,
+      models: connection.provider !== "anthropic" ? connection.models : MODELS,
       aiReady:
-        connection.provider === "chatgpt" ? connection.status === "connected" : !!apiKey.trim(),
+        connection.provider !== "anthropic" ? connection.status === "connected" : !!apiKey.trim(),
       credentials,
       apiKey,
       setApiKey,
-      modelId: connection.provider === "chatgpt" ? connection.modelId : modelId,
+      modelId: connection.provider !== "anthropic" ? connection.modelId : modelId,
       setModelId,
       types,
       setTypes,

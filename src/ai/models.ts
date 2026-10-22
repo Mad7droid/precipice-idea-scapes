@@ -59,6 +59,8 @@ const TIER_MODEL: Record<ModelTier, string> = {
 };
 
 export function tierOf(modelId: string): ModelTier {
+  if (modelId.startsWith("claude-plan/"))
+    return modelId.endsWith("/haiku") ? "instant" : modelId.endsWith("/opus") ? "deep" : "standard";
   return MODELS.find((model) => model.id === modelId)?.tier ?? "standard";
 }
 
@@ -68,10 +70,14 @@ export function tierOf(modelId: string): ModelTier {
  */
 export function modelForTier(tier: ModelTier, preferred: string): string {
   if (preferred.startsWith("chatgpt/")) return preferred;
+  if (preferred.startsWith("claude-plan/"))
+    return `claude-plan/${tier === "instant" ? "haiku" : tier === "deep" ? "opus" : "sonnet"}`;
   return tierOf(preferred) === tier ? preferred : TIER_MODEL[tier];
 }
 
 export function modelLabel(modelId: string): string {
+  if (modelId.startsWith("claude-plan/"))
+    return modelId.slice(12).replace(/^./, (letter) => letter.toUpperCase());
   return MODELS.find((model) => model.id === modelId)?.label ?? modelId;
 }
 
