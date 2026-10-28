@@ -71,8 +71,35 @@ describe("desktop AI connection settings", () => {
     const commands = invoke.mock.calls.map(([name]) => name);
     expect(commands).toContain("claude_status");
     expect(commands).not.toContain("chatgpt_status");
-    expect(commands).not.toContain("read_api_key");
+    // The one-time 0.1.15 upgrade check looks for a legacy key once, then records the default.
+    expect(commands.filter((name) => name === "read_api_key")).toHaveLength(1);
     expect(commands).not.toContain("read_typesafe_key");
+    expect(set).toHaveBeenCalledWith("ai.connection", "claude-plan");
+    view.unmount();
+  });
+  it("keeps 0.1.15 users with a saved Anthropic key on the API key connection", async () => {
+    const base = invoke.getMockImplementation()!;
+    invoke.mockImplementation(async (command, args) =>
+      command === "read_api_key" ? "sk-ant-legacy" : base(command, args),
+    );
+    const view = await mount();
+    expect(settings.connection.provider).toBe("anthropic");
+    expect(set).toHaveBeenCalledWith("ai.connection", "anthropic");
+    view.unmount();
+  });
+  it("keeps 0.1.15 users with a saved Anthropic model on the API key connection", async () => {
+    values.set("anthropic.model", "claude-sonnet-5-5");
+    const view = await mount();
+    expect(settings.connection.provider).toBe("anthropic");
+    expect(set).toHaveBeenCalledWith("ai.connection", "anthropic");
+    view.unmount();
+  });
+  it("does not migrate once a connection has been saved", async () => {
+    values.set("ai.connection", "claude-plan");
+    values.set("anthropic.model", "claude-sonnet-5-5");
+    const view = await mount();
+    expect(settings.connection.provider).toBe("claude-plan");
+    expect(set).not.toHaveBeenCalledWith("ai.connection", expect.anything());
     view.unmount();
   });
   it("remembers a model for each connection separately", async () => {
@@ -160,6 +187,8 @@ describe("desktop AI connection settings", () => {
     expect(settings.connection.chatgptAvailable).toBe(true);
     expect(settings.aiReady).toBe(false);
     expect(settings.connection.error).toContain("Keychain access");
+    // A generic read failure mentions Keychain but is not a refusal: no "Allow" banner.
+    expect(settings.keychainDenied).toBe(false);
     view.unmount();
   });
   it("asks for Keychain access again only after an explicit retry", async () => {
@@ -178,6 +207,8 @@ describe("desktop AI connection settings", () => {
       await settings.allowKeychain();
     });
     expect(invoke).toHaveBeenCalledWith("keychain_retry");
+    // The agent host sign-in lives in the same vault item and is reloaded too.
+    expect(invoke).toHaveBeenCalledWith("read_agent_session");
     expect(settings.keychainDenied).toBe(false);
     view.unmount();
   });

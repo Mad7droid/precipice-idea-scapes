@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
+import { InlineTitle } from "../InlineTitle";
 import { RichTextEditor, useDebouncedText } from "../ui";
 import { ScapeBlockBody, type ScapeBlockEditField } from "./Body";
 import type { ScapeBlockData } from "./schema";
@@ -33,13 +34,14 @@ export function ScapeBlockNode({ object, selected }: { object: ScapeObject; sele
   // Deselecting has to commit, not strand a draft. `useDebouncedText` keeps the in-flight
   // string local, so leaving edit mode without flushing would silently lose the last words
   // typed before the click that moved the selection away.
+  //
+  // The flush runs in the effect, not inside a state updater: updaters must be pure, and
+  // StrictMode calls them twice.
   useEffect(() => {
-    if (selected) return;
-    setEditing((current) => {
-      if (current) flushBody();
-      return null;
-    });
-  }, [selected, flushBody]);
+    if (selected || !editing) return;
+    flushBody();
+    setEditing(null);
+  }, [selected, editing, flushBody]);
 
   // Enter opens the inspector for every other type. For a scape block the useful thing is one
   // step closer: put the caret in the document. Captured on `document` so it lands before the
@@ -73,24 +75,11 @@ export function ScapeBlockNode({ object, selected }: { object: ScapeObject; sele
 
   if (editing === "title") {
     return (
-      <input
-        autoFocus
-        defaultValue={object.title}
-        onBlur={(e) => {
-          setEditing(null);
-          if (readOnly) return;
-          useScapeStore
-            .getState()
-            .dispatchTx([
-              { type: "UpdateObject", id: object.id, patch: { title: e.currentTarget.value } },
-            ]);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") setEditing(null);
-          e.stopPropagation();
-        }}
-        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
+      <InlineTitle
+        id={object.id}
+        title={object.title}
+        readOnly={readOnly}
+        onDone={() => setEditing(null)}
       />
     );
   }

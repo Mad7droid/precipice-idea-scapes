@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   acquireScapeLease,
   memoryBusFactory,
+  memoryFence,
   type LeaseChange,
   type LeaseStatus,
   type ScapeLease,
@@ -182,5 +183,31 @@ describe("scape lease", () => {
     await expect(lease.settled).resolves.toBe("holder");
     expect(changes).toEqual([["holder", "initial"]]);
     lease.stop();
+  });
+});
+
+describe("lease fencing", () => {
+  it("demotes a thawed stale holder once another tab has taken the lease", async () => {
+    const fence = memoryFence();
+    // Separate buses model a frozen tab that never hears the takeover.
+    const open = (holderId: string) =>
+      acquireScapeLease({
+        scapeId: "scp_fence",
+        holderId,
+        bus: memoryBusFactory()(),
+        fence,
+        claimWindowMs: CLAIM,
+        takeoverWindowMs: TAKEOVER,
+        onChange: () => {},
+      });
+    const stale = open("tab-a");
+    await stale.settled;
+    expect(stale.status()).toBe("holder");
+    const fresh = open("tab-b");
+    await expect(fresh.settled).resolves.toBe("holder");
+    expect(stale.status()).toBe("follower");
+    expect(fresh.status()).toBe("holder");
+    stale.stop();
+    fresh.stop();
   });
 });

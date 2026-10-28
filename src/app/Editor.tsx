@@ -1,9 +1,18 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import type { ActionPayload } from "@/core/actions";
-import { notify } from "@/core/notify";
+import { notify, useNotifications } from "@/core/notify";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
-import { MAX_INSTRUCTIONS, SETTING_KEYS, type ObjectId, type RelationshipId } from "@/core/types";
+import { MAX_INSTRUCTIONS, type ObjectId, type RelationshipId } from "@/core/types";
 import { Composer, type ComposerRouting, type SendRoute } from "@/ai/Composer";
 import { modelForTier, tierOf } from "@/ai/models";
 import type { LocalCommand } from "@/ai/router/types";
@@ -19,11 +28,8 @@ import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
 import { Scapi } from "@/components/scapi/Scapi";
 import { Button, buttonClass } from "@/design/Button";
 import { starterFor } from "@/starters";
-import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
-import { acquireScapeLease, type ScapeLease } from "@/persistence/lease";
 import { downloadScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
-import { settingsRepository } from "@/persistence/settings";
 import { PublishSheet } from "@/publish/PublishSheet";
 import { PublishClientError, logout } from "@/publish/client";
 import {
@@ -40,16 +46,32 @@ import { takeEditorIntent, takePendingWork } from "./pending";
 import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverlays";
 import { RelationshipInspector } from "./RelationshipInspector";
 import { navigate, scapeRoute } from "./router";
-import { SettingsModal } from "./SettingsModal";
+import { SettingsModal, type SettingsSection } from "./SettingsModal";
 import { TopBar, type ExportFormat } from "./TopBar";
 import { useAppSettings } from "./useAppSettings";
 import { useTheme } from "./theme";
 import { useMcpBridge } from "@/mcp/bridge";
-import { registerLiveScape } from "@/mcp/host/host";
-import { liveEditor } from "@/mcp/host/liveEditor";
 import { publishToken, saveHostCredential } from "@/mcp/host/credential";
 import { signOutDesktop } from "@/mcp/host/desktopAuth";
 import { isDesktop } from "@/desktop/runtime";
+import { BLOCK_SHORTCUTS, BlockNav } from "./editor/BlockNav";
+import {
+  INSPECTOR_COLLAPSE_BELOW,
+  OUTLINE_COLLAPSE_BELOW,
+  PANEL,
+  viewportShowsContent,
+  visibleObjectIds,
+} from "./editor/layout";
+import { PanelResizer } from "./editor/PanelResizer";
+import { useEditorSession } from "./editor/useEditorSession";
+import { useEditorShortcuts } from "./editor/useEditorShortcuts";
+
+/** The same toast twice in a row is noise; repeated clicks must not stack copies. */
+function notifyOnce(level: "info" | "danger", message: string, detail: string) {
+  if (useNotifications.getState().toasts.some((toast) => toast.message === message)) return;
+  if (level === "info") notify.info(message, detail);
+  else notify.error(message, detail);
+}
 
 // Markdown is sizeable and Scapi is optional. Keep it out of the editor's first paint.
 const ScapiPanel = lazy(() =>
@@ -58,6 +80,9 @@ const ScapiPanel = lazy(() =>
 // Same chunk as the panel: the canvas answer renders markdown exactly as the panel does.
 const AnswerBody = lazy(() =>
   import("@/ai/scapi/ScapiPanel").then((module) => ({ default: module.AnswerBody })),
+);
+const AnswerError = lazy(() =>
+  import("@/ai/scapi/ScapiPanel").then((module) => ({ default: module.AnswerError })),
 );
 
 /**
@@ -78,7 +103,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
     if (present.length !== selection.length) useScapeStore.getState().setSelection(present);
   }, [scape, selection]);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Which settings section is open, or null. AI prompts open straight on the AI section. */
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
+  const settingsOpen = settingsSection !== null;
+  const setSettingsOpen = (open: boolean) => setSettingsSection(open ? "general" : null);
+  const openAiSettings = () => setSettingsSection("ai");
   const [publishOpen, setPublishOpen] = useState(false);
   const [scopeOverride, setScopeOverride] = useState<{ selection: string; scope: Scope } | null>(
     null,
@@ -93,16 +122,20 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const setScope = (next: Scope) => setScopeOverride({ selection: selectionKey, scope: next });
   const [proposedEdit, setProposedEdit] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<RelationshipId | null>(null);
-  const [booted, setBooted] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   /** Whether the canvas bar is showing its full controls. The bar itself is always present. */
   const [canvasComposerOpen, setCanvasComposerOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
-  const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() => window.innerWidth < 768);
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => window.innerWidth < 768);
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(PANEL.left);
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(PANEL.right);
+  // A narrow window gives the canvas the room: the outline yields first, then the inspector.
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(
+    () => window.innerWidth < OUTLINE_COLLAPSE_BELOW,
+  );
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(
+    () => window.innerWidth < INSPECTOR_COLLAPSE_BELOW,
+  );
   const [scapiOpen, setScapiOpen] = useState(false);
   const [scapiMode, setScapiMode] = useState<"ask" | "edit">("ask");
   /**
@@ -135,9 +168,6 @@ export function Editor({ scapeId }: { scapeId: string }) {
     ready,
   } = appSettings;
 
-  const [readOnly, setReadOnly] = useState(false);
-  const [takingOver, setTakingOver] = useState(false);
-
   /**
    * Publication state for this scape. Derived from the local Dexie row plus the projection's
    * hash — the server is the authority, but the top bar must be able to say "published"
@@ -161,50 +191,23 @@ export function Editor({ scapeId }: { scapeId: string }) {
     if (takePendingPublish() === scapeId) setPublishOpen(true);
   }, [scapeId]);
 
-  const autosave = useRef<AutosaveHandle | null>(null);
-  const lease = useRef<ScapeLease | null>(null);
-  /** Identifies this tab to the other tabs, and breaks ties when two claim at once. */
-  const tabId = useRef(`tab_${Math.random().toString(36).slice(2, 10)}`);
   const commands = useRef<CanvasCommands | null>(null);
   const inspector = useRef<HTMLElement | null>(null);
   const composerInput = useRef<HTMLTextAreaElement | null>(null);
+  const canvasArea = useRef<HTMLDivElement | null>(null);
+  const { booted, readOnly, takingOver, takeOver } = useEditorSession(scapeId, commands);
 
+  // Auto-collapse the outline when the window narrows past the breakpoint, so an 800px
+  // window keeps a usable canvas. Widening does not reopen it: that is the person's call.
   useEffect(() => {
-    if (!booted || readOnly) return;
-    return registerLiveScape(
-      scapeId,
-      liveEditor({
-        scapeId,
-        canWrite: () => lease.current?.status() === "holder",
-        flush: async () => {
-          await autosave.current?.flush();
-        },
-        focus: (ids) => {
-          useScapeStore.getState().setSelection(ids);
-          if (ids[0]) commands.current?.focus(ids[0]);
-        },
-      }),
-    );
-  }, [scapeId, booted, readOnly]);
-
-  const startPanelResize = (side: "left" | "right") => (event: React.PointerEvent) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = side === "left" ? leftPanelWidth : rightPanelWidth;
-    const onMove = (moveEvent: PointerEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const next = side === "left" ? startWidth + delta : startWidth - delta;
-      const clamped = Math.max(260, Math.min(440, next));
-      if (side === "left") setLeftPanelWidth(clamped);
-      else setRightPanelWidth(clamped);
+    const query = window.matchMedia?.(`(max-width: ${OUTLINE_COLLAPSE_BELOW - 1}px)`);
+    if (!query) return;
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setLeftPanelCollapsed(true);
     };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
+    query.addEventListener?.("change", onChange);
+    return () => query.removeEventListener?.("change", onChange);
+  }, []);
 
   useEffect(() => {
     // Wait for the panel's width transition, then frame in the actual available canvas.
@@ -249,71 +252,22 @@ export function Editor({ scapeId }: { scapeId: string }) {
     [starter.types, types],
   );
 
-  /** Enter / double-click on a node land here — the inspector is already open via selection,
-   * so the useful thing left to do is jump focus straight into its first editable field. */
-  const focusInspector = () => {
+  /** Creation, Enter, and double-click focus block content, not shared tag controls. */
+  const focusInspector = useCallback((id: ObjectId) => {
     setRightPanelCollapsed(false);
     setScapiOpen(false);
-    window.requestAnimationFrame(() =>
-      inspector.current?.querySelector<HTMLElement>("input, textarea")?.focus(),
-    );
-  };
-
-  // Boot: claim the scape's write lease, start autosave, load the scape named in the route,
-  // then run whatever brief was written on the home page.
-  useEffect(() => {
-    let cancelled = false;
-
-    const reload = async () => {
-      const fresh = await scapeRepository.get(scapeId);
-      if (!cancelled && fresh) useScapeStore.getState().loadScape(fresh);
-    };
-
-    lease.current = acquireScapeLease({
-      scapeId,
-      holderId: tabId.current,
-      // Flush before the other tab reads. Autosave still holds the lease at this point, by
-      // construction — the lease downgrades only after this returns.
-      onYield: () => autosave.current?.flush(),
-      onChange: (status, change) => {
-        if (cancelled) return;
-        setReadOnly(status === "follower");
-        if (status === "holder" && change === "promoted") {
-          // Whatever this tab has in memory is older than what the outgoing holder just
-          // wrote. Read theirs before writing anything, or the handover loses their edits.
-          void reload();
-          setTakingOver(false);
-        }
-      },
+    window.requestAnimationFrame(() => {
+      // Selection may have changed while the inspector was opening. An older request
+      // must not steal focus into another block's fields.
+      if (useScapeStore.getState().selection[0] !== id) return;
+      inspector.current
+        ?.querySelector<HTMLElement>(
+          "[data-block-inspector] input:enabled, [data-block-inspector] textarea:enabled",
+        )
+        ?.focus();
     });
-
-    autosave.current = startAutosave(scapeRepository, {
-      canWrite: () => lease.current?.status() === "holder",
-    });
-
-    void (async () => {
-      const loaded = await scapeRepository.get(scapeId);
-      if (cancelled) return;
-      if (!loaded) {
-        notify.error("That scape is gone", "It may have been deleted in another tab.");
-        navigate("/");
-        return;
-      }
-      useScapeStore.getState().loadScape(loaded);
-      await settingsRepository.set(SETTING_KEYS.lastScapeId, scapeId);
-      setBooted(true);
-    })();
-
-    return () => {
-      cancelled = true;
-      autosave.current?.stop();
-      autosave.current = null;
-      // Order matters: the flush inside stop() has to land while this tab still holds the
-      // lease, because releasing it lets another tab read immediately.
-      lease.current?.stop();
-      lease.current = null;
-    };
-  }, [scapeId]);
+  }, []);
+  const openHelp = useCallback(() => setShortcutsOpen(true), []);
 
   // Whatever the home page set up: a brief to run, or a starter's seed object to place. Taken
   // once, so a refresh neither re-runs a generation the user has paid for nor re-seeds a
@@ -323,7 +277,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
     const intent = takeEditorIntent(scapeId);
     if (intent === "publish") setPublishOpen(true);
     if (intent === "scapi") setScapiOpen(true);
-    if (intent === "agent") setSettingsOpen(true);
+    if (intent === "agent") setSettingsSection("agent");
     const pending = takePendingWork();
     if (!pending) return;
     if (pending.seed?.length) {
@@ -340,59 +294,20 @@ export function Editor({ scapeId }: { scapeId: string }) {
     if (generation.state.status === "done") setCanvasComposerOpen(false);
   }, [generation.state.status]);
 
-  // Global Cmd+Z / Cmd+Shift+Z — not just canvas-scoped, since the inspector and outline sit
-  // right next to it and a drag's undo shouldn't depend on which panel last had focus.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const meta = event.metaKey || event.ctrlKey;
-      if (meta && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen(true);
-        return;
-      }
-      if (meta && event.key.toLowerCase() === "j") {
-        event.preventDefault();
-        // A toggle, and only of the panel. Scapi's request lives in the hook above this
-        // component, so hiding the transcript never cancels the work behind it — the answer
-        // and any applied changes are waiting when you open it again.
-        setScapiOpen((open) => !open);
-        return;
-      }
-      if (meta && event.key === "/") {
-        event.preventDefault();
-        const collapse = !(leftPanelCollapsed && rightPanelCollapsed);
-        setLeftPanelCollapsed(collapse);
-        setRightPanelCollapsed(collapse);
-        return;
-      }
-      if (
-        (event.target as HTMLElement | null)?.closest?.(
-          "input, textarea, select, [contenteditable]",
-        )
-      ) {
-        return;
-      }
-      if (event.key === "?") {
-        event.preventDefault();
-        setShortcutsOpen(true);
-        return;
-      }
-      if (event.key === "Escape" && scapiOpen) {
-        event.preventDefault();
-        setScapiOpen(false);
-        return;
-      }
-      if (!meta || event.key.toLowerCase() !== "z") return;
-      event.preventDefault();
-      // Undo is an edit. In a follower tab it would change a document this tab cannot save,
-      // so the canvas would silently drift from what is on disk.
-      if (readOnly) return;
-      if (event.shiftKey) useScapeStore.getState().redo();
-      else useScapeStore.getState().undo();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [leftPanelCollapsed, rightPanelCollapsed, readOnly, scapiOpen]);
+  useEditorShortcuts({
+    openCommands: () => setCommandOpen(true),
+    toggleScapi: () => setScapiOpen((open) => !open),
+    togglePanels: () => {
+      const collapse = !(leftPanelCollapsed && rightPanelCollapsed);
+      setLeftPanelCollapsed(collapse);
+      setRightPanelCollapsed(collapse);
+    },
+    openHelp: () => setShortcutsOpen(true),
+    scapiOpen,
+    closeScapi: () => setScapiOpen(false),
+    readOnly,
+    busy,
+  });
 
   /**
    * The one place an edit can be attempted while another tab holds the scape. The canvas and
@@ -401,19 +316,18 @@ export function Editor({ scapeId }: { scapeId: string }) {
    */
   const requireLease = () => {
     if (!readOnly) return true;
-    notify.info("This scape is open in another tab", "Choose “Edit here” to move editing to it.");
+    notifyOnce(
+      "info",
+      "This scape is open in another tab",
+      "Choose “Edit here” to move editing to it.",
+    );
     return false;
-  };
-
-  const takeOver = async () => {
-    setTakingOver(true);
-    await lease.current?.takeOver();
   };
 
   const requireKey = () => {
     if (appSettings.aiReady) return true;
-    notify.error("Connect AI", "Finish connecting in Settings → AI, then send your draft.");
-    setSettingsOpen(true);
+    notifyOnce("danger", "Connect AI", "Finish connecting in Settings → AI, then send your draft.");
+    openAiSettings();
     return false;
   };
 
@@ -488,7 +402,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
   };
 
   const handleConnect = async (ids?: ObjectId[], routedModel?: string) => {
-    if (!requireLease()) return;
+    // Same guard as a send: one AI run at a time, whichever surface started it.
+    if (busy || scapi.streaming || !requireLease()) return;
     if (!requireKey()) return;
     await generation.connect(apiKey.trim(), routedModel ?? modelId, ids, instructions);
   };
@@ -529,7 +444,9 @@ export function Editor({ scapeId }: { scapeId: string }) {
         commands.current?.focus(command.target);
         return;
       case "select-all":
-        if (store.scape) store.setSelection([...store.scape.objectOrder]);
+        // Only what is on screen: a hidden type selected here would be deleted by the next
+        // Delete without the person ever having seen it.
+        if (store.scape) store.setSelection(visibleObjectIds(store.scape));
         return;
       case "fit":
         commands.current?.fit();
@@ -633,6 +550,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
    * beat — so the button says so, after a frame in which the label can actually paint.
    */
   const exportAs = async (format: ExportFormat) => {
+    const scape = useScapeStore.getState().scape;
     if (!scape) return;
     if (format === "scape") {
       downloadScape(scape);
@@ -662,11 +580,45 @@ export function Editor({ scapeId }: { scapeId: string }) {
     }
   };
 
-  const selectFromOutline = (id: ObjectId) => {
+  /** Select one object and fly to it. Shared by the outline, answers and the inspector. */
+  const selectFromOutline = useCallback((id: ObjectId) => {
     setSelectedEdgeId(null);
     useScapeStore.getState().setSelection([id]);
     commands.current?.focus(id);
-  };
+  }, []);
+
+  const selectMany = useCallback((ids: ObjectId[]) => {
+    setSelectedEdgeId(null);
+    useScapeStore.getState().setSelection(ids);
+    if (ids[0]) commands.current?.focus(ids[0]);
+  }, []);
+
+  /**
+   * The canvas hands over its commands once it mounts. On the first hand-over for a scape,
+   * a viewport saved in a bigger window can leave every block off-screen; fit instead.
+   */
+  const fittedFor = useRef<string | null>(null);
+  const onCanvasReady = useCallback(
+    (ready: CanvasCommands) => {
+      commands.current = ready;
+      if (fittedFor.current === scapeId) return;
+      fittedFor.current = scapeId;
+      const current = useScapeStore.getState().scape;
+      const area = canvasArea.current?.getBoundingClientRect();
+      if (!current || !area) return;
+      if (!viewportShowsContent(current, current.viewState, area.width, area.height)) {
+        window.requestAnimationFrame(() => commands.current?.fit());
+      }
+    },
+    [scapeId],
+  );
+
+  const scapiSuggestions = useMemo(
+    () => (scape ? suggestScapiQuestions(scape) : []),
+    // Suggestions read objects and relationships only; panning must not recompute them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scape?.objects, scape?.objectOrder, scape?.relationships],
+  );
 
   /** Opens the canvas bar in place. It is the composer now, not a button that summons one. */
   const focusComposer = () => {
@@ -703,8 +655,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const selectedEdge = selectedEdgeId && scape ? scape.relationships[selectedEdgeId] : undefined;
   // A palette that lists what you cannot do is a palette you stop trusting. In a follower tab
   // the commands that change the document are absent, not present-and-inert.
+  // The Mac app is one window, so "move editing to this tab" has nowhere to point.
   const editCommands: CommandItem[] = readOnly
-    ? [{ id: "take-over", label: "Edit here", hint: "Move editing to this tab", run: takeOver }]
+    ? isDesktop()
+      ? []
+      : [{ id: "take-over", label: "Edit here", hint: "Move editing to this tab", run: takeOver }]
     : [
         // Registry-driven, so a new object type reaches the palette by existing rather than by
         // being remembered here.
@@ -754,6 +709,46 @@ export function Editor({ scapeId }: { scapeId: string }) {
     },
   ];
 
+  /**
+   * One prop set for both composers. They differ only in where a send is attributed, the
+   * panel's extra "not connected" gate, and which one owns the focus ref.
+   */
+  const composerProps = (origin: "canvas" | "panel"): ComponentProps<typeof Composer> => {
+    const gated = origin === "panel" && !appSettings.aiReady;
+    return {
+      instructions: scape?.instructions?.body ?? "",
+      onInstructionsChange: setScapeInstructions,
+      globalInstructions: instructions,
+      onEditGlobalInstructions: openAiSettings,
+      controls: { instructions: true },
+      value: draft,
+      onValueChange: setDraft,
+      onSend: (text, route) => sendFromComposer(text, origin, route),
+      routing,
+      liveBusy: busy || scapi.streaming,
+      liveFailed: generation.state.status === "error" || scapi.turns.at(-1)?.status === "error",
+      sendLabel: scapiMode === "ask" ? "Ask" : "Edit",
+      onCancel: scapiMode === "ask" ? scapi.cancel : generation.cancel,
+      busy: scapiMode === "ask" ? scapi.streaming : busy,
+      disabled: readOnly || gated || (scapiMode === "ask" ? busy : scapi.streaming),
+      mode: scapiMode,
+      onModeChange: setScapiMode,
+      webSearch: scapi.webSearch,
+      onWebSearchChange: scapi.setWebSearch,
+      webSearchUnavailable: scapi.searchAvailability === "unavailable",
+      modelId,
+      models: appSettings.models,
+      onModelChange: setModelId,
+      scope,
+      onScopeChange: setScope,
+      types,
+      onTypesChange: setTypes,
+      selectionCount: selection.length,
+      ...(origin === "canvas" ? { inputRef: composerInput } : {}),
+      placeholder: gated ? "Connect AI in Settings → AI to ask." : composerPlaceholder,
+    };
+  };
+
   if (!booted || !ready || !scape) return null;
 
   return (
@@ -772,14 +767,14 @@ export function Editor({ scapeId }: { scapeId: string }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onPublish={() => setPublishOpen(true)}
         publicationState={publication.state}
-        theme={theme}
-        onThemeChange={setTheme}
       />
 
       <div className="flex min-h-0 flex-1">
         <div
           className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
-          style={{ width: leftPanelCollapsed ? 32 : `min(${leftPanelWidth}px, 78vw)` }}
+          style={{
+            width: leftPanelCollapsed ? "var(--panel-rail)" : `min(${leftPanelWidth}px, 78vw)`,
+          }}
         >
           <div className="flex h-full">
             <Outline
@@ -787,42 +782,38 @@ export function Editor({ scapeId }: { scapeId: string }) {
               selection={selection}
               onSelect={selectFromOutline}
               onConnectLoose={(ids) => void handleConnect(ids)}
-              onSelectMany={(ids) => {
-                setSelectedEdgeId(null);
-                useScapeStore.getState().setSelection(ids);
-                if (ids[0]) commands.current?.focus(ids[0]);
-              }}
+              onSelectMany={selectMany}
               busy={busy}
               readOnly={readOnly}
               isCollapsed={leftPanelCollapsed}
               onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
             />
             {!leftPanelCollapsed && !readOnly && (
-              <BlockNav availableTypes={[]} onAdd={(type) => commands.current?.addObject(type)} />
+              <BlockNav onAdd={(type) => commands.current?.addObject(type)} />
             )}
           </div>
           {!leftPanelCollapsed && (
-            <span
-              role="separator"
-              aria-label="Resize outline"
-              onPointerDown={startPanelResize("left")}
-              className="absolute right-0 top-0 z-panel h-full w-1 cursor-col-resize transition-colors hover:bg-accent/40"
+            <PanelResizer
+              side="left"
+              label="Resize outline"
+              width={leftPanelWidth}
+              onResize={setLeftPanelWidth}
             />
           )}
         </div>
 
-        <div className="relative min-w-0 flex-1">
+        <div ref={canvasArea} className="relative min-w-0 flex-1">
           <Canvas
-            onReady={(c) => (commands.current = c)}
+            onReady={onCanvasReady}
             onOpenInspector={focusInspector}
             onEdgeSelect={setSelectedEdgeId}
-            onOpenHelp={() => setShortcutsOpen(true)}
+            onOpenHelp={openHelp}
             isGenerating={busy}
             colorMode={resolvedTheme}
             readOnly={readOnly}
           />
 
-          {readOnly && (
+          {readOnly && !isDesktop() && (
             <div className="pointer-events-none absolute inset-x-0 top-3 z-composer flex justify-center px-4">
               <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-subtle bg-surface px-3 py-1.5 shadow-md">
                 <span className="text-fg-secondary">Open in another tab</span>
@@ -850,7 +841,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
               (scapiOpen ? " hidden" : "")
             }
           >
-            <div className="pointer-events-auto w-full max-w-[720px]">
+            <div className="pointer-events-auto w-full max-w-[var(--composer-max)]">
               <Ribbon
                 state={generation.state}
                 onCancel={generation.cancel}
@@ -866,7 +857,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
             </div>
 
             {canvasAnswer && (
-              <div className="pointer-events-auto w-full max-w-[720px] rounded-2xl border border-subtle bg-surface p-3 shadow-md">
+              <div className="pointer-events-auto w-full max-w-[var(--composer-max)] rounded-2xl border border-subtle bg-surface p-3 shadow-md">
                 <div className="mb-1.5 flex items-center justify-between gap-3">
                   <span className="mono flex items-center gap-1.5">
                     {/* The panel is closed while this shows, so this is Scapi's only live face. */}
@@ -904,12 +895,12 @@ export function Editor({ scapeId }: { scapeId: string }) {
                       <AnswerBody
                         body={canvasAnswer.body}
                         objects={scape.objects}
-                        onObjectClick={(id) => {
-                          setSelectedEdgeId(null);
-                          useScapeStore.getState().setSelection([id]);
-                          commands.current?.focus(id);
-                        }}
+                        onObjectClick={selectFromOutline}
                       />
+                    </Suspense>
+                  ) : canvasAnswer.status === "error" ? (
+                    <Suspense fallback={null}>
+                      <AnswerError turn={canvasAnswer} />
                     </Suspense>
                   ) : scapi.streaming ? (
                     "…"
@@ -919,42 +910,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
             )}
 
             {canvasComposerOpen ? (
-              <div className="pointer-events-auto w-full max-w-[720px]">
-                <Composer
-                  instructions={scape.instructions?.body ?? ""}
-                  onInstructionsChange={setScapeInstructions}
-                  globalInstructions={instructions}
-                  onEditGlobalInstructions={() => setSettingsOpen(true)}
-                  controls={{ instructions: true }}
-                  value={draft}
-                  onValueChange={setDraft}
-                  onSend={(text, route) => sendFromComposer(text, "canvas", route)}
-                  routing={routing}
-                  liveBusy={busy || scapi.streaming}
-                  liveFailed={
-                    generation.state.status === "error" || scapi.turns.at(-1)?.status === "error"
-                  }
-                  sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
-                  onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
-                  busy={scapiMode === "ask" ? scapi.streaming : busy}
-                  disabled={readOnly || (scapiMode === "ask" ? busy : scapi.streaming)}
-                  mode={scapiMode}
-                  onModeChange={setScapiMode}
-                  webSearch={scapi.webSearch}
-                  onWebSearchChange={scapi.setWebSearch}
-                  webSearchUnavailable={scapi.searchAvailability === "unavailable"}
-                  modelId={modelId}
-                  models={appSettings.models}
-                  onModelChange={setModelId}
-                  scope={scope}
-                  onScopeChange={setScope}
-                  types={types}
-                  onTypesChange={setTypes}
-                  availableTypes={[]}
-                  selectionCount={selection.length}
-                  inputRef={composerInput}
-                  placeholder={composerPlaceholder}
-                />
+              <div className="pointer-events-auto w-full max-w-[var(--composer-max)]">
+                <Composer {...composerProps("canvas")} />
               </div>
             ) : (
               <div className="pointer-events-auto flex max-w-[calc(100vw-32px)] items-center gap-1.5">
@@ -1016,10 +973,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
           style={{
             width: scapiOpen
               ? scapiWide
-                ? "min(720px, 92vw)"
-                : "min(420px, 65vw)"
+                ? "min(var(--panel-scapi-wide), 92vw)"
+                : "min(var(--panel-scapi), 65vw)"
               : rightPanelCollapsed
-                ? 32
+                ? "var(--panel-rail)"
                 : selectedEdge || (selectedObject && plugin)
                   ? `min(${rightPanelWidth}px, 78vw)`
                   : 0,
@@ -1036,9 +993,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
                   <button
                     type="button"
                     onClick={() => setScapiWide((wide) => !wide)}
+                    aria-pressed={scapiWide}
                     className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
                   >
-                    {scapiWide ? "Narrow" : "Expand"}
+                    {scapiWide ? "Narrower panel" : "Wider panel"}
                   </button>
                   <button
                     type="button"
@@ -1104,11 +1062,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     onRetry={() => {
                       if (!busy && requireKey()) scapi.retry();
                     }}
-                    onObjectClick={(id) => {
-                      setSelectedEdgeId(null);
-                      useScapeStore.getState().setSelection([id]);
-                      commands.current?.focus(id);
-                    }}
+                    onObjectClick={selectFromOutline}
                     onTurnIntoEdit={(turn) => {
                       setProposedEdit(
                         `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
@@ -1119,7 +1073,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     onWebSearchChange={scapi.setWebSearch}
                     searchAvailability={scapi.searchAvailability}
                     restored={scapi.restored}
-                    suggestions={suggestScapiQuestions(scape)}
+                    suggestions={scapiSuggestions}
                     mood={scapiMood}
                     disabled={!appSettings.aiReady || busy}
                     value={draft}
@@ -1148,49 +1102,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
                         })}
                     composer={
                       <div className="shrink-0 border-t border-subtle p-3">
-                        <Composer
-                          instructions={scape.instructions?.body ?? ""}
-                          onInstructionsChange={setScapeInstructions}
-                          globalInstructions={instructions}
-                          onEditGlobalInstructions={() => setSettingsOpen(true)}
-                          controls={{ instructions: true }}
-                          value={draft}
-                          onValueChange={setDraft}
-                          onSend={(text, route) => sendFromComposer(text, "panel", route)}
-                          routing={routing}
-                          liveBusy={busy || scapi.streaming}
-                          liveFailed={
-                            generation.state.status === "error" ||
-                            scapi.turns.at(-1)?.status === "error"
-                          }
-                          sendLabel={scapiMode === "ask" ? "Ask" : "Edit"}
-                          onCancel={scapiMode === "ask" ? scapi.cancel : generation.cancel}
-                          busy={scapiMode === "ask" ? scapi.streaming : busy}
-                          disabled={
-                            readOnly ||
-                            !appSettings.aiReady ||
-                            (scapiMode === "ask" ? busy : scapi.streaming)
-                          }
-                          mode={scapiMode}
-                          onModeChange={setScapiMode}
-                          webSearch={scapi.webSearch}
-                          onWebSearchChange={scapi.setWebSearch}
-                          webSearchUnavailable={scapi.searchAvailability === "unavailable"}
-                          modelId={modelId}
-                          models={appSettings.models}
-                          onModelChange={setModelId}
-                          scope={scope}
-                          onScopeChange={setScope}
-                          types={types}
-                          onTypesChange={setTypes}
-                          availableTypes={[]}
-                          selectionCount={selection.length}
-                          placeholder={
-                            appSettings.aiReady
-                              ? composerPlaceholder
-                              : "Connect AI in Settings → AI to ask."
-                          }
-                        />
+                        <Composer {...composerProps("panel")} />
                       </div>
                     }
                   />
@@ -1211,6 +1123,17 @@ export function Editor({ scapeId }: { scapeId: string }) {
             (selectedEdge || (selectedObject && plugin)) && (
               <aside
                 ref={inspector}
+                // Escape in a field hands the keyboard back to the canvas, so the next N/J/W/S
+                // creates a block instead of typing into the title.
+                onKeyDown={(e) => {
+                  if (e.key !== "Escape" || e.defaultPrevented) return;
+                  const target = e.target as HTMLElement;
+                  if (target.matches("input, textarea, select")) {
+                    e.preventDefault();
+                    target.blur();
+                    document.querySelector<HTMLElement>("[data-canvas-surface]")?.focus();
+                  }
+                }}
                 className="z-panel h-full w-full overflow-auto border-l border-subtle bg-surface p-4"
               >
                 {selectedEdge ? (
@@ -1242,14 +1165,20 @@ export function Editor({ scapeId }: { scapeId: string }) {
                       </div>
                       <fieldset disabled={readOnly} className="contents">
                         <BlockMarkers
+                          key={selectedObject.id}
                           object={selectedObject}
                           dispatch={(payload: ActionPayload) => dispatchTx([payload])}
                           suggestions={tagSuggestions}
                         />
-                        <plugin.Inspector
-                          object={selectedObject}
-                          dispatch={(payload: ActionPayload) => dispatchTx([payload])}
-                        />
+                        <div data-block-inspector className="contents">
+                          {/* Keyed by block: a field's local draft must never commit to the
+                              next block when the selection changes under it. */}
+                          <plugin.Inspector
+                            key={selectedObject.id}
+                            object={selectedObject}
+                            dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+                          />
+                        </div>
                       </fieldset>
                     </>
                   )
@@ -1269,11 +1198,11 @@ export function Editor({ scapeId }: { scapeId: string }) {
             </button>
           )}
           {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
-            <span
-              role="separator"
-              aria-label="Resize inspector"
-              onPointerDown={startPanelResize("right")}
-              className="absolute left-0 top-0 z-panel h-full w-1 cursor-col-resize transition-colors hover:bg-accent/40"
+            <PanelResizer
+              side="right"
+              label="Resize inspector"
+              width={rightPanelWidth}
+              onResize={setRightPanelWidth}
             />
           )}
         </div>
@@ -1282,6 +1211,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
       {settingsOpen && (
         <SettingsModal
           routingSettings={appSettings}
+          initialSection={settingsSection ?? "general"}
           onClose={() => setSettingsOpen(false)}
           theme={theme}
           credentials={credentials}
@@ -1367,95 +1297,5 @@ function QuickAction({ onClick, children }: { onClick: () => void; children: Rea
     >
       {children}
     </button>
-  );
-}
-
-const BLOCK_SHORTCUTS: Record<string, string> = {
-  note: "N",
-  journey: "J",
-  wireframe: "W",
-  scape: "S",
-};
-
-/** A compact creation rail: it expands naturally as the object registry grows. */
-function BlockNav({
-  availableTypes,
-  onAdd,
-}: {
-  availableTypes: string[];
-  onAdd: (type: string) => void;
-}) {
-  const plugins = allPlugins().filter(
-    (plugin) => availableTypes.length === 0 || availableTypes.includes(plugin.type),
-  );
-
-  return (
-    <nav
-      aria-label="Add building block"
-      className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-subtle bg-surface px-1 py-2"
-    >
-      {plugins.map((plugin) => {
-        const shortcut = BLOCK_SHORTCUTS[plugin.type];
-        const label = `Add ${plugin.label}${shortcut ? ` (${shortcut})` : ""}`;
-        return (
-          <button
-            key={plugin.type}
-            type="button"
-            aria-label={label}
-            onClick={() => onAdd(plugin.type)}
-            className="group relative grid h-8 w-8 place-items-center rounded-sm text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-          >
-            <BlockIcon type={plugin.type} color={plugin.color} />
-            <span className="pointer-events-none absolute left-[calc(100%+6px)] top-1/2 z-popover -translate-y-1/2 whitespace-nowrap rounded-sm border border-subtle bg-raised px-2 py-1 text-xs text-fg opacity-0 shadow-md transition-opacity duration-instant ease-out group-hover:opacity-100 group-focus-visible:opacity-100">
-              {label}
-            </span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-function BlockIcon({ type, color }: { type: string; color: string }) {
-  const stroke = `var(${color})`;
-  return (
-    <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
-      {type === "note" && (
-        <path
-          d="M3 2.5h8l3 3v9H3v-12ZM11 2.5v3h3"
-          stroke={stroke}
-          strokeWidth="1.25"
-          strokeLinejoin="round"
-        />
-      )}
-      {type === "journey" && (
-        <path
-          d="M3 4h4m3 0h4M5 2v4m7-4v4M3 13h4m3 0h4M5 11v4m7-4v4M7 4h3M7 13h3"
-          stroke={stroke}
-          strokeWidth="1.25"
-          strokeLinecap="round"
-        />
-      )}
-      {type === "wireframe" && (
-        <path
-          d="M2.5 3h12v11h-12zM2.5 6h12M5 8.5h2.5M5 11h6.5"
-          stroke={stroke}
-          strokeWidth="1.25"
-          strokeLinejoin="round"
-        />
-      )}
-      {type === "scape" && (
-        <path
-          d="M3.5 2.5h10v12h-10zM6 5.5h5M6 8h5M6 10.5h3"
-          stroke={stroke}
-          strokeWidth="1.25"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
-      {!["note", "journey", "wireframe", "scape"].includes(type) && (
-        <circle cx="8.5" cy="8.5" r="4.5" fill={stroke} />
-      )}
-    </svg>
   );
 }

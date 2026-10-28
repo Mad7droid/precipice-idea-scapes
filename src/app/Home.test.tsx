@@ -6,7 +6,7 @@ import { useNotifications } from "@/core/notify";
 import { Home } from "./Home";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
-import { deletePublication } from "@/publish/client";
+import { deletePublication, PublishClientError } from "@/publish/client";
 import { navigate } from "./router";
 import { downloadScape, importScape } from "@/persistence/portable";
 import { exportScapePdf } from "@/export/pdf";
@@ -61,7 +61,7 @@ vi.mock("@/persistence/scapeRepository", () => ({
 }));
 vi.mock("@/persistence/settings", () => ({
   applyTheme: vi.fn(),
-  settingsRepository: { all: vi.fn(), get: vi.fn(), set: vi.fn() },
+  settingsRepository: { all: vi.fn(), get: vi.fn(), set: vi.fn(), remove: vi.fn() },
 }));
 vi.mock("@/persistence/storage", () => ({
   requestPersistence: vi.fn(),
@@ -69,7 +69,17 @@ vi.mock("@/persistence/storage", () => ({
 }));
 vi.mock("@/persistence/portable", () => ({ downloadScape: vi.fn(), importScape: vi.fn() }));
 vi.mock("@/export/pdf", () => ({ exportScapePdf: vi.fn() }));
-vi.mock("@/publish/client", () => ({ deletePublication: vi.fn() }));
+vi.mock("@/publish/client", () => ({
+  deletePublication: vi.fn(),
+  PublishClientError: class PublishClientError extends Error {
+    constructor(
+      readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
+}));
 vi.mock("@/publish/session", () => ({ readSession: () => ({ token: "test" }) }));
 vi.mock("./router", () => ({ navigate: vi.fn(), scapeRoute: (id: string) => `/s/${id}` }));
 vi.mock("./home/library", async (original) => ({
@@ -223,6 +233,27 @@ describe("home workflows", () => {
     expect(deletePublication).toHaveBeenCalledOnce();
     expect(scapeRepository.remove).not.toHaveBeenCalled();
     expect(view.container.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+  it("removes an unpublished server copy and treats an already-deleted one as gone", async () => {
+    const row = {
+      scapeId: "a",
+      publicationId: "p",
+      status: "unpublished" as const,
+      version: 1,
+      publishedHash: "hash",
+      updatedAt: 1,
+    };
+    vi.mocked(scapeRepository.list).mockResolvedValue([sample]);
+    vi.mocked(scapeRepository.get).mockResolvedValue({ ...emptyScape("a"), name: "Alpha" });
+    vi.mocked(scapeRepository.publications.all).mockResolvedValue([row]);
+    vi.mocked(scapeRepository.publications.get).mockResolvedValue(row);
+    vi.mocked(deletePublication).mockRejectedValue(new PublishClientError("not_found", "gone"));
+    await mount();
+    await menu("Delete…");
+    await click(button("Delete scape"));
+    expect(deletePublication).toHaveBeenCalledWith("p", { token: "test" });
+    expect(scapeRepository.remove).toHaveBeenCalledWith("a");
+    expect(settingsRepository.remove).toHaveBeenCalledWith("home.pin.a");
   });
   it("exports both formats without opening the editor", async () => {
     vi.mocked(scapeRepository.list).mockResolvedValue([sample]);

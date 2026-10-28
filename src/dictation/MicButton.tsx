@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/design/Button";
 import { DotMatrix } from "@/ai/DotMatrix";
+import { isDesktop } from "@/desktop/runtime";
 import type { LevelSignal } from "./level";
 import type { Dictation } from "./useDictation";
 
@@ -18,7 +19,7 @@ export function MicButton({
   dictation: Dictation;
   size?: "sm" | "md";
 }) {
-  const { status, active, level, startedAt } = dictation;
+  const { status, active, level, startedAt, lastSession, installStartedAt } = dictation;
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const wasActive = useRef(false);
@@ -182,7 +183,9 @@ export function MicButton({
           id={dialogId}
           role="dialog"
           aria-label="Dictation"
-          className="absolute bottom-full right-0 z-10 mb-1.5 w-64 rounded-md border border-subtle bg-raised p-3 text-xs text-fg-secondary shadow-md origin-bottom-right animate-node-enter motion-reduce:animate-none"
+          // While downloading, the status sits beside the mic so it never covers the headline
+          // above the composer.
+          className={`absolute z-10 w-64 rounded-md ${installing ? "bottom-0 right-full mr-1.5" : "bottom-full right-0 mb-1.5"} border border-subtle bg-raised p-3 text-xs text-fg-secondary shadow-md origin-bottom-right animate-node-enter motion-reduce:animate-none`}
         >
           {status.kind === "needs-model" && (
             <>
@@ -222,9 +225,27 @@ export function MicButton({
             </>
           )}
           {installing && !measured && (
-            <p className="text-fg" role="status">
-              Your browser is downloading its speech model. The mic is ready when it finishes.
-            </p>
+            <>
+              <p className="text-fg" role="status">
+                Your browser is downloading its language pack. The mic is ready when it finishes.
+              </p>
+              {/* Browsers report no size or progress, so elapsed time is the honest measure. */}
+              <p className="mono mt-1.5 normal-case tracking-normal">
+                {installStartedAt ? <Elapsed since={installStartedAt} /> : null}
+              </p>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    dictation.cancelInstall();
+                    closeDialog();
+                  }}
+                >
+                  Stop waiting
+                </Button>
+              </div>
+            </>
           )}
           {measured && (
             <>
@@ -261,11 +282,14 @@ export function MicButton({
           )}
           {status.kind === "error" && (
             <>
-              <p className="text-fg">Dictation stopped</p>
+              <p className="text-fg">
+                {lastSession.listened ? "Dictation stopped" : "Dictation couldn’t start"}
+              </p>
               <p className="mt-1" role="alert">
                 {status.message}
               </p>
-              <p className="mt-1">Your draft is still here.</p>
+              {permissionProblem(status.message) && <p className="mt-1">{PERMISSION_HELP()}</p>}
+              {lastSession.delivered && <p className="mt-1">Your dictated text is still here.</p>}
               <div className="mt-3 flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={closeDialog}>
                   Close
@@ -288,6 +312,16 @@ export function MicButton({
     </div>
   );
 }
+
+/** Microphone refusals, including silence that may be a refusal, get steps to fix them. */
+export function permissionProblem(message: string): boolean {
+  return /microphone access|blocked|permission|no audio received/i.test(message);
+}
+
+const PERMISSION_HELP = () =>
+  isDesktop()
+    ? "Open System Settings › Privacy & Security › Microphone, turn on Precipice, unmute your mic, then choose Try again."
+    : "Click the site controls next to the address bar, allow the microphone, then choose Try again.";
 
 function megabytes(bytes: number) {
   return `${Math.round(bytes / 1_000_000)} MB`;

@@ -364,6 +364,36 @@ describe("command service", () => {
     expect(done.status).toBe("applied");
   });
 
+  it("hides one connection's operations from another connection on the same scape", async () => {
+    const { service, repository, scape } = await setup();
+    const pending = await service.execute(
+      call(
+        "apply_changes",
+        { scape_id: scape.id, actions: [note("n9")] },
+        grant({ mode: "review" }),
+      ),
+    );
+    const other = grant({ clientId: "client_2" });
+    const id = { operation_id: pending.operation_id };
+    expect(await service.execute(call("get_operation", id, other))).toMatchObject({
+      error: "not_found",
+    });
+    expect(await service.execute(call("cancel_operation", id, other))).toMatchObject({
+      error: "not_found",
+    });
+    expect((await service.execute(call("get_operation", id))).status).toBe("awaiting_review");
+
+    const applied = await service.execute(
+      call("apply_changes", { scape_id: scape.id, actions: [note("n10")] }),
+    );
+    expect(
+      await service.execute(
+        call("revert_operation", { scape_id: scape.id, operation_id: applied.operation_id }, other),
+      ),
+    ).toMatchObject({ error: "not_found" });
+    expect((await repository.get(scape.id))!.objects.n10).toBeTruthy();
+  });
+
   it("always asks before deleting a scape, even in direct mode", async () => {
     const { service, repository, scape } = await setup();
     const pending = await service.execute(call("delete_scape", { scape_id: scape.id }));

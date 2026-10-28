@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
+import { InlineTitle } from "../InlineTitle";
 import { NoteBody, type NoteEditField } from "./Body";
 import type { NoteData } from "./schema";
 
@@ -14,13 +15,6 @@ export function NoteNode({ object, selected }: { object: ScapeObject; selected: 
   const [editing, setEditing] = useState<NoteEditField | null>(null);
   const readOnly = useCanvasReadOnly();
 
-  const commitTitle = (title: string) => {
-    if (readOnly) return;
-    useScapeStore
-      .getState()
-      .dispatchTx([{ type: "UpdateObject", id: object.id, patch: { title } }]);
-  };
-
   const commitBody = (body: string) => {
     if (readOnly) return;
     useScapeStore
@@ -30,18 +24,11 @@ export function NoteNode({ object, selected }: { object: ScapeObject; selected: 
 
   if (editing === "title") {
     return (
-      <input
-        autoFocus
-        defaultValue={object.title}
-        onBlur={(e) => {
-          setEditing(null);
-          commitTitle(e.currentTarget.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") setEditing(null);
-        }}
-        className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
+      <InlineTitle
+        id={object.id}
+        title={object.title}
+        readOnly={readOnly}
+        onDone={() => setEditing(null)}
       />
     );
   }
@@ -60,7 +47,7 @@ export function NoteNode({ object, selected }: { object: ScapeObject; selected: 
           defaultValue={data.body ?? ""}
           onBlur={(e) => {
             setEditing(null);
-            commitBody(e.currentTarget.value);
+            if (e.currentTarget.value !== (data.body ?? "")) commitBody(e.currentTarget.value);
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") setEditing(null);

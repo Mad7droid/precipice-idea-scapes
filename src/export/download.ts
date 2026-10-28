@@ -1,3 +1,5 @@
+import { saveDownload } from "@/desktop/download";
+
 /**
  * Handing a file to the browser.
  *
@@ -5,20 +7,21 @@
  * same scape name, so the slug lives here rather than being reinvented per format.
  */
 
-/** `"Onboarding Flow!"` → `"onboarding-flow"`. Never empty, so a download always has a name. */
+/**
+ * `"Onboarding Flow!"` → `"onboarding-flow"`, `"Café plan"` → `"café-plan"`. Letters and digits
+ * in any script are kept; punctuation, path separators and control characters are not. Never
+ * empty, so a download always has a name.
+ */
 export function filenameFor(name: string): string {
   const slug = name
+    .normalize("NFC")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
   return slug || "scape";
 }
 
+/** Delegates to the shared saver so the Mac app's native download handler sees it. */
 export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  saveDownload(blob, filename);
 }

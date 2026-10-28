@@ -17,11 +17,17 @@ const ROW =
   "flex w-full items-center gap-2 px-2 py-1.5 text-left text-fg transition-colors " +
   "duration-instant ease-out hover:bg-hover";
 
-/** Keeps a menu inside the window when it is opened near the right or bottom edge. */
+/** The canvas toolbar's column on the right edge (button, inset, gap). */
+const RIGHT_RAIL = 56;
+
+/**
+ * Keeps a menu inside the window when it is opened near the right or bottom edge, and clear
+ * of the toolbar rail so it never covers the zoom controls.
+ */
 function clampToViewport(x: number, y: number, width = 224, height = 260) {
   if (typeof window === "undefined") return { left: x, top: y };
   return {
-    left: Math.min(x, window.innerWidth - width - 8),
+    left: Math.max(8, Math.min(x, window.innerWidth - width - 8 - RIGHT_RAIL)),
     top: Math.min(y, window.innerHeight - height - 8),
   };
 }
@@ -65,8 +71,6 @@ function TypeDot({ color }: { color: string }) {
 export interface AddPaletteProps {
   x: number;
   y: number;
-  /** Types this scape's starter allows. Empty means every registered type. */
-  availableTypes?: string[];
   /** Set when the palette was opened by dragging a connection into empty space. */
   connectingFrom?: string | undefined;
   onPick: (objectType: string) => void;
@@ -80,31 +84,51 @@ export interface AddPaletteProps {
  * into empty space. The third is the important one: it is how a mind map actually gets built,
  * and it creates the object and the relationship in a single transaction.
  */
-export function AddPalette({
-  x,
-  y,
-  availableTypes,
-  connectingFrom,
-  onPick,
-  onClose,
-}: AddPaletteProps) {
+export function AddPalette({ x, y, connectingFrom, onPick, onClose }: AddPaletteProps) {
   const root = useDismiss(onClose);
-  const all = allPlugins();
-  const plugins =
-    availableTypes && availableTypes.length > 0
-      ? all.filter((p) => availableTypes.includes(p.type))
-      : all;
+  const plugins = allPlugins();
+  const list = useRef<HTMLDivElement>(null);
 
+  // Keyboard first: focus lands on the first choice, arrows move, Enter picks.
+  useEffect(() => {
+    list.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, []);
+
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    const buttons = [...(list.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      buttons[(index + step + buttons.length) % buttons.length]?.focus();
+    } else if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      buttons[event.key === "Home" ? 0 : buttons.length - 1]?.focus();
+    }
+    // Arrow keys must not reach the canvas, where they nudge the selection.
+    event.stopPropagation();
+  };
+
+  const heading = connectingFrom ? "connect to new" : "add";
   return (
     <div ref={root} className={PANEL} style={clampToViewport(x, y, 224, 40 + plugins.length * 34)}>
-      <p className="mono px-2 pb-1 pt-2">{connectingFrom ? "connect to new" : "add"}</p>
-      <div className="p-1 pt-0">
+      <p className="mono px-2 pb-1 pt-2" aria-hidden>
+        {heading}
+      </p>
+      <div
+        ref={list}
+        role="menu"
+        aria-label={connectingFrom ? "Connect to a new block" : "Add a block"}
+        onKeyDown={onKeyDown}
+        className="p-1 pt-0"
+      >
         {plugins.map((plugin) => (
           <button
             key={plugin.type}
             type="button"
+            role="menuitem"
             onClick={() => onPick(plugin.type)}
-            className={ROW}
+            className={ROW + " focus-visible:bg-hover"}
           >
             <TypeDot color={plugin.color} />
             {plugin.label}

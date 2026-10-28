@@ -55,13 +55,13 @@ a single `txId`, so a layout is one undo.
 
 Every one of these emits an action. No direct state mutation, ever.
 
-| Gesture | Action |
-|---|---|
-| Drag node, on drag *end* | `MoveObject` |
-| Delete key | `DeleteObject` |
-| Drag handle to handle | `ConnectObjects` |
-| Cmd+D | `DuplicateObject` |
-| Double-click node | opens inspector (no action) |
+| Gesture                  | Action                      |
+| ------------------------ | --------------------------- |
+| Drag node, on drag _end_ | `MoveObject`                |
+| Delete key               | `DeleteObject`              |
+| Drag handle to handle    | `ConnectObjects`            |
+| Cmd+D                    | `DuplicateObject`           |
+| Double-click node        | opens inspector (no action) |
 
 Drag emits on end, not on every frame — intermediate positions are local visual state.
 Forty `MoveObject` actions per drag would poison undo and the action log.
@@ -79,8 +79,21 @@ opacity fade.
 
 **8. Keyboard navigation**
 
-Tab cycles nodes in layout order, Enter opens the inspector, arrows nudge the selection by
-8px (emitting `MoveObject`), Escape clears selection. Focus ring per the token file.
+Tab and Shift+Tab move focus into and out of the canvas like any other control; they never
+create blocks. E extends the selected block with a connected note (Shift+E adds one leading
+into it). Enter opens the inspector, arrows nudge the selection by 8px (emitting
+`MoveObject`), Alt+arrows move the selection to the nearest block, Escape clears selection.
+Plain letter keys are ignored for a moment after a node double-click so typing lands in the
+opening editor. Focus ring per the token file.
+
+Store selection is the single source: React Flow's `node.selected` is derived from it, and
+pointer selection writes back through `onNodesChange`. A multi-node drag commits one
+`MoveObject` per dragged node in one transaction. While a generation streams, drags, nudges,
+delete, undo and redo are refused (the store itself refuses undo/redo).
+
+Dropping a connection on a card body connects to that card; only empty canvas opens
+"connect to new". Tidy lays out connected blocks with Dagre and wraps unconnected blocks
+into a grid beside the graph.
 
 ## Dev route
 

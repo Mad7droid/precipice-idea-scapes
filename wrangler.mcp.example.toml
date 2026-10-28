@@ -26,6 +26,13 @@ id = "REPLACE_WITH_KV_NAMESPACE_ID"
 name = "RELAY"
 class_name = "McpRelay"
 
+# Per-IP limit for the unauthenticated OAuth endpoints (/register, /token, /authorize). The
+# Worker degrades open if this binding is missing, so add it before relying on it.
+[[ratelimits]]
+name = "OAUTH_IP_LIMIT"
+namespace_id = "REPLACE_WITH_OAUTH_NAMESPACE"
+simple = { limit = 20, period = 60 }
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["McpRelay"]

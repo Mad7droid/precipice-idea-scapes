@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ScapeSummary } from "@/core/types";
 import { notify } from "@/core/notify";
 import { Button } from "@/design/Button";
+import { isDesktop } from "@/desktop/runtime";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { TurnstileChallenge } from "@/publish/PublishSheet";
 import { readSession, startSignIn } from "@/publish/session";
@@ -144,7 +145,9 @@ export function ConnectConsent({ requestId }: { requestId: string }) {
                 {scope === "some" && (
                   <div className="ml-6 mt-1.5 max-h-40 overflow-y-auto rounded-md border border-subtle bg-inset p-2">
                     {scapes.length === 0 && (
-                      <p className="text-2xs text-fg-tertiary">No scapes in this browser yet.</p>
+                      <p className="text-2xs text-fg-tertiary">
+                        No scapes {isDesktop() ? "on this Mac" : "in this browser"} yet.
+                      </p>
                     )}
                     {scapes.map((scape) => (
                       <label

@@ -18,6 +18,8 @@ import {
 } from "./client";
 import { projectScape } from "./project";
 import { clearSession } from "./session";
+import { publicationUrl } from "./url";
+import { useDialogFocus } from "@/app/home/Dialog";
 import { isDesktop } from "@/desktop/runtime";
 import { startDesktopSignIn } from "@/mcp/host/desktopAuth";
 import { describeState, type PublicationView } from "./usePublication";
@@ -99,6 +101,8 @@ export function PublishSheet({
   };
 
   const projection = projectScape(scape).scape;
+  // Same containment as Settings: focus moves in, Tab is trapped, Esc closes, focus returns.
+  const dialogRef = useDialogFocus(onClose);
 
   return (
     <div
@@ -107,7 +111,9 @@ export function PublishSheet({
       role="presentation"
     >
       <div
-        className="w-[440px] rounded-xl border border-subtle bg-surface p-5 shadow-lg"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="w-[440px] max-w-[calc(100vw-32px)] rounded-xl border border-subtle bg-surface p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal
@@ -414,7 +420,8 @@ function SignedOut({ onSignIn }: { onSignIn: (turnstileToken: string) => Promise
 }
 
 function PublicUrl({ url }: { url: string }) {
-  const href = new URL(url, window.location.origin).toString();
+  // Public links point at the hosted viewer, never the editor's origin (desktop is tauri://).
+  const href = publicationUrl(url);
   return (
     <div className="mt-4 flex items-center gap-2 rounded-md bg-inset px-2.5 py-2">
       <a

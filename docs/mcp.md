@@ -12,13 +12,34 @@ Claude Desktop, Codex, or Cursor and click **Add**. The app updates only its own
 in that client's configuration. Restart the client or start a new session once after setup.
 Claude Code has a copyable registration command.
 
-Clients run the app executable with `--mcp`. It starts Precipice in the background if necessary
-and connects through a user-private Unix socket. If Precipice quits, the helper keeps running;
-the agent's next message relaunches the app and replays the MCP handshake (under a private
-request id whose reply is dropped), so agents that never restart servers stay connected. There
+Clients run the app executable with `--mcp`. The headless helper never opens or focuses
+Precipice. Startup and tool discovery work while the app is closed, using metadata generated
+from the shared MCP server. Library tool calls return an actionable “Open Precipice” error
+until you open the app yourself; they are not queued. The helper stays alive while the app
+is closed. After you open or reopen Precipice, retry the request: the helper connects through
+a user-private Unix socket and replays the handshake under a private request ID whose reply
+is dropped. You do not need to restart the client. There
 are no TCP ports, pairing codes, Node installation, or accounts. The first local write asks for review. Choose **Always apply changes from this agent** for
 subsequent writes, or configure the local review policy in Agents. Deleting a scape always
 requires review. Local access grants access to this device's library, not the browser library.
+
+Local trust is bound to the install, not the agent's self-reported name. **Add** writes a
+fresh random token into that client's server entry (`env.PRECIPICE_MCP_TOKEN`) and records it
+in the app's private support folder. The helper presents the token when it connects; the app
+maps it to the client it was written for. **Always apply** is remembered for that verified
+install only. Agents without a valid token (for example a Claude Code registration copied by
+hand, or a config from an older version) can still connect but always follow the global
+review policy. Re-run **Add** to rotate a token. The token stops impersonation by name, not a
+process that can read the client's config file as you. Previews and receipts are bound to the
+live connection, so another connection cannot read or confirm them.
+
+### Development checks
+
+Offline discovery metadata is checked in at `src-tauri/src/mcp-discovery.json` and generated
+from the shared server by `pnpm generate:mcp-discovery`. The normal frontend build refreshes
+it automatically. After changing MCP schemas or server metadata, regenerate before a direct
+Cargo build; `src/mcp/desktopDiscovery.test.ts` checks for drift against the live server.
+No library content or credentials are included in the generated file.
 
 ## Hosted connector
 
@@ -81,9 +102,15 @@ route. Instructions, history, local metadata, and credentials are excluded from 
 The result provides a hosted share URL and copyable iframe code:
 
 ```html
-<iframe src="https://precipice.pages.dev/embed/PUBLICATION_ID"
-  title="Precipice flow preview" width="100%" height="600"
-  loading="lazy" referrerpolicy="no-referrer" style="border:0"></iframe>
+<iframe
+  src="https://precipice.pages.dev/embed/PUBLICATION_ID"
+  title="Precipice flow preview"
+  width="100%"
+  height="600"
+  loading="lazy"
+  referrerpolicy="no-referrer"
+  style="border:0"
+></iframe>
 ```
 
 Shared snapshots are independent of creation and remain available after the draft expires.
@@ -140,13 +167,38 @@ when retrying a write, and send `expected_revision` when relying on a prior read
    offline errors, and client refresh before inviting users.
 
 The authenticated MCP request budget is 25,000 per UTC day across the deployment, stored as one
-atomic counter in D1. `MCP_DISABLED=1` stops the connector. Per-user tool limits also apply.
+atomic counter in D1. Each account is first limited to 2,000 requests per UTC day
+(`mcp_user_budget`, migration `0008`); requests denied by that limit never spend the global
+budget. `MCP_DISABLED=1` stops the connector. Per-user per-minute relay limits also apply.
+Add the `OAUTH_IP_LIMIT` rate-limit binding to rate-limit `/register`, `/token` and
+`/authorize` per IP; without it those endpoints degrade to unlimited.
+
+Relay tickets are single-use: each carries a nonce that the person's relay Durable Object
+records on the first WebSocket upgrade and refuses on replay. Upgrades must come from
+`APP_ORIGIN` or `tauri://localhost`.
+
+`confirm_flow` and `share_flow_preview` are listed and callable only for clients that advertise
+the MCP Apps extension (`io.modelcontextprotocol/ui`) at initialize. The hosted connector is
+stateless, so it records that capability on the connection row (`mcp_connections.mcp_apps`);
+existing connections pick it up the next time their client initializes. Operation receipts
+(`get_operation`, `cancel_operation`, `revert_operation`) are visible only to the connection
+that created them.
+
+Desktop sign-in (`/host/start`) accepts any well-formed PKCE challenge and only forwards it to
+the signed-in app's consent screen. Approval returns a one-time code exclusively to the
+`precipice://auth/callback` URL, which only the installed app can receive, and the code is
+useless without the matching verifier. Approve a desktop sign-in only when you started it from
+your own Mac.
 The cap is not a guarantee that all Cloudflare account usage fits the free tier: OAuth metadata,
 registration, denied requests, other Workers, and publishing consume their own quotas. Keep the
 account on the free plan and monitor usage; edge rate limiting may be needed for public abuse.
 No billing upgrade is required or performed by this change.
 
 ## Developer bridge
+
+The loopback bridge accepts only `Host: 127.0.0.1:<port>` or `localhost:<port>` (DNS-rebinding
+defence), in addition to its Origin allowlist and pairing code. The production site's CSP no
+longer allows `http://127.0.0.1:38383`, so the browser bridge works from `pnpm dev` only.
 
 ### Troubleshooting local setup
 

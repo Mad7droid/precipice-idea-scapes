@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { markColor } from "@/core/marks";
 import { allPlugins, getPlugin } from "@/core/registry";
 import { useScapeStore } from "@/core/store";
-import type { ObjectId, Scape } from "@/core/types";
+import type { ObjectId, Scape, ScapeObject } from "@/core/types";
 import { scapeTags } from "./BlockMarkers";
 
 /**
@@ -41,6 +41,10 @@ export function Outline({
   onToggleCollapse?: () => void;
 }) {
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
+  const deleteObject = useCallback(
+    (id: ObjectId) => dispatchTx([{ type: "DeleteObject", id }]),
+    [dispatchTx],
+  );
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [sectionCollapsed, setSectionCollapsed] = useState<Set<string>>(new Set());
@@ -172,7 +176,8 @@ export function Outline({
             )}
             {scape.objectOrder.length === 0 ? (
               <p className="px-2 py-3 text-xs text-fg-tertiary">
-                Start with a block from the toolbar on the right, or describe what you want.
+                Add a block from the toolbar beside this list (N, J, W or S), or describe what you
+                want.
               </p>
             ) : (
               <>
@@ -198,6 +203,11 @@ export function Outline({
                     )}
                   </div>
                 )}
+                {queryText && !scape.objectOrder.some(matches) && (
+                  <p role="status" className="px-2 py-3 text-xs text-fg-tertiary">
+                    No matches <span className="mono ml-1">0</span>
+                  </p>
+                )}
                 {groups.map(({ plugin, ids }) => {
                   const visibleIds = ids.filter(matches);
                   if (visibleIds.length === 0) return null;
@@ -212,14 +222,12 @@ export function Outline({
                       {visibleIds.map((id) => (
                         <Row
                           key={id}
-                          scape={scape}
+                          object={scape.objects[id]}
                           id={id}
                           links={degree.get(id) ?? 0}
                           selected={selection.includes(id)}
                           onSelect={onSelect}
-                          onDelete={
-                            readOnly ? undefined : () => dispatchTx([{ type: "DeleteObject", id }])
-                          }
+                          onDelete={readOnly ? undefined : deleteObject}
                         />
                       ))}
                     </Section>
@@ -297,23 +305,23 @@ function DisclosureChevron({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-function Row({
-  scape,
+/** Memoised: a scape edit re-renders only the rows whose object, links or selection changed. */
+const Row = memo(function Row({
+  object,
   id,
   links,
   selected,
   onSelect,
   onDelete,
 }: {
-  scape: Scape;
+  object: ScapeObject | undefined;
   id: ObjectId;
   links: number;
   selected: boolean;
   onSelect: (id: ObjectId) => void;
   /** Absent in a read-only tab, which removes the control rather than greying it out. */
-  onDelete?: () => void;
+  onDelete?: ((id: ObjectId) => void) | undefined;
 }) {
-  const object = scape.objects[id];
   if (!object) return null;
   const plugin = getPlugin(object.type);
   const accent = markColor(object.accent);
@@ -355,7 +363,7 @@ function Row({
         <button
           type="button"
           aria-label={`Delete ${object.title || id}`}
-          onClick={onDelete}
+          onClick={() => onDelete(id)}
           className="mr-1 grid h-5 w-5 shrink-0 place-items-center rounded-sm p-0 text-fg-tertiary opacity-0 transition-colors duration-instant ease-out hover:bg-active hover:text-danger group-hover:opacity-100 focus:opacity-100"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -370,4 +378,4 @@ function Row({
       )}
     </div>
   );
-}
+});

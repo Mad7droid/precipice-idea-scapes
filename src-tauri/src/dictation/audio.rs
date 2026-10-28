@@ -28,14 +28,21 @@ impl Resampler {
         let frames = interleaved.len() / self.channels;
         let mono = |i: usize| -> f32 {
             let start = i * self.channels;
-            interleaved[start..start + self.channels].iter().sum::<f32>() / self.channels as f32
+            interleaved[start..start + self.channels]
+                .iter()
+                .sum::<f32>()
+                / self.channels as f32
         };
         // `position` is measured from the sample before this chunk (`previous`), so index -1
         // is the carried sample and 0..frames are the new ones.
         while self.position < frames as f64 {
             let index = self.position.floor() as isize - 1;
             let fraction = (self.position - self.position.floor()) as f32;
-            let a = if index < 0 { self.previous } else { mono(index as usize) };
+            let a = if index < 0 {
+                self.previous
+            } else {
+                mono(index as usize)
+            };
             let b = mono((index + 1) as usize);
             out.push(a + (b - a) * fraction);
             self.position += self.step;
@@ -187,7 +194,9 @@ mod tests {
     fn tone(seconds: f32, amplitude: f32) -> Vec<f32> {
         let n = (TARGET_RATE as f32 * seconds) as usize;
         (0..n)
-            .map(|i| (i as f32 * 440.0 * std::f32::consts::TAU / TARGET_RATE as f32).sin() * amplitude)
+            .map(|i| {
+                (i as f32 * 440.0 * std::f32::consts::TAU / TARGET_RATE as f32).sin() * amplitude
+            })
             .collect()
     }
 

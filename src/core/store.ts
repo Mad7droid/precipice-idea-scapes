@@ -70,6 +70,11 @@ interface StoreState {
   drainActionLog: () => Action[];
 }
 
+function findLastIndex<T>(items: readonly T[], match: (item: T) => boolean): number {
+  for (let i = items.length - 1; i >= 0; i--) if (match(items[i])) return i;
+  return -1;
+}
+
 export const useScapeStore = create<StoreState>((set, get) => ({
   scape: null,
   selection: [],
@@ -94,13 +99,18 @@ export const useScapeStore = create<StoreState>((set, get) => ({
       return true;
     }
 
-    const top = undoStack[undoStack.length - 1];
+    // Coalesce on txId across the whole stack, not just the top. A streamed generation that
+    // was interleaved with another step (a nudge, an inspector edit) must still undo as one
+    // step; the merged transaction moves to the top because it is the most recent activity.
+    const index = findLastIndex(undoStack, (tx) => tx.txId === action.txId);
     let nextUndo: Transaction[];
-    if (top && top.txId === action.txId) {
-      // Same transaction: prepend so replaying front-to-back reverses application order.
+    if (index >= 0) {
+      const existing = undoStack[index];
+      // Prepend so replaying front-to-back reverses application order.
       nextUndo = [
-        ...undoStack.slice(0, -1),
-        { ...top, inverses: [inverse, ...top.inverses], size: top.size + 1 },
+        ...undoStack.slice(0, index),
+        ...undoStack.slice(index + 1),
+        { ...existing, inverses: [inverse, ...existing.inverses], size: existing.size + 1 },
       ];
     } else {
       nextUndo = [...undoStack, { txId: action.txId, inverses: [inverse], size: 1 }];
@@ -139,13 +149,19 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
   undo: () => {
     const { scape, undoStack } = get();
-    if (get().committing || !scape || undoStack.length === 0) return false;
+    // Undo mid-generation would split the stream's transaction in two: the half already
+    // applied would be undone and the rest would land as a fresh step. Blocked here so every
+    // path (toolbar, Cmd+Z, menus) gets the same answer.
+    if (get().committing || get().generating || !scape || undoStack.length === 0) return false;
     const tx = undoStack[undoStack.length - 1];
 
     let next = scape;
     const redoInverses: Action[] = [];
     const applied: Action[] = [];
-    for (const inverse of tx.inverses) {
+    // Replayed now, so stamped now: Scape.updatedAt must not move backwards on undo.
+    const ts = Date.now();
+    for (const stored of tx.inverses) {
+      const inverse = { ...stored, ts } as Action;
       const result = applyAction(next, inverse);
       if (!result.inverse) continue;
       next = result.state;
@@ -164,13 +180,15 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
   redo: () => {
     const { scape, redoStack } = get();
-    if (get().committing || !scape || redoStack.length === 0) return false;
+    if (get().committing || get().generating || !scape || redoStack.length === 0) return false;
     const tx = redoStack[redoStack.length - 1];
 
     let next = scape;
     const undoInverses: Action[] = [];
     const applied: Action[] = [];
-    for (const action of tx.inverses) {
+    const ts = Date.now();
+    for (const stored of tx.inverses) {
+      const action = { ...stored, ts } as Action;
       const result = applyAction(next, action);
       if (!result.inverse) continue;
       next = result.state;

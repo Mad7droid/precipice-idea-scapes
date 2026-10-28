@@ -8,6 +8,7 @@ import type { LoggedAction, ScapeSummary } from "@/core/types";
 import { startAutosave, type AutosaveHandle } from "@/persistence/autosave";
 import { downloadScape, importScape, ScapeImportError } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
+import { nextSnapshotSeq } from "@/persistence/sequence";
 
 const LAST_SCAPE_KEY = "precipice.dev.lastScape";
 
@@ -85,7 +86,7 @@ export function DevPersistence() {
       createdAt: now,
       updatedAt: now,
     };
-    await scapeRepository.saveSnapshot(seeded, Date.now());
+    await scapeRepository.saveSnapshot(seeded, nextSnapshotSeq());
     await open(created.id);
     notify.success("Seeded the fixture scape.");
   };

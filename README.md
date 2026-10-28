@@ -6,7 +6,7 @@ Precipice is a visual workspace for turning product ideas into connected,
 editable artifacts. Start with a prompt or a blank scape, then shape the result
 with notes, journeys, wireframes, and relationships on an infinite canvas.
 
-Use it in the browser or the macOS desktop app. The [0.1.6 Mac download](https://github.com/Mad7droid/precipice-idea-scapes/releases/tag/v0.1.6)
+Use it in the browser or the macOS desktop app. The [latest Mac download](https://github.com/Mad7droid/precipice-idea-scapes/releases/latest)
 is an ad-hoc signed Apple Silicon build; see [desktop setup](docs/desktop.md) for installation. Scapi helps you ask questions and edit;
 external agents can work through MCP with review and undo. Publish a read-only snapshot
 when you want a link other people can open.
@@ -39,8 +39,9 @@ The hosted version stores scapes locally in your browser. It is not a shared
 cloud workspace, so exporting a `.scape` file is the safest way to move work
 between browsers or machines.
 
-AI generation needs your own Anthropic API key, added under Settings. There is
-no hosted key: the deployment is a static site plus a stateless proxy, and a
+In the browser, AI generation needs your own Anthropic API key, added under Settings → AI.
+The Mac app defaults to your Claude plan through Claude Code, and can also use ChatGPT or an
+Anthropic API key stored in Keychain. There is no hosted key: the deployment is a static site plus a stateless proxy, and a
 shared key behind a public endpoint is a shared key anyone can spend.
 
 ## What is included
@@ -89,7 +90,7 @@ until withdrawn, independently of the ten-minute creation draft. Text-only clien
 the existing in-app review tools.
 
 See the [library guide](docs/library.md), [MCP guide](docs/mcp.md), and
-[release record](docs/releases/0.1.6.md) for setup, limits, and verification status.
+[release records](docs/releases/) for setup, limits, and verification status.
 
 ## Screenshots
 
@@ -213,7 +214,7 @@ For the full data-flow and Claude/Anthropic API-key model, see
   Scape's content and do not travel with a `.scape` export or a publication.
 - The deployed app can reopen offline after its shell has been loaded once. AI generation still
   needs a network connection to Anthropic.
-- AI requests are sent through a stateless Cloudflare Worker proxy. Generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.
+- AI requests are sent through a stateless Cloudflare Worker proxy. In the browser, generation requires your own Anthropic key, added in Settings; it is kept only for the current tab session, survives reloads, clears when the tab is closed, and is forwarded for generation requests only.
 - The Worker holds no Anthropic credential of its own and stores nothing. It exists to add CORS headers, and it rejects any request that does not carry a key.
 - Markdown is rendered as React elements with a small element allowlist; raw HTML is not
   interpreted. Links are limited to `http` and `https` and open with `noopener noreferrer`.
@@ -256,19 +257,18 @@ browser home page, then **Import** in the desktop app and select the downloaded
 This is a local file transfer, not automatic synchronization; API keys, sign-in
 tokens, publication ownership, and app preferences are excluded.
 
-
 ## Code map for contributors
 
-| Area | Responsibility |
-| --- | --- |
-| `src/app/`, `src/canvas/`, `src/objects/` | Shared React editor and object UI |
-| `src/core/` | Document model, validation, reducer, and undo |
-| `src/persistence/` | Local IndexedDB storage and portable file transfer |
-| `src/ai/` | Anthropic generation and Scapi |
-| `src/desktop/` | Desktop detection and credential UI/state |
-| `src-tauri/` | macOS window, restricted IPC, and Keychain access |
+| Area                                         | Responsibility                                                   |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `src/app/`, `src/canvas/`, `src/objects/`    | Shared React editor and object UI                                |
+| `src/core/`                                  | Document model, validation, reducer, and undo                    |
+| `src/persistence/`                           | Local IndexedDB storage and portable file transfer               |
+| `src/ai/`                                    | Anthropic generation and Scapi                                   |
+| `src/desktop/`                               | Desktop detection and credential UI/state                        |
+| `src-tauri/`                                 | macOS window, restricted IPC, and Keychain access                |
 | `src/mcp/`, `src/app/agents/`, `worker/mcp/` | Shared agent commands, review, local IPC, hosted OAuth and relay |
-| `worker/`, `src/publish/`, `src/viewer/` | Web proxy and optional published snapshots |
+| `worker/`, `src/publish/`, `src/viewer/`     | Web proxy and optional published snapshots                       |
 
 Start with [the architecture guide](docs/codebase-architecture.md), then
 [desktop notes](docs/desktop.md) for the native boundary. The same frontend builds

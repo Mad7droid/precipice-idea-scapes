@@ -1,5 +1,6 @@
 import { useScapeStore } from "@/core/store";
 import type { Scape, ScapeRepository } from "@/core/types";
+import { nextSnapshotSeq } from "./sequence";
 
 const DEBOUNCE_MS = 300;
 
@@ -34,7 +35,6 @@ export function startAutosave(
 ): AutosaveHandle {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: Scape | null = null;
-  let seq = 0;
   let writes = 0;
   let lastSavedAt: number | null = null;
   let stopped = false;
@@ -59,15 +59,24 @@ export function startAutosave(
     // there is nothing here worth keeping.
     if (canWrite && !canWrite()) return inflight;
 
-    writes += 1;
-    lastSavedAt = Date.now();
     // Both calls are issued synchronously rather than chained behind the previous write. On
     // `pagehide` a queued microtask may never run, and losing that write is the bug this path
     // exists to prevent. Sequence numbers make out-of-order completion harmless: a stale write
-    // is dropped. `inflight` only exists so `flush` can be awaited.
-    const nextSeq = ++seq;
-    const pendingWrites = [repository.saveSnapshot(scape, nextSeq)];
-    if (actions.length) pendingWrites.push(repository.appendActions(scape.id, actions));
+    // is dropped. The sequence is shared across sessions (see sequence.ts) because the
+    // repository's last-applied sequence outlives this handle. `inflight` only exists so
+    // `flush` can be awaited.
+    const snapshot = repository.saveSnapshot(scape, nextSnapshotSeq()).then(
+      () => {
+        // Counted only once the write has landed. The repository has already surfaced a
+        // failure to the person; reporting "saved" for it would be a lie.
+        writes += 1;
+        lastSavedAt = Date.now();
+      },
+      () => undefined,
+    );
+    const pendingWrites = [snapshot];
+    if (actions.length)
+      pendingWrites.push(repository.appendActions(scape.id, actions).catch(() => undefined));
     inflight = Promise.all([inflight, ...pendingWrites]).then(() => undefined);
     return inflight;
   };

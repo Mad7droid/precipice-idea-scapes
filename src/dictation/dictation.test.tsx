@@ -260,6 +260,37 @@ describe("mic button", () => {
     await act(async () => button(view.container).click());
     emit.status({ kind: "error", message: "Microphone access is off." });
     expect(view.container.textContent).toContain("Microphone access is off.");
+    // Nothing was dictated, so the copy neither claims a draft survived nor hides the fix.
+    expect(view.container.textContent).toContain("Dictation stopped");
+    expect(view.container.textContent).not.toContain("still here");
+    expect(view.container.textContent).toContain("allow the microphone");
+    view.unmount();
+  });
+
+  it("says dictation couldn't start when the mic is refused before listening", async () => {
+    const { engine } = fakeEngine({ kind: "ready" });
+    vi.mocked(engine.start).mockRejectedValueOnce("Microphone access was blocked.");
+    setDictationEngineForTests(engine);
+    const view = render(<Harness />);
+    await flush();
+    await act(async () => button(view.container).click());
+    await flush();
+    await act(async () => button(view.container).click());
+    expect(view.container.textContent).toContain("Dictation couldn’t start");
+    expect(view.container.textContent).not.toContain("Dictation stopped");
+    view.unmount();
+  });
+
+  it("keeps saying dictated text is kept when phrases arrived", async () => {
+    const { engine, emit } = fakeEngine({ kind: "ready" });
+    setDictationEngineForTests(engine);
+    const view = render(<Harness />);
+    await flush();
+    await act(async () => button(view.container).click());
+    await flush();
+    emit.phrase("hello");
+    emit.status({ kind: "error", message: "The microphone was disconnected." });
+    expect(view.container.textContent).toContain("Your dictated text is still here.");
     view.unmount();
   });
 });

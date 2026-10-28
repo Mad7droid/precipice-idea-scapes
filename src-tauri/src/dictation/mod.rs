@@ -80,7 +80,10 @@ fn language_code(language: &str) -> Option<&'static str> {
 }
 
 fn clean_prompt(prompt: &str) -> String {
-    let words: Vec<&str> = prompt.split(|c: char| c.is_whitespace() || c.is_control()).filter(|w| !w.is_empty()).collect();
+    let words: Vec<&str> = prompt
+        .split(|c: char| c.is_whitespace() || c.is_control())
+        .filter(|w| !w.is_empty())
+        .collect();
     words.join(" ").chars().take(MAX_PROMPT_CHARS).collect()
 }
 
@@ -100,19 +103,30 @@ fn compute_status(app: &AppHandle, state: &Dictation) -> Status {
     {
         let inner = state.inner.lock().unwrap();
         if let Some(session) = &inner.session {
-            return if session.stop.load(Ordering::Relaxed) { Status::Finishing } else { Status::Listening };
+            return if session.stop.load(Ordering::Relaxed) {
+                Status::Finishing
+            } else {
+                Status::Listening
+            };
         }
         if let Some(install) = &inner.install {
-            return Status::Installing { received: install.received, total: models::current().bytes };
+            return Status::Installing {
+                received: install.received,
+                total: models::current().bytes,
+            };
         }
     }
     if model_path(app, state).is_some() {
         return Status::Ready;
     }
     if models::host().is_none() {
-        return Status::Unavailable { reason: "This build has no speech model host configured.".into() };
+        return Status::Unavailable {
+            reason: "This build has no speech model host configured.".into(),
+        };
     }
-    Status::NeedsModel { bytes: models::current().bytes }
+    Status::NeedsModel {
+        bytes: models::current().bytes,
+    }
 }
 
 fn load_model(state: &Dictation, path: &PathBuf) -> Result<Arc<WhisperContext>, String> {
@@ -120,7 +134,10 @@ fn load_model(state: &Dictation, path: &PathBuf) -> Result<Arc<WhisperContext>, 
         return Ok(model);
     }
     // `inner` stays free while loading, so status, stop and cancel never wait on the disk.
-    let _loading = state.loading.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _loading = state
+        .loading
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(model) = state.inner.lock().unwrap().model.clone() {
         return Ok(model);
     }
@@ -128,19 +145,26 @@ fn load_model(state: &Dictation, path: &PathBuf) -> Result<Arc<WhisperContext>, 
     params.use_gpu(true);
     let path_str = path.to_str().ok_or("Invalid model path")?;
     let model = Arc::new(
-        WhisperContext::new_with_params(path_str, params).map_err(|_| "Could not load the speech model")?,
+        WhisperContext::new_with_params(path_str, params)
+            .map_err(|_| "Could not load the speech model")?,
     );
     state.inner.lock().unwrap().model = Some(model.clone());
     Ok(model)
 }
 
+/// Status may verify a ~640 MB model file on first sight, so it runs off the async runtime.
 #[tauri::command]
-pub async fn dictation_status(app: AppHandle, state: tauri::State<'_, Dictation>) -> Result<Status, ()> {
-    Ok(compute_status(&app, &state))
+pub async fn dictation_status(app: AppHandle) -> Result<Status, ()> {
+    tauri::async_runtime::spawn_blocking(move || compute_status(&app, &app.state::<Dictation>()))
+        .await
+        .map_err(|_| ())
 }
 
 #[tauri::command]
-pub async fn dictation_install(app: AppHandle, state: tauri::State<'_, Dictation>) -> Result<(), String> {
+pub async fn dictation_install(
+    app: AppHandle,
+    state: tauri::State<'_, Dictation>,
+) -> Result<(), String> {
     let host = models::host().ok_or("This build has no speech model host configured.")?;
     let dir = models_dir(&app)?;
     let cancel = Arc::new(AtomicBool::new(false));
@@ -149,7 +173,10 @@ pub async fn dictation_install(app: AppHandle, state: tauri::State<'_, Dictation
         if inner.install.is_some() {
             return Ok(());
         }
-        inner.install = Some(Install { cancel: cancel.clone(), received: 0 });
+        inner.install = Some(Install {
+            cancel: cancel.clone(),
+            received: 0,
+        });
     }
     let total = models::current().bytes;
     emit_status(&app, Status::Installing { received: 0, total });
@@ -186,12 +213,17 @@ pub fn dictation_cancel_install(state: tauri::State<'_, Dictation>) {
 
 /// Loads the model ahead of the first word, so pressing the mic does not wait on disk.
 #[tauri::command]
-pub async fn dictation_prepare(app: AppHandle, state: tauri::State<'_, Dictation>) -> Result<(), ()> {
-    if let Some(path) = model_path(&app, &state) {
-        let _ = load_model(&state, &path);
-        state.inner.lock().unwrap().last_used = Some(Instant::now());
-    }
-    Ok(())
+pub async fn dictation_prepare(app: AppHandle) -> Result<(), ()> {
+    // Loading reads and initialises hundreds of MB; never do that on an async worker.
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Dictation>();
+        if let Some(path) = model_path(&app, &state) {
+            let _ = load_model(&state, &path);
+            state.inner.lock().unwrap().last_used = Some(Instant::now());
+        }
+    })
+    .await
+    .map_err(|_| ())
 }
 
 #[tauri::command]
@@ -216,7 +248,10 @@ pub async fn dictation_start(
             }
             .into());
         }
-        inner.session = Some(Session { stop: stop.clone(), cancel: cancel.clone() });
+        inner.session = Some(Session {
+            stop: stop.clone(),
+            cancel: cancel.clone(),
+        });
     }
     emit_status(&app, Status::Listening);
 
@@ -277,10 +312,17 @@ fn capture(
     let device = cpal::default_host()
         .default_input_device()
         .ok_or("No microphone found")?;
-    let config = device.default_input_config().map_err(|_| "Could not open the microphone")?;
+    let config = device
+        .default_input_config()
+        .map_err(|_| "Could not open the microphone")?;
     let (tx, rx) = mpsc::channel::<Vec<f32>>();
     let stream_config: cpal::StreamConfig = config.config();
-    let on_error = |_| {};
+    // A stream error (unplugged device, revoked permission) ends the session with a visible
+    // error instead of leaving the mic "listening" to nothing.
+    let (err_tx, err_rx) = mpsc::channel::<String>();
+    let on_error = move |error: cpal::Error| {
+        let _ = err_tx.send(stream_error_message(&error));
+    };
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => device.build_input_stream(
             stream_config.clone(),
@@ -309,7 +351,9 @@ fn capture(
         _ => return Err("Unsupported microphone format".into()),
     }
     .map_err(|_| "Could not open the microphone")?;
-    stream.play().map_err(|_| "Could not start the microphone")?;
+    stream
+        .play()
+        .map_err(|_| "Could not start the microphone")?;
 
     let mut resampler = Resampler::new(stream_config.sample_rate, stream_config.channels);
     let mut cutter = PhraseCutter::default();
@@ -318,13 +362,17 @@ fn capture(
     let mut heard_anything = false;
     let mut last_level = Instant::now();
     while !stop.load(Ordering::Relaxed) {
+        if let Ok(message) = err_rx.try_recv() {
+            return Err(message);
+        }
         let Ok(chunk) = rx.recv_timeout(Duration::from_millis(50)) else {
             continue;
         };
         heard_anything |= chunk.iter().any(|s| *s != 0.0);
-        // macOS hands a denied app silence rather than an error.
+        // macOS hands a denied app silence rather than an error, but so does a muted or
+        // hardware-switched mic, so the message names both rather than claiming a denial.
         if !heard_anything && started.elapsed() > Duration::from_secs(2) {
-            return Err("Microphone access is off. Allow Precipice in System Settings › Privacy & Security › Microphone.".into());
+            return Err(NO_AUDIO.into());
         }
         mono.clear();
         resampler.push(&chunk, &mut mono);
@@ -348,6 +396,17 @@ fn capture(
     Ok(())
 }
 
+const NO_AUDIO: &str = "No audio received — check mic permission or mute. Allow Precipice in System Settings › Privacy & Security › Microphone, and make sure the microphone isn't muted.";
+
+fn stream_error_message(error: &cpal::Error) -> String {
+    match error.kind() {
+        cpal::ErrorKind::DeviceNotAvailable => {
+            "The microphone was disconnected. Dictation stopped.".into()
+        }
+        _ => "The microphone stopped working. Dictation stopped.".into(),
+    }
+}
+
 fn transcribe(
     app: &AppHandle,
     state: &Dictation,
@@ -358,8 +417,12 @@ fn transcribe(
     phrases: mpsc::Receiver<Vec<f32>>,
 ) -> Result<(), String> {
     let model = load_model(state, path)?;
-    let mut whisper = model.create_state().map_err(|_| "Could not start the speech model")?;
-    let threads = std::thread::available_parallelism().map(|n| n.get().min(4)).unwrap_or(2) as i32;
+    let mut whisper = model
+        .create_state()
+        .map_err(|_| "Could not start the speech model")?;
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get().min(4))
+        .unwrap_or(2) as i32;
     let mut previous = String::new();
     for phrase in phrases {
         if cancel.load(Ordering::Relaxed) {
@@ -371,7 +434,14 @@ fn transcribe(
             return Ok(());
         }
         if let Some(text) = clean_transcript(&text) {
-            previous = text.chars().rev().take(200).collect::<Vec<_>>().into_iter().rev().collect();
+            previous = text
+                .chars()
+                .rev()
+                .take(200)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
             let _ = app.emit_to(WINDOW, "dictation:phrase", text);
         }
     }
@@ -404,7 +474,9 @@ fn recognise(
     if !context.is_empty() {
         params.set_initial_prompt(context);
     }
-    whisper.full(params, phrase).map_err(|_| "Transcription failed")?;
+    whisper
+        .full(params, phrase)
+        .map_err(|_| "Transcription failed")?;
     Ok(whisper
         .as_iter()
         .filter(|segment| segment.no_speech_probability() < 0.8)
@@ -456,7 +528,10 @@ mod tests {
     fn read_wav(path: &str) -> Vec<f32> {
         let bytes = std::fs::read(path).unwrap();
         let data = bytes.windows(4).position(|w| w == b"data").unwrap() + 8;
-        bytes[data..].chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect()
+        bytes[data..]
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect()
     }
 
     /// PRECIPICE_TEST_MODEL=path/to/ggml.bin PRECIPICE_TEST_AUDIO=en:a.wav,hi:b.wav
@@ -485,8 +560,24 @@ mod tests {
                 .map(|p| recognise(&mut whisper, p, language, "Precipice Scapi scape", 4).unwrap())
                 .collect();
             let took = started.elapsed().as_secs_f32();
-            println!("{language} {seconds:.1}s audio in {took:.2}s ({:.1}x): {}", seconds / took, text.join(" | "));
+            println!(
+                "{language} {seconds:.1}s audio in {took:.2}s ({:.1}x): {}",
+                seconds / took,
+                text.join(" | ")
+            );
         }
+    }
+
+    #[test]
+    fn silence_does_not_claim_permission_was_denied() {
+        assert!(NO_AUDIO.starts_with("No audio received — check mic permission or mute"));
+        assert!(!NO_AUDIO.contains("is off"));
+    }
+
+    #[test]
+    fn stream_errors_become_visible_messages() {
+        let message = stream_error_message(&cpal::Error::new(cpal::ErrorKind::DeviceNotAvailable));
+        assert!(message.contains("disconnected"));
     }
 
     #[test]

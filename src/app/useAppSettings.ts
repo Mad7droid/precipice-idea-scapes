@@ -8,6 +8,7 @@ import { useAIConnection } from "@/ai/connection/useAIConnection";
 import type { ModelChoice } from "@/ai/models";
 import { isDesktop } from "@/desktop/runtime";
 import { retryKeychain } from "@/desktop/keychain";
+import { loadHostCredential } from "@/mcp/host/credential";
 import {
   createContext,
   createElement,
@@ -65,6 +66,8 @@ interface AppSettings {
 const AppSettingsContext = createContext<AppSettings | null>(null);
 const API_KEY_SESSION_KEY = "anthropic.apiKey";
 const JEV_KEY_SESSION_KEY = "typesafe.apiKey";
+/** Not a key: tells routing a TypeSafe key is saved in the Mac Keychain. Never sent anywhere. */
+export const DESKTOP_SAVED_JEV_KEY = "keychain:typesafe";
 
 function readSessionApiKey(name = API_KEY_SESSION_KEY): string {
   if (isDesktop() || typeof window === "undefined") return "";
@@ -125,7 +128,14 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const jevKey = jevCredentials.desktop ? jevCredentials.key : jevSessionKey;
+  // On the Mac, TypeSafe requests go through the native `jev_route`, which reads the key from
+  // Keychain itself. The webview only needs to know a key is saved, so routing state carries a
+  // marker rather than the secret.
+  const jevKey = jevCredentials.desktop
+    ? jevCredentials.saved
+      ? DESKTOP_SAVED_JEV_KEY
+      : ""
+    : jevSessionKey;
   const setJevKey = (next: string) => {
     if (jevCredentials.desktop) {
       jevCredentials.change(next);
@@ -155,14 +165,13 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     void settingsRepository.set(SETTING_KEYS.jevRouting, next);
   };
 
-  const keychainDenied =
-    connection.error?.includes("Keychain access") === true ||
-    credentials.denied ||
-    jevCredentials.denied;
+  const keychainDenied = connection.keychainDenied || credentials.denied || jevCredentials.denied;
   const allowKeychain = async () => {
     await retryKeychain().catch(() => undefined);
     credentials.reload();
     jevCredentials.reload();
+    // The agent host sign-in shares the one vault item, so it was refused too.
+    await loadHostCredential().catch(() => undefined);
     await connection.refresh();
   };
 

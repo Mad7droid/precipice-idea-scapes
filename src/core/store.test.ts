@@ -230,3 +230,48 @@ describe("commit freezes the store", () => {
     });
   });
 });
+
+describe("generation-safe undo", () => {
+  it("undo and redo are refused while a generation is streaming", () => {
+    store().dispatchTx([{ type: "CreateObject", id: "a", objectType: "note", title: "A" }]);
+    store().setGenerating(true);
+    try {
+      expect(store().undo()).toBe(false);
+      expect(store().scape!.objects["a"]).toBeDefined();
+    } finally {
+      store().setGenerating(false);
+    }
+    expect(store().undo()).toBe(true);
+    expect(store().scape!.objects["a"]).toBeUndefined();
+  });
+
+  it("coalesces a txId across the stack when another step interleaves", () => {
+    store().dispatchTx(
+      [{ type: "CreateObject", id: "a", objectType: "note", title: "A" }],
+      "tx_gen",
+    );
+    store().dispatchTx([{ type: "MoveObject", id: "a", x: 40, y: 40 }], "tx_user");
+    store().dispatchTx(
+      [{ type: "CreateObject", id: "b", objectType: "note", title: "B" }],
+      "tx_gen",
+    );
+
+    expect(store().undoStack.map((tx) => tx.txId)).toEqual(["tx_user", "tx_gen"]);
+    store().undo();
+    expect(store().scape!.objects["a"]).toBeUndefined();
+    expect(store().scape!.objects["b"]).toBeUndefined();
+  });
+
+  it("undo stamps updatedAt with the current time instead of moving it backwards", () => {
+    store().dispatch({
+      type: "RenameScape",
+      name: "Old",
+      txId: "tx_old",
+      ts: 1,
+    });
+    const before = store().scape!.updatedAt;
+    store().undo();
+    expect(store().scape!.updatedAt).toBeGreaterThanOrEqual(before);
+    expect(store().scape!.updatedAt).toBeGreaterThan(1);
+  });
+});

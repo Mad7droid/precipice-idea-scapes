@@ -1,7 +1,89 @@
 # Changelog
 
-All notable user-visible changes to Precipice are recorded here. This project
-does not use formal release numbers yet; entries are grouped by date and commit.
+All notable user-visible changes to Precipice are recorded here. Releases are
+numbered (see `docs/releases/`); entries are grouped by date and version.
+
+## Unreleased
+
+### Fixed
+
+- Creating a note, journey, wireframe, or document now focuses its title instead of the
+  tag field. Enter and double-click target block content too; stale focus requests do
+  not move the cursor into a different block after selection changes.
+- Canvas highlights now follow selection from the outline, keyboard navigation, and
+  select-all commands. Delete targets the highlighted blocks; selecting a block clears
+  any previous edge selection. Selection changes preserve live drag geometry.
+- Dragging multiple selected blocks now saves every dragged position and undoes/redoes
+  the group in one step. Drag frames remain local and do not trigger snapshot writes.
+- Opening Claude Desktop, Codex, or another local MCP client no longer launches Precipice.
+  Tools remain discoverable while it is closed; open Precipice manually and retry library
+  calls to reconnect without restarting the client.
+- Autosave continues saving after importing, creating a public copy, or reopening a scape
+  in the same window. Snapshot writers now share a monotonically increasing sequence.
+- Failed autosave writes no longer increment the saved-write count or saved timestamp.
+- Opening a scape you already had open, then editing, is saved again; a tab that wakes from
+  suspension after another tab took over can no longer overwrite its work.
+- Deleting a scape removes its server publication (even when unpublished) and its pin.
+- Undo during AI generation no longer splits the generation; undo, redo, drags and nudges
+  pause while AI is generating. An aborted generation or Scapi answer can no longer
+  overwrite the next one.
+- One wireframe width drag is one undo step; unchanged title edits leave no undo step;
+  Escape cancels inline title edits. Panning no longer marks a scape as recently edited.
+- Tags with emoji are no longer cut mid-character; duplicate relationships are ignored.
+- A half-typed tag is never saved on blur; Escape discards it, and Escape in any inspector
+  field returns the keyboard to the canvas. Inspector drafts can no
+  longer be saved into a different block when the selection changes.
+- "Connect AI" prompts open Settings on the AI section and no longer stack.
+- Upgrading from 0.1.15 keeps an existing Anthropic API key connection instead of switching
+  to the Claude plan.
+- Claude plan requests reuse a recent account check instead of starting Claude Code each time.
+- Scapi errors now appear on the canvas; rejected keys point to Settings → AI and offline is
+  called out.
+- Mac app: links that open a new tab now open in your browser; exports download to
+  ~/Downloads; Keychain prompts and slow agents no longer freeze the window; Jev gets its
+  full 4 s; Cmd+Q and closing the window flush pending edits.
+- A corrupt Keychain item no longer blocks saving keys; ChatGPT account changes no longer
+  cancel Claude requests.
+- Dictation reports mic disconnects, says "check mic permission or mute" for silence, and
+  language-pack and model downloads can be cancelled or time out.
+- Concurrent publication updates or deletes can no longer remove the live snapshot or leave
+  orphaned public files.
+
+### Changed
+
+- Tab now moves focus out of the canvas; press E to extend a block (Shift+E adds one leading
+  into it).
+- Dropping a connection on a card connects to it; Tidy arranges unconnected blocks in a grid;
+  the add-block button has its own icon.
+- Library backups leave out edit history and skip (and name) scapes saved by a newer version.
+- Imported copies get " (imported)" when the name is taken; non-Precipice files get a plain
+  error. Export filenames keep non-Latin letters; PDFs note shortened text and omit internal ids.
+- When another window updates Precipice, this window asks you to reload instead of failing
+  every save. Development harness routes are no longer in production builds.
+- The Publish sheet is a proper dialog (focus trap, Esc, focus restore) and links always use
+  the public viewer origin.
+- Narrow windows collapse the outline automatically; the theme picker lives only in Settings.
+- The Mac app says "this Mac" instead of "this browser" and hides browser-tab editing controls.
+- Default model is Sonnet 5.5; Opus 5.5, Haiku 5.5 and Fable 5.1 are offered.
+- Settings → AI checks the Anthropic key format and explains Jev and TypeSafe; the TypeSafe key
+  no longer reaches the web view in the Mac app.
+- "Always apply" for local agents is tied to a per-install token written by Settings → Agents
+  rather than the agent's self-reported name. Re-add clients to enable it. Agent setup refuses
+  to run from a disk image or translocated copy; symlinked agent configs stay symlinks.
+- Public snapshots are cached for at most 5 minutes; suspended accounts' links are withdrawn
+  until restored.
+- Hosted MCP connector: per-account daily limits, per-IP limits on OAuth endpoints, single-use
+  origin-checked relay tickets, operations scoped to their connection, and confirmation tools
+  offered only to MCP Apps clients.
+- The developer MCP bridge rejects DNS-rebinding requests; production no longer allows the
+  loopback bridge. The deploy workflow exposes Cloudflare credentials only to deploy steps.
+- Dependencies updated; patched dompurify and undici are pinned.
+
+### Accessibility
+
+- Muted text meets 4.5:1 contrast in light and dark themes. Panel resizers, the add palette,
+  the View menu, the theme picker and journey step reordering work from the keyboard. Home
+  has a skip link; new journey steps are focused.
 
 ## 2026-10-22 — 0.1.16
 

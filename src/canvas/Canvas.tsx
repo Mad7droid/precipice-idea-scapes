@@ -11,7 +11,6 @@ import {
   type FinalConnectionState,
   type Node,
   type NodeChange,
-  type OnSelectionChangeParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { ActionPayload } from "@/core/actions";
@@ -78,6 +77,8 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2;
 /** Arrow-key nudge, per the keyboard spec. */
 const NUDGE = 8;
+/** How long after a node double-click plain keys are left for the opening editor. */
+const EDIT_ENTRY_GRACE_MS = 600;
 
 /** Where a menu was opened: on screen, for placement, and in the canvas, for what it creates. */
 interface Anchor {
@@ -95,6 +96,13 @@ interface PendingConnection {
   startY: number;
   endX: number;
   endY: number;
+}
+
+/** The canvas node under a screen point, if any. */
+function nodeIdAt(x: number, y: number): ObjectId | undefined {
+  if (typeof document.elementFromPoint !== "function") return undefined;
+  const node = document.elementFromPoint(x, y)?.closest<HTMLElement>(".react-flow__node");
+  return node?.dataset.id ?? undefined;
 }
 
 function eventPoint(event: MouseEvent | TouchEvent) {
@@ -123,10 +131,19 @@ function PendingConnectionLine({ connection }: { connection: PendingConnection }
         stroke="var(--edge-stroke-active)"
         strokeDasharray="3 6"
         strokeLinecap="round"
-        strokeWidth="2"
-        opacity="0.62"
+        // Presentation attributes do not resolve var(); style does.
+        style={{
+          strokeWidth: "var(--edge-width-active)",
+          opacity: "var(--pending-connection-line-opacity)",
+        }}
       />
-      <circle cx={connection.endX} cy={connection.endY} r="4" fill="var(--accent)" opacity="0.72" />
+      <circle
+        cx={connection.endX}
+        cy={connection.endY}
+        r="4"
+        fill="var(--accent)"
+        style={{ opacity: "var(--pending-connection-dot-opacity)" }}
+      />
     </svg>
   );
 }
@@ -142,8 +159,7 @@ export interface CanvasCommands {
   /** Re-runs layout and commits the result as a single LayoutScape action: one undo. */
   relayout: (mode?: LayoutMode) => void;
   focus: (id: ObjectId) => void;
-  /** Clears the store selection *and* React Flow's own node.selected mirror — the two are
-   * separate, so a caller outside the canvas (e.g. an inspector close button) needs both. */
+  /** Clears the store selection; the canvas synchronizes its visual selection mirror. */
   clearSelection: () => void;
   /** Adds an object of the given type at the centre of the current view. */
   addObject: (objectType: string) => void;
@@ -207,6 +223,7 @@ function CanvasSurface({
   const undoDepth = useScapeStore((s) => s.undoStack.length);
   const redoDepth = useScapeStore((s) => s.redoStack.length);
   const surface = useRef<HTMLDivElement>(null);
+  const lastNodeDoubleClick = useRef(Number.NEGATIVE_INFINITY);
 
   // The scape's starter decides the arrangement and whether relationships are drawn.
   const starter = starterFor(scape);
@@ -253,8 +270,8 @@ function CanvasSurface({
   /**
    * React Flow would like to own node positions. It does not: the store is the source of
    * truth and this array is a mirror, kept only so a drag can animate at 60fps without
-   * dispatching an action per frame. It is rebuilt whenever the Scape changes, preserving
-   * React Flow's own selection state — which it does own.
+   * dispatching an action per frame. It is reconciled whenever the Scape changes, preserving
+   * React Flow's measurements. Selection is synchronized separately from the store.
    */
   useEffect(() => {
     if (!scape) {
@@ -263,6 +280,23 @@ function CanvasSurface({
     }
     setNodes((prev) => mergeFlowNodes(prev, scape, isGenerating));
   }, [scape, isGenerating]);
+
+  // Outline clicks, commands, and keyboard navigation all select through the store.
+  // Update only flags here: reconciling positions would reset an in-progress drag.
+  useEffect(() => {
+    const selected = new Set(selection);
+    setNodes((previous) => {
+      let changed = false;
+      const next = previous.map((node) => {
+        const isSelected = selected.has(node.id);
+        if (!!node.selected === isSelected) return node;
+        changed = true;
+        return { ...node, selected: isSelected };
+      });
+      return changed ? next : previous;
+    });
+    if (selection.length > 0) selectEdge(null);
+  }, [selection, scapeId, selectEdge]);
 
   // A relationship can be deleted out from under the inspector — by undo, by an AI
   // generation, or by deleting one of its endpoints.
@@ -281,34 +315,45 @@ function CanvasSurface({
     [nodes, hiddenTypes],
   );
 
-  const onNodesChange = useCallback((changes: NodeChange<Node<ObjectNodeData>>[]) => {
-    // Drag positions stay local until drag end. Removals never arrive: React Flow's delete
-    // handler is disabled, and deletion goes through DeleteObject like everything else.
-    setNodes((prev) => applyNodeChanges(changes, prev));
-  }, []);
+  const onNodesChange = useCallback(
+    (changes: NodeChange<Node<ObjectNodeData>>[]) => {
+      // Positions and measurements stay local. Pointer selection goes through the same
+      // store as outline clicks and keyboard commands, instead of a second notification
+      // channel that can report the previous controlled-node state back to the store.
+      setNodes((prev) => applyNodeChanges(changes, prev));
+      if (!changes.some((change) => change.type === "select")) return;
+      const current = useScapeStore.getState().selection;
+      const selected = new Set(current);
+      for (const change of changes) {
+        if (change.type !== "select") continue;
+        if (change.selected) selected.add(change.id);
+        else selected.delete(change.id);
+      }
+      const ids = [...selected];
+      if (ids.length !== current.length || ids.some((id, index) => id !== current[index])) {
+        setSelection(ids);
+      }
+      if (selected.size > 0) selectEdge(null);
+    },
+    [setSelection, selectEdge],
+  );
 
-  /** One action per drag, on drag end. Forty per drag would poison undo and the action log. */
+  /** One transaction per drag, with one move per dragged block, never per frame. */
   const onNodeDragStop = useCallback(
-    (_: unknown, node: Node) => {
+    (_: unknown, _node: Node, draggedNodes: Node[]) => {
       if (readOnly) return;
-      dispatchTx([
-        {
+      // React Flow supplies the full group even when the drag starts on one selected node.
+      // Commit only those nodes so the rest of the graph retains its object identities.
+      dispatchTx(
+        draggedNodes.map((node) => ({
           type: "MoveObject",
           id: node.id,
           x: Math.round(node.position.x),
           y: Math.round(node.position.y),
-        },
-      ]);
+        })),
+      );
     },
     [dispatchTx, readOnly],
-  );
-
-  const onSelectionChange = useCallback(
-    ({ nodes: selected }: OnSelectionChangeParams) => {
-      setSelection(selected.map((n) => n.id));
-      if (selected.length > 0) selectEdge(null);
-    },
-    [setSelection, selectEdge],
   );
 
   const onConnect = useCallback(
@@ -347,6 +392,16 @@ function CanvasSurface({
       if (!from) return;
       const point = eventPoint(event);
       if (!point) return;
+      // Released over a card rather than its handle: that is still "connect to this card".
+      // Only empty canvas means "connect to something new".
+      const target = state.toNode?.id ?? nodeIdAt(point.x, point.y);
+      if (target) {
+        setPendingConnection(null);
+        if (!readOnly && target !== from) {
+          dispatchTx([{ type: "ConnectObjects", id: newRelId(), from, to: target }]);
+        }
+        return;
+      }
       setConnectMenu(null);
       setAddMenu(anchorFrom(point.x, point.y, from));
       setPendingConnection((previous) => ({
@@ -356,7 +411,7 @@ function CanvasSurface({
         endY: point.y,
       }));
     },
-    [anchorFrom],
+    [anchorFrom, dispatchTx, readOnly],
   );
 
   const connectTo = useCallback(
@@ -407,7 +462,6 @@ function CanvasSurface({
 
   const clearSelection = useCallback(() => {
     setSelection([]);
-    setNodes((prev) => prev.map((n) => (n.selected ? { ...n, selected: false } : n)));
     selectEdge(null);
   }, [setSelection, selectEdge]);
 
@@ -588,8 +642,24 @@ function CanvasSurface({
         return;
       }
 
-      if (!readOnly && event.key === "Tab" && ids.length === 1) {
+      // Letters typed straight after a double-click are meant for the editor that click is
+      // opening, which may not have mounted and taken focus yet. They must not fall through
+      // to the single-key shortcuts and create blocks.
+      const enteringEdit = performance.now() - lastNodeDoubleClick.current < EDIT_ENTRY_GRACE_MS;
+      const plainKey = !meta && !event.altKey && event.key.length === 1;
+      if (enteringEdit && plainKey) return;
+
+      // E extends the selected thought (Shift+E adds what leads into it). This used to be
+      // Tab, which trapped keyboard users on the canvas whenever one block was selected.
+      if (
+        !readOnly &&
+        !meta &&
+        !event.altKey &&
+        event.key.toLowerCase() === "e" &&
+        ids.length === 1
+      ) {
         event.preventDefault();
+        if (isGenerating) return;
         extendSelection(ids[0], event.shiftKey ? "backward" : "forward");
         return;
       }
@@ -597,7 +667,7 @@ function CanvasSurface({
       const quickType = { n: "note", j: "journey", w: "wireframe", s: "scape" }[
         event.key.toLowerCase()
       ];
-      if (!readOnly && !meta && quickType) {
+      if (!readOnly && !meta && !event.altKey && quickType) {
         event.preventDefault();
         addObject(quickType);
         return;
@@ -634,6 +704,7 @@ function CanvasSurface({
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
+        if (isGenerating) return;
         dispatchTx(ids.map((id) => ({ type: "DeleteObject" as const, id })));
         setSelection([]);
         return;
@@ -676,6 +747,8 @@ function CanvasSurface({
           focusNearest(ids[0], direction);
           return;
         }
+        // A nudge mid-stream would interleave with the generation's transaction.
+        if (isGenerating) return;
         const amount = event.shiftKey ? NUDGE * 10 : NUDGE;
         // One transaction for the whole nudge, so a multi-select nudge is one undo.
         dispatchTx(
@@ -699,6 +772,7 @@ function CanvasSurface({
       extendSelection,
       fit,
       focusNearest,
+      isGenerating,
       onOpenInspector,
       readOnly,
       resetZoom,
@@ -713,6 +787,7 @@ function CanvasSurface({
     <div
       ref={surface}
       tabIndex={0}
+      data-canvas-surface
       onKeyDown={onKeyDown}
       // A focus ring around the entire viewport reads as a rendering fault, and selection is
       // what actually communicates focus here.
@@ -725,7 +800,6 @@ function CanvasSurface({
         colorMode={colorMode}
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
-        onSelectionChange={onSelectionChange}
         onConnect={onConnect}
         onConnectStart={(event) => {
           const point = eventPoint(event);
@@ -733,7 +807,10 @@ function CanvasSurface({
           setPendingConnection({ startX: point.x, startY: point.y, endX: point.x, endY: point.y });
         }}
         onConnectEnd={onConnectEnd}
-        onNodeDoubleClick={(_, node) => onOpenInspector?.(node.id)}
+        onNodeDoubleClick={(_, node) => {
+          lastNodeDoubleClick.current = performance.now();
+          onOpenInspector?.(node.id);
+        }}
         onNodeContextMenu={(event, node) => {
           event.preventDefault();
           if (readOnly) return;
@@ -770,7 +847,7 @@ function CanvasSurface({
         deleteKeyCode={null}
         // Selection stays on in read-only: the point of the second tab is to look at things,
         // and the inspector is how you look at them.
-        nodesDraggable={!readOnly}
+        nodesDraggable={!readOnly && !isGenerating}
         nodesConnectable={!readOnly}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
@@ -820,8 +897,9 @@ function CanvasSurface({
           setLayoutMode("LR");
           relayout("LR");
         }}
-        canUndo={undoDepth > 0}
-        canRedo={redoDepth > 0}
+        // The store refuses undo mid-generation; the buttons say so instead of doing nothing.
+        canUndo={undoDepth > 0 && !isGenerating}
+        canRedo={redoDepth > 0 && !isGenerating}
         onUndo={() => useScapeStore.getState().undo()}
         onRedo={() => useScapeStore.getState().redo()}
         onZoomIn={() => zoomIn({ duration: prefersReducedMotion() ? 0 : 130 })}
@@ -837,7 +915,6 @@ function CanvasSurface({
         <AddPalette
           x={addMenu.screenX}
           y={addMenu.screenY}
-          availableTypes={[]}
           connectingFrom={addMenu.from}
           onPick={(type) => {
             createAt(type, { x: addMenu.flowX, y: addMenu.flowY }, addMenu.from);

@@ -1,5 +1,5 @@
 //! Claude Code is used only as a text/JSON model. It cannot run its own canvas, shell or MCP tools.
-use crate::ai_connection::Connections;
+use crate::ai_connection::{Connections, Provider};
 use serde_json::{json, Value};
 use std::{path::PathBuf, process::Stdio, time::Duration};
 use tauri::State;
@@ -117,10 +117,19 @@ async fn recent_status() -> Result<Value, String> {
             return Ok(status.clone());
         }
     }
-    claude_status().await
+    fresh_status().await
 }
+/// `cached: true` (sent by the request path) reuses an answer from the last minute, so a
+/// conversation does not spawn `claude auth status` for every model call. Settings omit it
+/// and always get a fresh check.
 #[tauri::command]
-pub async fn claude_status() -> Result<Value, String> {
+pub async fn claude_status(cached: Option<bool>) -> Result<Value, String> {
+    if cached == Some(true) {
+        return recent_status().await;
+    }
+    fresh_status().await
+}
+async fn fresh_status() -> Result<Value, String> {
     if executable().is_none() {
         forget_status();
         return Ok(json!({"installed":false,"connected":false}));
@@ -145,7 +154,7 @@ fn plan_connected(status: &Value) -> bool {
 }
 #[tauri::command]
 pub async fn claude_connect(state: State<'_, Connections>, id: String) -> Result<(), String> {
-    let cancel = state.register(&id).await?;
+    let cancel = state.register(&id, Provider::Claude).await?;
     forget_status();
     let result = tokio::select! {biased;
         _=cancel.notified()=>Err("Claude sign-in cancelled.".into()),
@@ -198,7 +207,7 @@ pub async fn claude_request(
     schema: Value,
 ) -> Result<Value, String> {
     validate(&model, &prompt, &schema)?;
-    let cancel = state.register(&id).await?;
+    let cancel = state.register(&id, Provider::Claude).await?;
     let result = tokio::select! {biased;
         _=cancel.notified()=>Err("Request cancelled.".into()),
         result=tokio::time::timeout(Duration::from_secs(180),async {

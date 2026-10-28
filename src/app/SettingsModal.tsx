@@ -9,6 +9,7 @@ import { Select } from "@/design/Select";
 import { InstructionsField } from "@/ai/Instructions";
 import { ThemeControl } from "./ThemeControl";
 import { useDialogFocus } from "./home/Dialog";
+import { isDesktop } from "@/desktop/runtime";
 import { McpBridgePanel } from "./McpBridgePanel";
 import { AgentsPanel } from "./agents/AgentsPanel";
 import type { McpBridge } from "@/mcp/bridge";
@@ -151,8 +152,9 @@ export function SettingsModal({
                         rows={4}
                       />
                       <p className="text-xs text-fg-tertiary">
-                        Optional. Applied to every generation in this browser. Each scape can add
-                        its own from the composer.
+                        Optional. Applied to every generation{" "}
+                        {isDesktop() ? "on this Mac" : "in this browser"}. Each scape can add its
+                        own from the composer.
                       </p>
                     </>
                   ) : (

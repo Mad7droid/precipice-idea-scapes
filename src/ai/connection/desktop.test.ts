@@ -210,6 +210,10 @@ describe("Claude plan via native Claude Code", () => {
     expect(
       invoke.mock.calls.every(([command]) => ["claude_status", "claude_request"].includes(command)),
     ).toBe(true);
+    // Requests use the native cached account check instead of spawning `claude auth status`.
+    expect(invoke.mock.calls.find(([command]) => command === "claude_status")?.[1]).toEqual({
+      cached: true,
+    });
   });
 });
 

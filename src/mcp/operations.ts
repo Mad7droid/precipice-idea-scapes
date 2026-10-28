@@ -5,7 +5,15 @@ import { db, type PrecipiceDb } from "../persistence/db";
 import { CURRENT_DOC_VERSION } from "../persistence/migrate";
 import { toPlainScape } from "../core/serialize";
 
-/** Snapshot, action history and deduplication receipt commit together, or not at all. */
+/**
+ * Snapshot, action history and deduplication receipt commit together, or not at all.
+ *
+ * Deliberately not routed through `ScapeRepository`: the receipt table is MCP-only, and the
+ * idempotency guarantee depends on the snapshot and its receipt sharing one IndexedDB
+ * transaction with the lease re-checked inside it. The repository writes one table per call
+ * and cannot join that transaction. The row shape and `toPlainScape` serialisation mirror
+ * `DexieScapeRepository.write`; keep the two in step.
+ */
 export async function saveOperation(
   operation: McpOperation,
   scape?: Scape,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@xyflow/react";
 import { allPlugins } from "@/core/registry";
 import type { EdgeMode } from "@/starters";
@@ -98,13 +98,15 @@ export function Toolbar({
       <div className="flex flex-col overflow-hidden rounded-md border border-subtle bg-surface shadow-sm">
         {!readOnly && (
           <ToolButton
-            label="Add object (N, J, W)"
+            label="Add block (N, J, W, S)"
             onClick={(event) => {
               const bounds = event.currentTarget.getBoundingClientRect();
               onAdd({ x: bounds.right, y: bounds.bottom });
             }}
           >
-            <path d="M7 2.5v9M2.5 7h9" strokeLinecap="round" />
+            {/* A boxed plus, so it never reads as the bare-plus "Zoom in" further down. */}
+            <rect x="1.5" y="1.5" width="11" height="11" rx="2.5" />
+            <path d="M7 4.5v5M4.5 7h5" strokeLinecap="round" />
           </ToolButton>
         )}
         <ToolButton label="Help and keyboard shortcuts (?)" onClick={onHelp}>
@@ -114,6 +116,7 @@ export function Toolbar({
         </ToolButton>
         <ToolButton
           label={`View — lines ${edgeMode === "none" ? "off" : edgeMode}`}
+          expanded={viewOpen}
           onClick={() => {
             setViewOpen((open) => !open);
           }}
@@ -170,10 +173,19 @@ export function Toolbar({
 }
 
 function Menu({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  // Escape closes from anywhere: focus may be on the trigger, an item, or the canvas.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
     <div
+      role="group"
+      aria-label="View options"
       className="mb-0.5 w-56 rounded-md border border-subtle bg-surface p-1 shadow-lg"
-      onMouseLeave={onClose}
     >
       {children}
     </div>
@@ -196,11 +208,14 @@ function ToolButton({
   label,
   onClick,
   disabled,
+  expanded,
   children,
 }: {
   label: string;
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
+  /** Set for buttons that toggle a popover. */
+  expanded?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -210,6 +225,7 @@ function ToolButton({
       title={label}
       onClick={onClick}
       disabled={disabled}
+      {...(expanded !== undefined ? { "aria-expanded": expanded, "aria-haspopup": true } : {})}
       className={
         "grid h-8 w-8 place-items-center transition-colors duration-instant ease-out " +
         "disabled:pointer-events-none disabled:opacity-30 " +

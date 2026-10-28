@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-keychain-reset"
+description = "Enables the keychain_reset command without any pre-configured scope."
+commands.allow = ["keychain_reset"]
+
+[[permission]]
+identifier = "deny-keychain-reset"
+description = "Denies the keychain_reset command without any pre-configured scope."
+commands.deny = ["keychain_reset"]

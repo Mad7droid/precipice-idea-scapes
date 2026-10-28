@@ -3,7 +3,7 @@ import { JSDOM } from "jsdom";
 import { afterEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { buildMcpServer, toolResult } from "./server";
+import { MCP_APPS_EXTENSION, buildMcpServer, toolResult } from "./server";
 import { FLOW_UI_HTML, FLOW_UI_MIME, FLOW_UI_URI } from "./flowUi";
 
 const preview = {
@@ -100,12 +100,53 @@ async function host(result = preview) {
 }
 
 describe("MCP Apps server", () => {
+  it("hides and refuses app-only confirmation tools for clients without MCP Apps", async () => {
+    const calls: string[] = [];
+    const server = buildMcpServer(async (tool) => {
+      calls.push(tool);
+      return { status: "applied" };
+    });
+    const client = new Client({ name: "text-only", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(a), client.connect(b)]);
+    try {
+      const names = (await client.listTools()).tools.map((t) => t.name);
+      expect(names).toContain("preview_flow");
+      expect(names).not.toContain("confirm_flow");
+      expect(names).not.toContain("share_flow_preview");
+      const result = await client
+        .callTool({ name: "confirm_flow", arguments: {} })
+        .catch((error: Error) => ({ isError: true, error: error.message }));
+      expect(result.isError).toBe(true);
+      expect(calls).toEqual([]);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("follows an explicit capability decision from a stateless transport", async () => {
+    const server = buildMcpServer(async () => ({ status: "applied" }), {
+      appsSupported: () => true,
+    });
+    const client = new Client({ name: "stateless", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(a), client.connect(b)]);
+    try {
+      expect((await client.listTools()).tools.map((t) => t.name)).toContain("confirm_flow");
+    } finally {
+      await client.close();
+    }
+  });
+
   it("registers the portable resource, app-only mutations, and keeps UI content out of model context", async () => {
     const server = buildMcpServer(async () => ({
       ...preview.structuredContent,
       _meta: preview._meta,
     }));
-    const client = new Client({ name: "fixture-client", version: "1" });
+    const client = new Client(
+      { name: "fixture-client", version: "1" },
+      { capabilities: { extensions: { [MCP_APPS_EXTENSION]: {} } } as never },
+    );
     const [a, b] = InMemoryTransport.createLinkedPair();
     await Promise.all([server.connect(a), client.connect(b)]);
     try {

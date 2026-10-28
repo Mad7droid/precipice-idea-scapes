@@ -164,3 +164,14 @@ describe("markers on disk", () => {
     expect(toPlainScape(state).objects["brief"]).not.toHaveProperty("tags");
   });
 });
+
+describe("normalizeTags grapheme truncation", () => {
+  it("never splits an emoji when truncating", async () => {
+    const { normalizeTags, MAX_TAG_LENGTH } = await import("./marks");
+    const family = "👨‍👩‍👧";
+    const [tag] = normalizeTags([family.repeat(MAX_TAG_LENGTH + 5)]);
+    expect(tag).toBe(family.repeat(MAX_TAG_LENGTH));
+    const [mixed] = normalizeTags(["a".repeat(MAX_TAG_LENGTH - 1) + "😀😀"]);
+    expect(mixed).toBe("a".repeat(MAX_TAG_LENGTH - 1) + "😀");
+  });
+});

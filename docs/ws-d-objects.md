@@ -97,3 +97,11 @@ bounds hold.
 
 Every dev-route bullet demonstrable, `pnpm test` green, `pnpm build` clean, nothing
 outside `src/objects/**` modified, `NOTES.md` written.
+
+## Inline editing on cards
+
+Every card's inline title editor is `InlineTitle` (`src/objects/InlineTitle.tsx`); journey
+step labels use the underlying `InlineTextEdit`. Enter and blur commit, Escape cancels, and an
+unchanged value dispatches nothing. The reducer also treats an `UpdateObject` whose title and
+(shallow) data are unchanged as a no-op. The wireframe width slider keeps a local draft and
+commits one `ResizeObject` when the gesture ends.

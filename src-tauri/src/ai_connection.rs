@@ -79,7 +79,9 @@ struct Model {
     id: String,
     label: String,
 }
-#[derive(Clone, Serialize, Deserialize)]
+/// Missing fields from an older or partial save default rather than failing the whole read.
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 struct Session {
     client: String,
     subject: String,
@@ -89,7 +91,6 @@ struct Session {
     expires: u64,
     earliest_refresh: u64,
     models: Vec<Model>,
-    #[serde(default)]
     id_token: String,
 }
 impl Session {
@@ -128,12 +129,18 @@ pub struct Connections {
     epoch: AtomicU64,
     connecting: Mutex<bool>,
     error: Mutex<Option<String>>,
-    tasks: Mutex<HashMap<String, Arc<Notify>>>,
+    tasks: Mutex<HashMap<String, (Provider, Arc<Notify>)>>,
     cancelled: Mutex<HashMap<String, u64>>,
     login_cancel: Mutex<Option<Arc<Notify>>>,
 }
+/// Which connection a running request uses, so account changes cancel only their own work.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Provider {
+    ChatGPT,
+    Claude,
+}
 impl Connections {
-    pub async fn register(&self, id: &str) -> Result<Arc<Notify>> {
+    pub async fn register(&self, id: &str, provider: Provider) -> Result<Arc<Notify>> {
         let mut tasks = self.tasks.lock().await;
         let mut cancelled = self.cancelled.lock().await;
         cancelled.retain(|_, at| now().saturating_sub(*at) < 300);
@@ -144,7 +151,7 @@ impl Connections {
             return Err("Too many active AI requests.".into());
         }
         let cancel = Arc::new(Notify::new());
-        tasks.insert(id.into(), cancel.clone());
+        tasks.insert(id.into(), (provider, cancel.clone()));
         Ok(cancel)
     }
     pub async fn unregister(&self, id: &str) {
@@ -152,7 +159,7 @@ impl Connections {
     }
     async fn cancel(&self, id: &str) {
         let tasks = self.tasks.lock().await;
-        if let Some(cancel) = tasks.get(id) {
+        if let Some((_, cancel)) = tasks.get(id) {
             cancel.notify_one();
         } else if id.len() <= 100 {
             let mut cancelled = self.cancelled.lock().await;
@@ -162,18 +169,35 @@ impl Connections {
             }
         }
     }
+    /// Cancels running requests for one connection only.
+    pub async fn cancel_provider(&self, provider: Provider) {
+        for (owner, cancel) in self.tasks.lock().await.values() {
+            if *owner == provider {
+                cancel.notify_one();
+            }
+        }
+    }
+}
+/// Parses saved profiles. Unreadable data is discarded with an explanation rather than
+/// blocking every later ChatGPT command until the person edits Keychain by hand.
+fn parse_profiles(saved: Option<String>) -> (Profiles, Option<String>) {
+    match saved.map(|v| serde_json::from_str::<Profiles>(&v)) {
+        None => (Profiles::default(), None),
+        Some(Ok(profiles)) => (profiles, None),
+        Some(Err(_)) => (
+            Profiles::default(),
+            Some("Saved ChatGPT connection was unreadable and was removed. Reconnect in Settings → AI.".into()),
+        ),
+    }
 }
 async fn initialize(state: &Connections) -> Result<()> {
     let mut initialized = state.initialized.lock().await;
     if !*initialized {
-        *state.session.lock().await = read_secret("session")?
-            .map(|v| {
-                serde_json::from_str(&v).map_err(|_| {
-                    "Saved ChatGPT connection is invalid. Reconnect in Settings → AI.".to_string()
-                })
-            })
-            .transpose()?
-            .unwrap_or_default();
+        let (profiles, error) = parse_profiles(read_secret("session")?);
+        *state.session.lock().await = profiles;
+        if error.is_some() {
+            *state.error.lock().await = error;
+        }
         *initialized = true;
     }
     Ok(())
@@ -534,9 +558,7 @@ async fn commit_connection(state: &Connections, epoch: u64, session: Session) ->
     profiles.select(session);
     profiles.save()?;
     *slot = profiles;
-    for cancel in state.tasks.lock().await.values() {
-        cancel.notify_one();
-    }
+    state.cancel_provider(Provider::ChatGPT).await;
     Ok(())
 }
 #[tauri::command]
@@ -667,13 +689,14 @@ pub async fn chatgpt_cancel_login(state: State<'_, Connections>) -> Result<()> {
 }
 #[tauri::command]
 pub async fn chatgpt_disconnect(state: State<'_, Connections>) -> Result<Value> {
+    // Without this, disconnecting before any other command saw an empty session and saved
+    // it over the stored accounts.
+    initialize(&state).await?;
     state.epoch.fetch_add(1, Ordering::SeqCst);
     if let Some(cancel) = state.login_cancel.lock().await.take() {
         cancel.notify_one();
     }
-    for cancel in state.tasks.lock().await.values() {
-        cancel.notify_one();
-    }
+    state.cancel_provider(Provider::ChatGPT).await;
     let mut slot = state.session.lock().await;
     let old = slot.active().cloned();
     let confirmed = if let Some(old) = &old {
@@ -690,9 +713,7 @@ pub async fn chatgpt_disconnect(state: State<'_, Connections>) -> Result<Value> 
     *slot = profiles;
     *state.connecting.lock().await = false;
     *state.error.lock().await = None;
-    for cancel in state.tasks.lock().await.values() {
-        cancel.notify_one();
-    }
+    state.cancel_provider(Provider::ChatGPT).await;
     Ok(json!({"revocationConfirmed":confirmed}))
 }
 #[tauri::command]
@@ -712,9 +733,7 @@ pub async fn chatgpt_select(state: State<'_, Connections>, connection_id: String
     }
     *state.connecting.lock().await = false;
     *state.error.lock().await = None;
-    for cancel in state.tasks.lock().await.values() {
-        cancel.notify_one();
-    }
+    state.cancel_provider(Provider::ChatGPT).await;
     Ok(())
 }
 #[tauri::command]
@@ -746,7 +765,7 @@ pub async fn chatgpt_request(
     body: Value,
     on_chunk: Channel<Vec<u8>>,
 ) -> Result<()> {
-    let cancel = state.register(&id).await?;
+    let cancel = state.register(&id, Provider::ChatGPT).await?;
     let result = tokio::select! { biased;
         _=cancel.notified()=>Err("Request cancelled.".into()),
         result=async {
@@ -862,18 +881,49 @@ mod tests {
     async fn cancellation_covers_before_and_after_registration_and_limits_concurrency() {
         let state = Connections::default();
         state.cancel("early").await;
-        assert!(state.register("early").await.is_err());
-        let cancel = state.register("running").await.unwrap();
+        assert!(state.register("early", Provider::ChatGPT).await.is_err());
+        let cancel = state.register("running", Provider::ChatGPT).await.unwrap();
         state.cancel("running").await;
         tokio::time::timeout(Duration::from_millis(50), cancel.notified())
             .await
             .unwrap();
-        assert!(state.register("running").await.is_err());
+        assert!(state.register("running", Provider::ChatGPT).await.is_err());
         state.unregister("running").await;
         for i in 0..8 {
-            state.register(&format!("id-{i}")).await.unwrap();
+            state
+                .register(&format!("id-{i}"), Provider::ChatGPT)
+                .await
+                .unwrap();
         }
-        assert!(state.register("overflow").await.is_err());
+        assert!(state.register("overflow", Provider::ChatGPT).await.is_err());
+    }
+    #[tokio::test]
+    async fn chatgpt_account_changes_do_not_cancel_claude_work() {
+        let state = Connections::default();
+        let claude = state.register("claude", Provider::Claude).await.unwrap();
+        let chatgpt = state.register("chatgpt", Provider::ChatGPT).await.unwrap();
+        state.cancel_provider(Provider::ChatGPT).await;
+        tokio::time::timeout(Duration::from_millis(50), chatgpt.notified())
+            .await
+            .unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), claude.notified())
+                .await
+                .is_err()
+        );
+    }
+    #[test]
+    fn unreadable_saved_session_is_discarded_with_an_error() {
+        let (profiles, error) = parse_profiles(Some("{not json".into()));
+        assert!(profiles.sessions.is_empty() && error.is_some());
+        let (profiles, error) = parse_profiles(None);
+        assert!(profiles.sessions.is_empty() && error.is_none());
+        // Older saves missing newer fields still load.
+        let (profiles, error) = parse_profiles(Some(
+            r#"{"active":null,"sessions":[{"client":"c","subject":"s"}]}"#.into(),
+        ));
+        assert_eq!(profiles.sessions.len(), 1);
+        assert!(error.is_none());
     }
     #[test]
     fn signed_identity_requires_audience_issuer_expiry_nonce_and_same_account() {

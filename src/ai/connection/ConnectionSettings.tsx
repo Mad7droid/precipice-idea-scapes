@@ -47,7 +47,15 @@ export function AISettings({
               selected={c.provider === id}
               disabled={c.busy || c.claudeConnecting}
               onSelect={() => c.choose(id)}
-              status={c.provider === id ? statusLabel(c, apiKey) : undefined}
+              status={
+                c.provider === id
+                  ? statusLabel(
+                      c,
+                      apiKey,
+                      settings.credentials.desktop && settings.credentials.saved,
+                    )
+                  : undefined
+              }
             >
               {id === "claude-plan" && <ClaudePlan c={c} />}
               {id === "chatgpt" && <ChatGPTPlan c={c} />}
@@ -69,7 +77,10 @@ export function AISettings({
           className="w-full"
         />
         <p className="text-xs text-fg-tertiary">
-          {settings.models.find((m) => m.id === settings.modelId)?.hint}
+          {/* The generic hint points at this page; here, point at the card above instead. */}
+          {c.provider === "chatgpt" && c.status !== "connected"
+            ? "Connect ChatGPT above to choose a model."
+            : settings.models.find((m) => m.id === settings.modelId)?.hint}
         </p>
       </Group>
 
@@ -87,8 +98,18 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function statusLabel(c: AIConnection, apiKey: string): string {
-  if (c.provider === "anthropic") return apiKey.trim() ? "Ready" : "Needs a key";
+/** A light shape check only; the provider is the judge of whether a key works. */
+export function looksLikeAnthropicKey(key: string): boolean {
+  return /^sk-ant-\S{8,}$/.test(key.trim());
+}
+
+function statusLabel(c: AIConnection, apiKey: string, desktopSaved = false): string {
+  if (c.provider === "anthropic") {
+    // On the Mac the key stays in Keychain; the saved flag is what counts.
+    if (desktopSaved) return "Ready";
+    if (!apiKey.trim()) return "Needs a key";
+    return looksLikeAnthropicKey(apiKey) ? "Ready" : "Check the key";
+  }
   return {
     checking: "Checking…",
     connecting: "Signing in…",
@@ -333,7 +354,8 @@ function AnthropicKey({
           placeholder="sk-ant-…"
           autoComplete="off"
           spellCheck={false}
-          className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-1.5 text-sm text-fg placeholder:text-fg-tertiary focus-self"
+          aria-invalid={!!apiKey.trim() && !looksLikeAnthropicKey(apiKey)}
+          className="mono normal-case tracking-normal placeholder:normal-case min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-1.5 text-sm text-fg placeholder:text-fg-tertiary focus-self"
         />
         {apiKey && (
           <Button size="sm" variant="secondary" onClick={() => onApiKeyChange("")}>
@@ -341,6 +363,11 @@ function AnthropicKey({
           </Button>
         )}
       </div>
+      {!!apiKey.trim() && !looksLikeAnthropicKey(apiKey) && (
+        <p className="mt-1.5 text-xs text-danger">
+          Anthropic keys start with “sk-ant-”. Check you pasted the whole key.
+        </p>
+      )}
       <p className="mt-1.5 text-xs text-fg-tertiary">
         Kept for this tab only and forwarded through the Precipice Worker, which stores nothing.
       </p>
@@ -391,7 +418,7 @@ function RoutingSettings({ settings: s }: { settings: Settings }) {
           ? "You pick Ask or Edit, scope and model yourself."
           : mode === "local"
             ? "Suggests Ask or Edit, scope and model from your draft, on this device. You review before sending."
-            : "Experimental. Sends draft text, selection counts and types, and short-command target titles to TypeSafe. Never audio or object contents."}
+            : "Jev is TypeSafe’s hosted routing model: it reads your draft and suggests Ask or Edit, scope and model. Experimental. Sends draft text, selection counts and types, and short-command target titles to TypeSafe. Never audio or object contents."}
       </p>
       {mode === "jev" && (
         <div className="space-y-2">
@@ -407,6 +434,9 @@ function RoutingSettings({ settings: s }: { settings: Settings }) {
               <label htmlFor="typesafe-api-key" className="mb-1 block text-xs text-fg-secondary">
                 TypeSafe API key
               </label>
+              <p className="mb-1 text-xs text-fg-tertiary">
+                TypeSafe is the company that runs Jev; the key comes from your TypeSafe account.
+              </p>
               <input
                 id="typesafe-api-key"
                 type="password"

@@ -100,6 +100,26 @@ exposes only read/save/remove for this fixed credential to the local main window
 remote pages get no native permissions. Navigation away from the bundled app is
 blocked, and the bundled app has a CSP. Service workers are web-only.
 
+### External links, downloads and quitting
+
+- Links never open app windows. `target="_blank"` anchors and `window.open` calls are routed
+  by one delegated handler (installed at boot from `src/desktop/runtime.ts`) to the
+  `open_external` command, which accepts only `http`/`https` URLs without credentials and
+  hands them to the default browser via `/usr/bin/open`. Every other scheme is refused.
+- The CSP allows `img-src https:` so pasted and published image URLs render. The trade-off:
+  any remote image load reveals the viewer's IP and timing to that host. Scripts, frames and
+  connections stay restricted.
+- Exports use the normal anchor download. The native `on_download` handler accepts only
+  `blob:`/`data:` downloads, writes them to `~/Downloads` under a name that never overwrites an
+  existing file, and reveals the file in Finder. Remote downloads are refused.
+- Cmd+Q and closing the window emit `app://flush-before-quit`. Flushes registered with
+  `registerQuitFlush` (`src/desktop/quit.ts`) run, then the webview calls `quit_ready`; the app
+  exits after at most 1.5 s even if the webview does not answer.
+- Keychain commands run off the main thread, so a Keychain prompt never freezes the window.
+- `open_agent_signin` accepts only `https://<host>/host/start`, where `<host>` comes from
+  `VITE_MCP_URL` at compile time (default `precipice-mcp.precipice.workers.dev`). Build the
+  native app with the same `VITE_MCP_URL` as the webview, as `scripts/install-desktop.sh` does.
+
 ## Data and current limits
 
 Scapes in the Mac app are separate from browser Scapes. Choose **Back up library** on the browser home page, then **Import** in the Mac
@@ -110,6 +130,11 @@ ownership and MCP pairing do not. The file is plain JSON: keep it private and ou
 of Git. Export individual `.scape` files for selective transfer. Neither route
 automatically synchronizes future edits. Updating the app with
 the same bundle identifier preserves its local data and Keychain service name.
+
+Interface copy names the Mac where the web app names the browser: "Autosaves on this Mac",
+"No scapes on this Mac yet", and instructions that apply "on this Mac". The web app's
+**Edit here** / "Move editing to this tab" lease controls are hidden in the Mac app, which is
+a single window.
 Uninstalling the app does not remove its Keychain item; remove keys and sign out in
 Settings first, or remove the item using Keychain Access.
 
@@ -164,8 +189,16 @@ the expected snapshot, then verify a local MCP read after quitting and reopening
 ## Built-in local MCP
 
 Settings → Agents installs a client entry pointing at this app's executable with `--mcp`.
-The executable pipes JSON-RPC over a Unix socket to the running app, launching it using `open -g`
-if needed. Keep the installed app at a stable path. No user-managed port or Node runtime is
+The headless helper answers startup and tool discovery without launching the GUI. Library
+calls ask you to open Precipice manually, then retry; the helper reconnects over a private
+Unix socket without restarting the client. Keep the installed app at a stable path:
+setup refuses to run from a disk image (`/Volumes/`), a Gatekeeper translocation copy or a
+`target/` build folder and asks you to move Precipice to Applications. Symlinked client
+configs are updated in place at their target and the link is kept.
+The socket lives at `~/Library/Application Support/<bundle identifier>/mcp.sock` (folder
+0700, socket 0600). The identifier comes from `tauri.conf.json` at compile time, so builds
+with different identifiers never share a socket. If another copy with the same identifier
+already owns the socket, `mcp_status` reports `other-copy` and agents reach that copy. No user-managed port or Node runtime is
 needed. Local agents ask for review until trusted. Remote setup opens the system browser and returns
 through `precipice://auth/callback`, bound to the originating app with PKCE. Its scoped host
 credential is stored in Keychain. Select Desktop app when granting agent access; browser and

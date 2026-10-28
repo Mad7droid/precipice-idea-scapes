@@ -1,5 +1,5 @@
 import { buttonClass } from "@/design/Button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ActionPayload } from "@/core/actions";
 import type { ScapeObject } from "@/core/types";
 import {
@@ -24,6 +24,8 @@ export function JourneyInspector({
 }) {
   const steps = ((object.data as Partial<JourneyData>).steps ?? []).filter(Boolean);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // The step just added, so its label field takes focus once it renders.
+  const [focusStepId, setFocusStepId] = useState<string | null>(null);
 
   const commitSteps = (next: JourneyStep[]) =>
     dispatch({ type: "MergeObjectData", id: object.id, data: { steps: next } });
@@ -78,6 +80,8 @@ export function JourneyInspector({
               <StepRow
                 index={i}
                 step={step}
+                autoFocus={step.id === focusStepId}
+                onFocused={() => setFocusStepId(null)}
                 canMoveUp={i > 0}
                 canMoveDown={i < steps.length - 1}
                 onMoveUp={() => move(i, i - 1)}
@@ -92,7 +96,11 @@ export function JourneyInspector({
 
       <button
         type="button"
-        onClick={() => commitSteps([...steps, { id: newStepId(), label: "" }])}
+        onClick={() => {
+          const id = newStepId();
+          commitSteps([...steps, { id, label: "" }]);
+          setFocusStepId(id);
+        }}
         className={buttonClass({ variant: "secondary", className: "mt-3 w-full" })}
       >
         Add step
@@ -110,7 +118,11 @@ function StepRow({
   onMoveDown,
   canMoveUp,
   canMoveDown,
+  autoFocus = false,
+  onFocused,
 }: {
+  autoFocus?: boolean;
+  onFocused?: () => void;
   index: number;
   step: JourneyStep;
   onChange: (next: JourneyStep) => void;
@@ -127,6 +139,13 @@ function StepRow({
     onChange(next ? { ...step, detail: next } : { id: step.id, label: step.label }),
   );
 
+  const [labelInput, setLabelInput] = useState<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (!autoFocus || !labelInput) return;
+    labelInput.focus();
+    onFocused?.();
+  }, [autoFocus, labelInput, onFocused]);
+
   return (
     <div className="flex items-start gap-2">
       <span
@@ -137,6 +156,7 @@ function StepRow({
       </span>
       <div className="min-w-0 flex-1 space-y-1.5">
         <TextInput
+          ref={setLabelInput}
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onBlur={flushLabel}
@@ -153,14 +173,15 @@ function StepRow({
       </div>
       <div className="flex shrink-0 flex-col">
         {/* Drag reorders; these keep reordering reachable from the keyboard. */}
-        <IconButton label={`Move step ${index + 1} up`} onClick={canMoveUp ? onMoveUp : () => {}}>
-          <Chevron up disabled={!canMoveUp} />
+        <IconButton label={`Move step ${index + 1} up`} onClick={onMoveUp} disabled={!canMoveUp}>
+          <Chevron up />
         </IconButton>
         <IconButton
           label={`Move step ${index + 1} down`}
-          onClick={canMoveDown ? onMoveDown : () => {}}
+          onClick={onMoveDown}
+          disabled={!canMoveDown}
         >
-          <Chevron disabled={!canMoveDown} />
+          <Chevron />
         </IconButton>
         <IconButton label={`Delete step ${index + 1}`} onClick={onRemove} danger>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
@@ -177,14 +198,14 @@ function StepRow({
   );
 }
 
-function Chevron({ up, disabled }: { up?: boolean; disabled?: boolean }) {
+function Chevron({ up }: { up?: boolean }) {
   return (
     <svg
       width="12"
       height="12"
       viewBox="0 0 12 12"
       aria-hidden
-      style={{ opacity: disabled ? 0.3 : 1, transform: up ? undefined : "rotate(180deg)" }}
+      style={{ transform: up ? undefined : "rotate(180deg)" }}
     >
       <path d="M3 7.5L6 4.5l3 3" stroke="currentColor" strokeWidth="1.4" fill="none" />
     </svg>

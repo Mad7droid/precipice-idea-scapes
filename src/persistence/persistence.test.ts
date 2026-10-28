@@ -7,6 +7,7 @@ import { toPlainScape } from "@/core/serialize";
 import type { Action } from "@/core/actions";
 import type { PublicationRecord, Scape, ScapeRepository } from "@/core/types";
 import { startAutosave } from "./autosave";
+import { nextSnapshotSeq } from "./sequence";
 import { PrecipiceDb } from "./db";
 import { CURRENT_DOC_VERSION } from "./migrate";
 import { MemoryScapeRepository } from "./memoryRepository";
@@ -59,6 +60,48 @@ function describeRepository(name: string, make: () => Promise<ScapeRepository>) 
       await repo.saveSnapshot({ ...base, name: "older" }, 2);
 
       expect((await repo.get(created.id))!.name).toBe("newer");
+    });
+
+    it("keeps saving after reopening the same scape", async () => {
+      const created = await repo.create("Reopened");
+      for (const name of ["First visit", "Second visit"]) {
+        useScapeStore.getState().loadScape((await repo.get(created.id))!);
+        const autosave = startAutosave(repo);
+        try {
+          useScapeStore.getState().dispatchTx([{ type: "RenameScape", name }]);
+          await autosave.flush();
+          expect((await repo.get(created.id))?.name).toBe(name);
+        } finally {
+          autosave.stop();
+        }
+      }
+    });
+
+    it("saves edits after importing a file", async () => {
+      const imported = await importScape(serializeScape(fixtureScape()), repo);
+      useScapeStore.getState().loadScape(imported);
+      const autosave = startAutosave(repo);
+      try {
+        useScapeStore.getState().dispatchTx([{ type: "RenameScape", name: "Edited import" }]);
+        await autosave.flush();
+        expect((await repo.get(imported.id))?.name).toBe("Edited import");
+      } finally {
+        autosave.stop();
+      }
+    });
+
+    it("saves edits after a one-off public-copy snapshot", async () => {
+      const copy = emptyScape("scp_public_copy", "Public copy");
+      await repo.saveSnapshot(copy, nextSnapshotSeq());
+      useScapeStore.getState().loadScape(copy);
+      const autosave = startAutosave(repo);
+      try {
+        useScapeStore.getState().dispatchTx([{ type: "RenameScape", name: "Private edits" }]);
+        await autosave.flush();
+        expect((await repo.get(copy.id))?.name).toBe("Private edits");
+      } finally {
+        autosave.stop();
+      }
     });
 
     it("renames", async () => {
@@ -289,13 +332,28 @@ describe("export and import", () => {
     expect(parsed.scape.objects[wireframe.id]!.data).not.toHaveProperty("width");
   });
 
-  it("names the offending field when the shape is wrong", () => {
+  it("says plainly that a wrong-shaped file is not a Precipice file", () => {
     const text = JSON.stringify({
       version: 1,
       scape: { ...fixtureScape(), viewState: { x: 0, y: 0 } },
       actionLog: [],
     });
-    expect(() => parseScapeFile(text)).toThrow(/zoom/);
+    expect(() => parseScapeFile(text)).toThrow("This isn't a Precipice file");
+    expect(() => parseScapeFile("not json")).toThrow("This isn't a Precipice file");
+  });
+
+  it("suffixes an imported copy whose name is already taken", async () => {
+    const repo = new MemoryScapeRepository();
+    const first = await importScape(serializeScape(fixtureScape()), repo);
+    const second = await importScape(serializeScape(fixtureScape()), repo);
+    expect(first.name).toBe(fixtureScape().name);
+    expect(second.name).toBe(`${fixtureScape().name} (imported)`);
+  });
+
+  it("does not report an import that failed to save", async () => {
+    const repo = new MemoryScapeRepository();
+    vi.spyOn(repo, "saveSnapshot").mockRejectedValueOnce(new Error("quota"));
+    await expect(importScape(serializeScape(fixtureScape()), repo)).rejects.toThrow("quota");
   });
 });
 
@@ -317,6 +375,39 @@ describe("Dexie repository — stored document versions", () => {
     const loaded = await repo.get(scape.id);
     expect(loaded?.objectOrder).toEqual(scape.objectOrder);
     expect(await repo.list()).toHaveLength(1);
+  });
+
+  it("refuses to rename or duplicate a row from a newer build, leaving it untouched", async () => {
+    vi.spyOn(notify, "error").mockImplementation(() => 0);
+    const database = new PrecipiceDb(`v-${Math.random()}`);
+    const repo = new DexieScapeRepository(database);
+    const scape = fixtureScape();
+    const row = {
+      id: scape.id,
+      name: "Future",
+      updatedAt: 1,
+      objectCount: 0,
+      snapshot: toPlainScape(scape),
+      version: CURRENT_DOC_VERSION + 1,
+    };
+    await database.scapes.put(row);
+    await expect(repo.rename(scape.id, "Renamed")).rejects.toThrow("newer version");
+    await expect(repo.duplicate(scape.id)).rejects.toThrow("newer version");
+    expect(await database.scapes.get(scape.id)).toEqual(row);
+    expect(await database.scapes.count()).toBe(1);
+  });
+
+  it("closes and asks for a reload when another tab upgrades the database", async () => {
+    const error = vi.spyOn(notify, "error").mockImplementation(() => 0);
+    const database = new PrecipiceDb(`v-${Math.random()}`);
+    new DexieScapeRepository(database);
+    await database.open();
+    database.on.versionchange.fire(new Event("versionchange") as IDBVersionChangeEvent);
+    expect(database.isOpen()).toBe(false);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("updated in another window"),
+      expect.any(String),
+    );
   });
 
   it("stamps the current version on everything it writes", async () => {
@@ -425,6 +516,25 @@ describe("autosave", () => {
     useScapeStore.getState().loadScape(emptyScape("scp_auto", "Autosaved"));
   });
   afterEach(() => vi.useRealTimers());
+
+  it("does not report a failed snapshot as saved", async () => {
+    const repo = new MemoryScapeRepository();
+    vi.spyOn(repo, "saveSnapshot").mockRejectedValueOnce(new Error("Storage unavailable"));
+    const autosave = startAutosave(repo);
+    try {
+      useScapeStore.getState().dispatchTx([{ type: "RenameScape", name: "Unsaved edit" }]);
+      await autosave.flush();
+      expect(autosave.writes()).toBe(0);
+      expect(autosave.lastSavedAt()).toBeNull();
+      useScapeStore.getState().dispatchTx([{ type: "RenameScape", name: "Saved edit" }]);
+      await autosave.flush();
+      expect((await repo.get("scp_auto"))?.name).toBe("Saved edit");
+      expect(autosave.writes()).toBe(1);
+      expect(autosave.lastSavedAt()).not.toBeNull();
+    } finally {
+      autosave.stop();
+    }
+  });
 
   it("coalesces 50 rapid mutations into exactly one snapshot write", async () => {
     const repo = new MemoryScapeRepository();

@@ -12,9 +12,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Cloudflare credentials are deliberately not job-level: dependency install scripts, tests
+    # and the build never see them. Only the steps that call Wrangler receive them.
     env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       VITE_AI_PROXY_URL: https://precipice-ai-proxy.precipice.workers.dev
       VITE_PUBLICATION_API_URL: ${{ vars.VITE_PUBLICATION_API_URL }}
       VITE_MCP_URL: ${{ vars.VITE_MCP_URL }}
@@ -43,6 +43,8 @@ jobs:
 
       - name: Validate deployment configuration
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           WRANGLER_PUBLISH_CONFIG: ${{ secrets.WRANGLER_PUBLISH_CONFIG }}
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
@@ -91,19 +93,34 @@ jobs:
         run: pnpm build
 
       - name: Deploy AI proxy
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm exec wrangler deploy
 
       - name: Apply publication database migrations
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm exec wrangler d1 migrations apply precipice-publications --remote --config "$WRANGLER_PUBLISH_CONFIG_PATH"
 
       - name: Deploy publication Worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm exec wrangler deploy --config "$WRANGLER_PUBLISH_CONFIG_PATH"
 
       - name: Deploy MCP connector
         if: env.VITE_MCP_URL != ''
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm exec wrangler deploy --config wrangler.mcp.toml
 
       - name: Deploy Pages
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: pnpm exec wrangler pages deploy dist --project-name precipice --branch main
 
       - name: Verify deployed release

@@ -101,19 +101,10 @@ export function WireframeInspector({
         <div className="min-w-0 flex-1">
           <span className="mb-1 block text-xs text-fg-secondary">Width</span>
           <div className="flex items-center gap-1.5">
-            <input
-              type="range"
-              min={MIN_OBJECT_WIDTH}
-              max={MAX_OBJECT_WIDTH}
-              step={10}
-              value={object.width ?? widthFor(object.type)}
-              aria-label="Card width"
-              onChange={(e) =>
-                dispatch({ type: "ResizeObject", id: object.id, width: Number(e.target.value) })
-              }
-              className="range-field min-w-0 flex-1"
+            <WidthSlider
+              width={object.width ?? widthFor(object.type)}
+              onCommit={(width) => dispatch({ type: "ResizeObject", id: object.id, width })}
             />
-            <span className="mono shrink-0">{object.width ?? widthFor(object.type)}</span>
           </div>
         </div>
         <div>
@@ -508,5 +499,38 @@ function Chevron({ up, disabled }: { up?: boolean; disabled?: boolean }) {
     >
       <path d="M3 7.5L6 4.5l3 3" stroke="currentColor" strokeWidth="1.4" fill="none" />
     </svg>
+  );
+}
+
+/**
+ * The slider fires onChange on every pixel of a drag. Each of those used to be a ResizeObject
+ * with its own transaction, so one drag became dozens of undo steps. The draft stays local
+ * while the gesture runs and commits once when it ends (pointer up, key up, or blur).
+ */
+function WidthSlider({ width, onCommit }: { width: number; onCommit: (width: number) => void }) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const shown = draft ?? width;
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft !== width) onCommit(draft);
+  };
+  return (
+    <>
+      <input
+        type="range"
+        min={MIN_OBJECT_WIDTH}
+        max={MAX_OBJECT_WIDTH}
+        step={10}
+        value={shown}
+        aria-label="Card width"
+        onChange={(e) => setDraft(Number(e.target.value))}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
+        className="range-field min-w-0 flex-1"
+      />
+      <span className="mono shrink-0">{shown}</span>
+    </>
   );
 }

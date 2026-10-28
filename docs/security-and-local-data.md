@@ -14,6 +14,10 @@ own Anthropic (Claude) API key.
 - Export a `.scape` file when you need a portable backup. Treat that file as
   sensitive if the Scape contains confidential information: it is not encrypted
   by Precipice.
+- **Back up library** writes every readable Scape's current document to
+  `Precipice-library.json`. It omits edit history (the action log), settings,
+  pins, credentials, publication records, and MCP receipts. It is not encrypted;
+  keep it private and out of Git.
 - Browser storage is subject to the browser profile, extensions, operating
   system account, backups, and device security. “Local” does not mean encrypted
   or immune to malware.
@@ -74,7 +78,8 @@ command requests also include up to 60 object ids/titles as target choices. Obje
 bodies, library contents and web results are excluded. The key is sent only as the
 TypeSafe authentication header. Web requests pass through the BYOK Cloudflare proxy;
 the Mac app sends them from its native process (`jev_route`), which uses the key from its
-cached Keychain vault, because TypeSafe's CORS policy does not allow the app's origin. The proxy
+cached Keychain vault, because TypeSafe's CORS policy does not allow the app's origin. Routing
+state in the Mac webview carries only a "key saved" marker, never the TypeSafe key itself. The proxy
 has no managed key and adds no request logging. TypeSafe is a separate processor; do not assume zero retention.
 
 The key uses tab session storage on web and macOS Keychain storage on desktop, matching
@@ -175,8 +180,10 @@ reach browser storage, and no route synchronizes the two. Desktop secrets (Anthr
 TypeSafe keys, ChatGPT connection data and the agent host credential) share one
 non-synchronizing generic-password item in the login Keychain: service = the app's bundle
 identifier, account `credentials`. The native process reads it at most once per launch and
-only when a feature needs a secret; a refusal is remembered until **Allow access** in
-Settings → AI. The installed app moves items from earlier versions into it once; other
+only when a feature needs a secret, without holding its lock across the Keychain call; a
+refusal is remembered until **Allow access** in Settings → AI, which also reloads the agent
+host sign-in. An unreadable item is treated as empty (and remembered, so it never re-prompts)
+and is overwritten by the next saved key. The installed app moves items from earlier versions into it once; other
 identities, such as a preview build, start empty. It is never written to a file, IndexedDB, an export, or a log.
 Desktop AI calls reach Anthropic directly rather than through the Worker. See
 [desktop notes](desktop.md) for the full native boundary.
@@ -302,3 +309,18 @@ the personal desktop library, real publication IDs, pairing codes, OAuth callbac
 credential fields, account menus, or client configuration containing secrets. An unlisted link
 can expose the snapshot even if no password is visible. Inspect screenshots visually and with
 OCR, and scan text changes for secrets. See [the screenshot workflow](screenshots/README.md).
+
+## Publishing, MCP and CI hardening (October 2026)
+
+- Public snapshots are cached for at most five minutes, so withdrawing a link takes effect
+  quickly; suspended accounts' links answer 410 until the account is restored.
+- Concurrent publication updates and deletes cannot destroy each other's snapshots or leave
+  orphaned public objects.
+- Hosted MCP: per-account daily limits apply before the deployment-wide budget; OAuth endpoints
+  are rate-limited per IP when the binding is configured; relay tickets are single-use and
+  origin-checked; operation receipts are scoped to the connection that created them; app-only
+  confirmation tools are offered only to MCP Apps clients.
+- The developer loopback bridge rejects unexpected `Host` headers (DNS rebinding).
+- The Cloudflare deploy workflow exposes `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` only to
+  the steps that run Wrangler. Dependency lifecycle scripts remain limited by `allowBuilds` in
+  `pnpm-workspace.yaml` (esbuild and workerd only).

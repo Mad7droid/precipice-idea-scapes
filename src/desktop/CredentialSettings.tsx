@@ -41,7 +41,7 @@ export function CredentialSettings({
           placeholder={c.saved ? "Saved · paste to replace" : placeholder}
           autoComplete="off"
           spellCheck={false}
-          className="mono min-w-0 flex-1 rounded-md border border-subtle bg-inset px-3 py-1.5 text-sm text-fg placeholder:text-fg-tertiary focus-self"
+          className="mono min-w-0 flex-1 normal-case tracking-normal rounded-md border border-subtle bg-inset px-3 py-1.5 text-sm text-fg placeholder:text-fg-tertiary focus-self"
         />
         <button
           type="submit"

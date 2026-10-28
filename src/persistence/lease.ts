@@ -108,6 +108,38 @@ export function memoryBusFactory(): () => LeaseBus {
   };
 }
 
+/**
+ * A fencing token shared by every tab, read synchronously at write time. The bus orders
+ * handovers between live tabs, but a holder that was frozen (laptop lid, background-tab
+ * suspension) while a takeover timed out wakes still believing it holds the lease, and can
+ * write before it processes the queued `takeover`. The token closes that window: whoever
+ * became holder last owns it, and a tab whose id is not the current token is not a writer.
+ */
+export interface LeaseFence {
+  get(scapeId: ScapeId): string | null;
+  set(scapeId: ScapeId, holderId: string): void;
+}
+
+const FENCE_PREFIX = "precipice.lease.holder.";
+
+function browserFence(): LeaseFence | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return {
+      get: (scapeId) => localStorage.getItem(FENCE_PREFIX + scapeId),
+      set: (scapeId, holderId) => localStorage.setItem(FENCE_PREFIX + scapeId, holderId),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** An in-memory fence shared by every lease given the same object. For tests. */
+export function memoryFence(): LeaseFence {
+  const tokens = new Map<ScapeId, string>();
+  return { get: (id) => tokens.get(id) ?? null, set: (id, holder) => void tokens.set(id, holder) };
+}
+
 export interface LeaseOptions {
   scapeId: ScapeId;
   /** Unique per tab. Also the tie-break when two tabs claim the same scape at once. */
@@ -116,6 +148,8 @@ export interface LeaseOptions {
   /** Runs before this tab gives up the lease. Flush here — the incoming holder reads next. */
   onYield?: () => void;
   bus?: LeaseBus | null;
+  /** Defaults to localStorage, alongside the default BroadcastChannel bus. */
+  fence?: LeaseFence | null;
   claimWindowMs?: number;
   takeoverWindowMs?: number;
 }
@@ -130,6 +164,8 @@ export function acquireScapeLease(options: LeaseOptions): ScapeLease {
     takeoverWindowMs = TAKEOVER_WINDOW_MS,
   } = options;
   const bus = options.bus === undefined ? browserBus() : options.bus;
+  const fence =
+    options.fence !== undefined ? options.fence : options.bus === undefined ? browserFence() : null;
 
   // No transport means no other tab can be detected, so behave exactly as the app did before
   // leases existed: this tab writes. Failing closed here would make a browser without
@@ -162,6 +198,13 @@ export function acquireScapeLease(options: LeaseOptions): ScapeLease {
     if (stopped || phase === next) return;
     const wasClaiming = phase === "claiming";
     phase = next;
+    if (next === "holder") {
+      try {
+        fence?.set(scapeId, holderId);
+      } catch {
+        // Storage unavailable: fall back to the bus alone, as before fencing existed.
+      }
+    }
     onChange(next, change);
     if (wasClaiming && !settledOnce) {
       settledOnce = true;
@@ -227,7 +270,21 @@ export function acquireScapeLease(options: LeaseOptions): ScapeLease {
   startClaim();
 
   return {
-    status: () => (phase === "holder" ? "holder" : "follower"),
+    status: () => {
+      if (phase !== "holder") return "follower";
+      let token: string | null = null;
+      try {
+        token = fence?.get(scapeId) ?? null;
+      } catch {
+        token = null;
+      }
+      // Someone else became holder while this tab was not looking. Step down before writing.
+      if (token !== null && token !== holderId) {
+        become("follower", "yielded");
+        return "follower";
+      }
+      return "holder";
+    },
     settled,
 
     takeOver() {

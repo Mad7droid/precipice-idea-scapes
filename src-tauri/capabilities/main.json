@@ -2,12 +2,8 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-credentials",
   "description": "Only the local main window can manage the desktop credential vault, relay local MCP connections, and run local dictation.",
-  "windows": [
-    "main"
-  ],
-  "platforms": [
-    "macOS"
-  ],
+  "windows": ["main"],
+  "platforms": ["macOS"],
   "permissions": [
     "allow-chatgpt-status",
     "allow-chatgpt-connect",
@@ -34,9 +30,13 @@
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "allow-keychain-retry",
+    "allow-keychain-reset",
     "allow-read-agent-session",
     "allow-save-agent-session",
     "allow-open-agent-signin",
+    "allow-open-external",
+    "allow-quit-ready",
+    "allow-mcp-status",
     "deep-link:default",
     "allow-dictation-status",
     "allow-dictation-install",

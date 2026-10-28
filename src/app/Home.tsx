@@ -10,7 +10,7 @@ import { downloadScape, importScape } from "@/persistence/portable";
 import { scapeRepository } from "@/persistence/scapeRepository";
 import { requestPersistence, warnIfStorageTight } from "@/persistence/storage";
 import { settingsRepository } from "@/persistence/settings";
-import { deletePublication } from "@/publish/client";
+import { deletePublication, PublishClientError } from "@/publish/client";
 import { publicPath } from "@/publish/contract";
 import { publicationUrl } from "@/publish/url";
 import { readSession } from "@/publish/session";
@@ -154,7 +154,7 @@ export function Home({ page = "home" }: { page?: HomePage }) {
     const scape = await scapeRepository.get(id);
     if (!scape)
       throw new Error(
-        "This scape could not be found in browser storage. Refresh the library and try again.",
+        `This scape could not be found ${desktop ? "on this Mac" : "in this browser"}. Refresh the library and try again.`,
       );
     return scape;
   };
@@ -207,7 +207,10 @@ export function Home({ page = "home" }: { page?: HomePage }) {
         const count = await importLibrary(text);
         await refresh();
         void requestPersistence();
-        notify.success("Library imported.", `${count} scapes added as new copies.`);
+        notify.success(
+          "Library imported.",
+          `${count} ${count === 1 ? "scape" : "scapes"} added as new copies.`,
+        );
         return;
       }
       const scape = await importScape(text, scapeRepository);
@@ -284,17 +287,24 @@ export function Home({ page = "home" }: { page?: HomePage }) {
           if ((await requireScape(scape.id)).name !== trimmed)
             throw new Error("The name was not saved. Try again.");
         } else {
+          // Any row means the server may still hold this scape's publication — an unpublished
+          // one keeps its retained slot and id — so it is removed whenever a row exists.
           const row = await scapeRepository.publications.get(scape.id);
-          if (row?.status === "published") {
+          if (row) {
             const session = readSession();
             if (!session)
               throw new Error(
                 "Open this scape and sign in through Manage publication before deleting it. Its public copy must be removed first.",
               );
-            await deletePublication(row.publicationId, { token: session.token });
+            try {
+              await deletePublication(row.publicationId, { token: session.token });
+            } catch (error) {
+              // Already gone on the server is the outcome we wanted.
+              if (!(error instanceof PublishClientError && error.code === "not_found")) throw error;
+            }
           }
           await scapeRepository.remove(scape.id);
-          await settingsRepository.set(HOME_KEYS.pin + scape.id, false);
+          await settingsRepository.remove(HOME_KEYS.pin + scape.id);
         }
       });
       setDialog(null);
@@ -310,11 +320,16 @@ export function Home({ page = "home" }: { page?: HomePage }) {
   };
   const backUp = () =>
     void run("library-export", async () => {
-      await downloadLibrary();
+      const { exported, skipped } = await downloadLibrary();
       notify.success(
         "Library backed up.",
-        `${scapes.length} ${scapes.length === 1 ? "scape" : "scapes"} saved to one file. Import it anywhere to restore them as copies.`,
+        `${exported} ${exported === 1 ? "scape" : "scapes"} saved to one file. Import it anywhere to restore them as copies.`,
       );
+      if (skipped.length)
+        notify.error(
+          `${skipped.length} ${skipped.length === 1 ? "scape was" : "scapes were"} left out of the backup`,
+          `Saved by a newer version of Precipice: ${skipped.join(", ")}. Export them from that version.`,
+        );
     });
   const firstUse = status === "ready" && scapes.length === 0;
   const closeDialog = () => {
@@ -330,6 +345,16 @@ export function Home({ page = "home" }: { page?: HomePage }) {
 
   return (
     <div className="flex h-full bg-base text-fg">
+      <a
+        href="#home-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("home-main")?.focus();
+        }}
+      >
+        Skip to content
+      </a>
       <Sidebar
         page={page}
         publishedCount={counts.published}
@@ -366,7 +391,11 @@ export function Home({ page = "home" }: { page?: HomePage }) {
           onSettings={() => setSettings("general")}
           onHelp={() => setHelp("how-to")}
         />
-        <main className="mx-auto w-full max-w-6xl px-5 pb-16 pt-10 sm:px-8">
+        <main
+          id="home-main"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-6xl outline-none px-5 pb-16 pt-10 sm:px-8"
+        >
           {!libraryReady ? (
             <div role="status" aria-label="Loading your library">
               <div className="mx-auto h-40 max-w-3xl animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
@@ -561,8 +590,8 @@ export function Home({ page = "home" }: { page?: HomePage }) {
             ) : (
               <p className="mt-4 text-sm text-fg-secondary">
                 {publications.get(dialog.scape.id)?.status === "published"
-                  ? "This removes the public snapshot and permanently deletes the scape from this browser."
-                  : "This permanently deletes the scape from this browser."}{" "}
+                  ? `This removes the public snapshot and permanently deletes the scape from ${desktop ? "this Mac" : "this browser"}.`
+                  : `This permanently deletes the scape from ${desktop ? "this Mac" : "this browser"}.`}{" "}
                 Export a copy first if you want to keep it.
               </p>
             )}

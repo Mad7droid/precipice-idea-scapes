@@ -93,11 +93,11 @@ const SIZE: Record<string, string> = { sm: "min-h-5", md: "min-h-10", lg: "min-h
 /** Two muted bars — what an element looks like before anyone has said what it says. */
 function Placeholder({ lines = 2 }: { lines?: number }) {
   return (
-    <div className="space-y-[3px] py-[3px]">
+    <div className="space-y-[var(--wireframe-line)] py-[var(--wireframe-line)]">
       {Array.from({ length: lines }, (_, i) => (
         <div
           key={i}
-          className="h-[3px] rounded-full bg-active"
+          className="h-[var(--wireframe-line)] rounded-full bg-active"
           style={{ width: i === lines - 1 ? "60%" : "100%" }}
         />
       ))}
@@ -187,7 +187,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
           {label ? (
             <span className="min-w-0 text-2xs text-fg-tertiary">{label}</span>
           ) : (
-            <span className="h-[3px] w-1/3 rounded-full bg-active" />
+            <span className="h-[var(--wireframe-line)] w-1/3 rounded-full bg-active" />
           )}
         </div>
       );
@@ -198,7 +198,7 @@ function Shape({ primitive }: { primitive: Primitive }) {
           {label ? (
             <span className="max-w-full text-2xs font-medium text-fg">{label}</span>
           ) : (
-            <span className="h-[3px] w-1/2 rounded-full bg-[var(--border-strong)]" />
+            <span className="h-[var(--wireframe-line)] w-1/2 rounded-full bg-[var(--border-strong)]" />
           )}
         </div>
       );
@@ -206,11 +206,11 @@ function Shape({ primitive }: { primitive: Primitive }) {
     case "checkbox":
       return (
         <div className="flex items-center gap-1.5">
-          <span className="h-3 w-3 shrink-0 rounded-[2px] border border-strong bg-inset" />
+          <span className="h-3 w-3 shrink-0 rounded-[var(--wireframe-inset)] border border-strong bg-inset" />
           {label ? (
             <span className="min-w-0 text-2xs text-fg-secondary">{label}</span>
           ) : (
-            <span className="h-[3px] flex-1 rounded-full bg-active" />
+            <span className="h-[var(--wireframe-line)] flex-1 rounded-full bg-active" />
           )}
         </div>
       );
@@ -218,13 +218,13 @@ function Shape({ primitive }: { primitive: Primitive }) {
     case "toggle":
       return (
         <div className="flex items-center gap-1.5">
-          <span className="flex h-3 w-5 shrink-0 items-center rounded-full border border-strong bg-inset px-[2px]">
+          <span className="flex h-3 w-5 shrink-0 items-center rounded-full border border-strong bg-inset px-[var(--wireframe-inset)]">
             <span className="h-2 w-2 rounded-full bg-[var(--border-strong)]" />
           </span>
           {label ? (
             <span className="min-w-0 text-2xs text-fg-secondary">{label}</span>
           ) : (
-            <span className="h-[3px] flex-1 rounded-full bg-active" />
+            <span className="h-[var(--wireframe-line)] flex-1 rounded-full bg-active" />
           )}
         </div>
       );
@@ -245,7 +245,9 @@ function Shape({ primitive }: { primitive: Primitive }) {
         >
           {label ? (
             <>
-              <p className="px-1.5 py-[3px] text-2xs text-fg-secondary">{label}</p>
+              <p className="px-1.5 py-[var(--wireframe-line)] text-2xs text-fg-secondary">
+                {label}
+              </p>
               <div className="px-1.5 py-1">
                 <Placeholder lines={2} />
               </div>

@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { Action, ActionPayload } from "./actions";
 import { emptyScape, fixtureScape } from "./fixtures";
-import { applyAction, applyTransaction, transaction } from "./reducer";
+import { applyAction, transaction } from "./reducer";
 import type { Scape } from "./types";
 
 const TS = 1_700_000_000_000;
+
+/** Apply a whole transaction, returning the inverses in the order undo replays them. */
+function applyAll(state: Scape, actions: Action[]): { state: Scape; inverses: Action[] } {
+  let next = state;
+  const inverses: Action[] = [];
+  for (const action of actions) {
+    const result = applyAction(next, action);
+    next = result.state;
+    if (result.inverse) inverses.unshift(result.inverse);
+  }
+  return { state: next, inverses };
+}
 
 function act(payload: ActionPayload, txId = "tx_test"): Action {
   return { ...payload, txId, ts: TS } as Action;
@@ -267,11 +279,11 @@ describe("transactions", () => {
       TS,
     );
 
-    const forward = applyTransaction(before, actions);
+    const forward = applyAll(before, actions);
     expect(Object.keys(forward.state.objects)).toHaveLength(2);
     expect(Object.keys(forward.state.relationships)).toHaveLength(1);
 
-    const undone = applyTransaction(forward.state, forward.inverses);
+    const undone = applyAll(forward.state, forward.inverses);
     expect({ ...undone.state, updatedAt: 0 }).toEqual({ ...before, updatedAt: 0 });
   });
 
@@ -285,5 +297,74 @@ describe("transactions", () => {
       TS,
     );
     expect(new Set(actions.map((a) => a.txId))).toEqual(new Set(["tx_one"]));
+  });
+});
+
+describe("no-op detection", () => {
+  it("UpdateObject with an unchanged title and shallow-equal data is a no-op", () => {
+    const state = fixtureScape();
+    const existing = state.objects["brief"];
+    const result = applyAction(
+      state,
+      act({
+        type: "UpdateObject",
+        id: "brief",
+        patch: { title: existing.title, data: { ...existing.data } },
+      }),
+    );
+    expect(result.inverse).toBeNull();
+    expect(result.state).toBe(state);
+  });
+
+  it("UpdateObject only records the keys that actually changed", () => {
+    const state = fixtureScape();
+    const existing = state.objects["brief"];
+    const result = applyAction(
+      state,
+      act({ type: "UpdateObject", id: "brief", patch: { title: "Renamed", data: existing.data } }),
+    );
+    expect(result.inverse).toMatchObject({ patch: { title: existing.title } });
+    expect((result.inverse as { patch: object }).patch).not.toHaveProperty("data");
+  });
+
+  it("ConnectObjects with an existing from/to pair is a no-op", () => {
+    const state = emptyScape("scp_dup");
+    const a = applyAll(
+      state,
+      transaction(
+        [
+          { type: "CreateObject", id: "a", objectType: "note", title: "A" },
+          { type: "CreateObject", id: "b", objectType: "note", title: "B" },
+          { type: "ConnectObjects", id: "r1", from: "a", to: "b" },
+        ],
+        "tx",
+        TS,
+      ),
+    ).state;
+    const dup = applyAction(a, act({ type: "ConnectObjects", id: "r2", from: "a", to: "b" }));
+    expect(dup.inverse).toBeNull();
+    // The reverse direction is a different relationship.
+    const reverse = applyAction(a, act({ type: "ConnectObjects", id: "r3", from: "b", to: "a" }));
+    expect(reverse.inverse).not.toBeNull();
+  });
+});
+
+describe("Scape.updatedAt", () => {
+  it("SetViewState does not bump updatedAt", () => {
+    const state = fixtureScape();
+    const result = applyAction(state, {
+      type: "SetViewState",
+      viewState: { x: 5, y: 5, zoom: 2 },
+      txId: "tx",
+      ts: state.updatedAt + 1000,
+    } as Action);
+    expect(result.inverse).not.toBeNull();
+    expect(result.state.updatedAt).toBe(state.updatedAt);
+  });
+
+  it("never moves backwards when an older-stamped inverse is replayed", () => {
+    const state = { ...fixtureScape(), updatedAt: TS + 5000 };
+    const result = applyAction(state, act({ type: "RenameScape", name: "Older stamp" }));
+    expect(result.state.updatedAt).toBe(TS + 5000);
   });
 });
