@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { ThemePreference } from "@/core/types";
 
 const OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -20,10 +21,33 @@ export function ThemeControl({
   /** Icon-only, for the sidebar footer where there is no room for words. */
   compact?: boolean;
 }) {
+  const group = useRef<HTMLDivElement>(null);
+  // A radio group is one tab stop; arrows move between options and select as they go.
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    const step =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (!step) return;
+    event.preventDefault();
+    const index = Math.max(
+      0,
+      OPTIONS.findIndex((option) => option.value === value),
+    );
+    const next = (index + step + OPTIONS.length) % OPTIONS.length;
+    onChange(OPTIONS[next].value);
+    group.current?.querySelectorAll<HTMLElement>('[role="radio"]')[next]?.focus();
+  };
+  const hasActive = OPTIONS.some((option) => option.value === value);
+
   return (
     <div
+      ref={group}
       role="radiogroup"
       aria-label="Theme"
+      onKeyDown={onKeyDown}
       className="flex items-center gap-0.5 rounded-full border border-subtle bg-inset p-0.5"
     >
       {OPTIONS.map((option) => {
@@ -34,6 +58,7 @@ export function ThemeControl({
             type="button"
             role="radio"
             aria-checked={active}
+            tabIndex={active || (!hasActive && option.value === "system") ? 0 : -1}
             aria-label={option.label}
             title={option.label}
             onClick={() => onChange(option.value)}

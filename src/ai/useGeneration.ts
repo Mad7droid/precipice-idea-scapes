@@ -50,43 +50,52 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
   const lineKey = useRef(0);
+  /**
+   * Monotonic run token. An aborted run still delivers its final `done` and runs its `finally`;
+   * both are ignored unless they belong to the newest run, so they cannot clobber it.
+   */
+  const runId = useRef(0);
 
-  const handleEvent = useCallback((event: GenerationEvent) => {
-    setState((prev) => {
-      switch (event.kind) {
-        case "applied": {
-          const { action } = event;
-          const touched =
-            (action.type === "CreateObject" || action.type === "UpdateObject") &&
-            !prev.touched.includes(action.id)
-              ? [...prev.touched, action.id]
-              : prev.touched;
-          return {
-            ...prev,
-            applied: prev.applied + 1,
-            lines: [...prev.lines, { key: lineKey.current++, text: event.line }],
-            touched,
-          };
+  const eventsFor = useCallback(
+    (id: number) => (event: GenerationEvent) => {
+      if (runId.current !== id) return;
+      setState((prev) => {
+        switch (event.kind) {
+          case "applied": {
+            const { action } = event;
+            const touched =
+              (action.type === "CreateObject" || action.type === "UpdateObject") &&
+              !prev.touched.includes(action.id)
+                ? [...prev.touched, action.id]
+                : prev.touched;
+            return {
+              ...prev,
+              applied: prev.applied + 1,
+              lines: [...prev.lines, { key: lineKey.current++, text: event.line }],
+              touched,
+            };
+          }
+          case "skipped":
+            return { ...prev, skipped: [...prev.skipped, event] };
+          case "error":
+            return {
+              ...prev,
+              status: "error",
+              error: { message: event.message, detail: event.detail },
+            };
+          case "done":
+            return {
+              ...prev,
+              status: prev.status === "error" ? "error" : "done",
+              applied: event.applied,
+              model: event.model,
+              txId: event.txId,
+            };
         }
-        case "skipped":
-          return { ...prev, skipped: [...prev.skipped, event] };
-        case "error":
-          return {
-            ...prev,
-            status: "error",
-            error: { message: event.message, detail: event.detail },
-          };
-        case "done":
-          return {
-            ...prev,
-            status: prev.status === "error" ? "error" : "done",
-            applied: event.applied,
-            model: event.model,
-            txId: event.txId,
-          };
-      }
-    });
-  }, []);
+      });
+    },
+    [],
+  );
 
   const run = useCallback(
     async (options: {
@@ -125,7 +134,8 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
           : undefined;
 
       controller.current?.abort();
-      controller.current = new AbortController();
+      const signal = (controller.current = new AbortController()).signal;
+      const id = ++runId.current;
       lineKey.current = 0;
       setState({
         ...IDLE,
@@ -165,15 +175,15 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
           ...(Object.keys(instructions).length > 0 ? { instructions } : {}),
           ...(options.spoken ? { spoken: options.spoken } : {}),
           dispatch: (action) => useScapeStore.getState().dispatch(action),
-          onEvent: handleEvent,
+          onEvent: eventsFor(id),
           ...(requestLayout ? { requestLayout } : {}),
-          signal: controller.current.signal,
+          signal,
         });
       } finally {
-        useScapeStore.getState().setGenerating(false);
+        if (runId.current === id) useScapeStore.getState().setGenerating(false);
       }
     },
-    [handleEvent, requestLayout],
+    [eventsFor, requestLayout],
   );
 
   const start = run;
@@ -217,7 +227,8 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
     const { ONBOARDING_RECORDING, replayRecording } = await import("./recording");
 
     controller.current?.abort();
-    controller.current = new AbortController();
+    const signal = (controller.current = new AbortController()).signal;
+    const id = ++runId.current;
     lineKey.current = 0;
     setState({ ...IDLE, status: "streaming", model: ONBOARDING_RECORDING.model });
 
@@ -225,14 +236,14 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
     try {
       await replayRecording(ONBOARDING_RECORDING, {
         dispatch: (action) => useScapeStore.getState().dispatch(action),
-        onEvent: handleEvent,
+        onEvent: eventsFor(id),
         ...(requestLayout ? { requestLayout } : {}),
-        signal: controller.current.signal,
+        signal,
       });
     } finally {
-      useScapeStore.getState().setGenerating(false);
+      if (runId.current === id) useScapeStore.getState().setGenerating(false);
     }
-  }, [handleEvent, requestLayout]);
+  }, [eventsFor, requestLayout]);
 
   /** Stops the stream. Everything already applied stays, and undoes as one transaction. */
   const cancel = useCallback(() => controller.current?.abort(), []);

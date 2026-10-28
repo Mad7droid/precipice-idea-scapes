@@ -130,3 +130,25 @@ describe("web dictation", () => {
     expect(statuses.at(-1)).toMatchObject({ kind: "error", message: /Microphone access/ });
   });
 });
+
+describe("language pack download", () => {
+  it("can stop waiting for a download and offers it again", async () => {
+    FakeRecognition.install.mockImplementationOnce(() => new Promise(() => {}));
+    const engine = webEngine();
+    const { statuses } = listen(engine);
+    const pending = engine.install();
+    await vi.waitFor(() => expect(FakeRecognition.install).toHaveBeenCalled());
+    await engine.cancelInstall();
+    await pending;
+    expect(statuses.at(-1)).toEqual({ kind: "needs-model", bytes: 0 });
+  });
+  it("reports a download that never finishes instead of spinning forever", async () => {
+    FakeRecognition.install.mockImplementationOnce(() => new Promise(() => {}));
+    const engine = webEngine({ installTimeoutMs: 20 });
+    const { statuses } = listen(engine);
+    await engine.install();
+    const last = statuses.at(-1);
+    expect(last?.kind).toBe("error");
+    expect(last?.kind === "error" && last.message).toContain("taking too long");
+  });
+});

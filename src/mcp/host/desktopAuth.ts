@@ -20,7 +20,12 @@ export async function listenDesktopSignIn(onConnected: () => void) {
   let completing = false;
   const receive = async (urls: string[]) => {
     for (const raw of urls) {
-      const url = new URL(raw);
+      let url: URL;
+      try {
+        url = new URL(raw);
+      } catch {
+        continue; // One malformed deep link must not stop the rest.
+      }
       if (
         url.protocol !== "precipice:" ||
         url.host !== "auth" ||

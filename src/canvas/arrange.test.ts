@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyScape, fixtureScape } from "@/core/fixtures";
 import type { ObjectId, Scape } from "@/core/types";
+import { applyAction, transaction } from "@/core/reducer";
 import { gridPositions, radialPositions } from "./arrange";
 import { layoutPositions, objectWidth } from "./layout";
 
@@ -161,5 +162,23 @@ describe("layoutPositions dispatches on mode", () => {
   it("defaults to the left-to-right flow, which is what it always did", () => {
     const scape = fixtureScape();
     expect(layoutPositions(scape)).toEqual(layoutPositions(scape, "LR"));
+  });
+});
+
+describe("left-to-right tidy with unconnected blocks", () => {
+  it("wraps unconnected blocks into a grid instead of one tall column", () => {
+    let scape = emptyScape("scp_grid");
+    const payloads = Array.from({ length: 9 }, (_, i) => ({
+      type: "CreateObject" as const,
+      id: `n${i}`,
+      objectType: "note",
+      title: `N${i}`,
+    }));
+    for (const action of transaction(payloads)) scape = applyAction(scape, action).state;
+    const positions = layoutPositions(scape, "LR");
+    const xs = new Set(Object.values(positions).map((p) => p.x));
+    const ys = new Set(Object.values(positions).map((p) => p.y));
+    expect(xs.size).toBe(3);
+    expect(ys.size).toBe(3);
   });
 });

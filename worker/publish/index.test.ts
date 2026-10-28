@@ -90,16 +90,25 @@ describe("POST /auth/start", () => {
     expect(await rejected.json()).toMatchObject({ error: "bot_check_failed" });
     expect(h.db.count("oauth_states")).toBe(0);
 
-    h.env.__verifyTurnstile = async () => ({ success: true, hostname: "evil.example", action: "publish-auth" });
+    h.env.__verifyTurnstile = async () => ({
+      success: true,
+      hostname: "evil.example",
+      action: "publish-auth",
+    });
     const wrongHost = await start({ return: "/s/scp_a", turnstileToken: "valid-turnstile-token" });
     expect(wrongHost.status).toBe(403);
     expect(h.db.count("oauth_states")).toBe(0);
-    h.env.__verifyTurnstile = async (token: string) => token === "valid-turnstile-token" ? { success: true, hostname: new URL(APP_ORIGIN).hostname, action: "publish-auth" } : { success: false };
+    h.env.__verifyTurnstile = async (token: string) =>
+      token === "valid-turnstile-token"
+        ? { success: true, hostname: new URL(APP_ORIGIN).hostname, action: "publish-auth" }
+        : { success: false };
 
     const response = await start({ return: "/s/scp_a", turnstileToken: "valid-turnstile-token" });
     expect(response.status).toBe(200);
 
-    const location = new URL((await response.json() as { authorizationUrl: string }).authorizationUrl);
+    const location = new URL(
+      ((await response.json()) as { authorizationUrl: string }).authorizationUrl,
+    );
     expect(location.origin).toBe("https://accounts.google.com");
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
     expect(location.searchParams.get("code_challenge")).toBeTruthy();
@@ -115,8 +124,13 @@ describe("POST /auth/start", () => {
   });
 
   it("stores a hostile return value as the root, not as given", async () => {
-    const response = await start({ return: "https://evil.example", turnstileToken: "valid-turnstile-token" });
-    const state = new URL((await response.json() as { authorizationUrl: string }).authorizationUrl).searchParams.get("state")!;
+    const response = await start({
+      return: "https://evil.example",
+      turnstileToken: "valid-turnstile-token",
+    });
+    const state = new URL(
+      ((await response.json()) as { authorizationUrl: string }).authorizationUrl,
+    ).searchParams.get("state")!;
     const row = h.db.db
       .prepare("SELECT return_path FROM oauth_states WHERE state = ?")
       .get(state) as { return_path: string };
@@ -124,7 +138,10 @@ describe("POST /auth/start", () => {
   });
 
   it("requires the exact editor Origin", async () => {
-    const response = await start({ turnstileToken: "valid-turnstile-token" }, "https://evil.example");
+    const response = await start(
+      { turnstileToken: "valid-turnstile-token" },
+      "https://evil.example",
+    );
     expect(response.status).toBe(401);
     expect(h.db.count("oauth_states")).toBe(0);
   });
@@ -133,13 +150,38 @@ describe("POST /auth/start", () => {
 describe("invitation claim", () => {
   it("creates the referenced user before accepting the invitation", async () => {
     const now = Date.now();
-    h.db.db.prepare("INSERT INTO invites (email, status, created_at) VALUES (?, 'pending', ?)").run("invitee@example.com", now);
-    await claimInvitation(h.env as never, { id: "usr_invitee", googleSub: "google-invitee", email: "invitee@example.com", displayName: "Invitee" }, now);
+    h.db.db
+      .prepare("INSERT INTO invites (email, status, created_at) VALUES (?, 'pending', ?)")
+      .run("invitee@example.com", now);
+    await claimInvitation(
+      h.env as never,
+      {
+        id: "usr_invitee",
+        googleSub: "google-invitee",
+        email: "invitee@example.com",
+        displayName: "Invitee",
+      },
+      now,
+    );
 
     expect(h.db.count("users", "id = 'usr_invitee' AND role = 'member'")).toBe(1);
-    expect(h.db.count("invites", "email = 'invitee@example.com' AND status = 'accepted' AND accepted_user_id = 'usr_invitee'")).toBe(1);
+    expect(
+      h.db.count(
+        "invites",
+        "email = 'invitee@example.com' AND status = 'accepted' AND accepted_user_id = 'usr_invitee'",
+      ),
+    ).toBe(1);
 
-    await claimInvitation(h.env as never, { id: "usr_replay", googleSub: "google-replay", email: "invitee@example.com", displayName: null }, now + 1);
+    await claimInvitation(
+      h.env as never,
+      {
+        id: "usr_replay",
+        googleSub: "google-replay",
+        email: "invitee@example.com",
+        displayName: null,
+      },
+      now + 1,
+    );
     expect(h.db.count("users", "id = 'usr_replay'")).toBe(0);
   });
 });
@@ -258,13 +300,21 @@ describe("publishing", () => {
     expect(publication.url).toBe(`${APP_ORIGIN}/p/${publication.publicationId}`);
     // The Worker hashes what it received; the client never sends a hash.
     expect(publication.hash).toBe(await canonicalHash(scape()));
-    expect(h.r2.objects.has(`publications/${publication.publicationId}/v1/scape.json`)).toBe(true);
+    expect(
+      [...h.r2.objects.keys()].some((key) =>
+        key.startsWith(`publications/${publication.publicationId}/v1-`),
+      ),
+    ).toBe(true);
   });
 
   it("refuses a fifty-first retained slot", async () => {
     const now = Date.now();
     for (let i = 0; i < PUBLICATION_LIMIT; i++) {
-      h.db.db.prepare("INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_test', 'unpublished', 1, ?, 1, ?, ?)").run(`pub_${i.toString(32).padStart(26, "0")}`, "a".repeat(64), now, now);
+      h.db.db
+        .prepare(
+          "INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_test', 'unpublished', 1, ?, 1, ?, ?)",
+        )
+        .run(`pub_${i.toString(32).padStart(26, "0")}`, "a".repeat(64), now, now);
     }
 
     const response = await publish();
@@ -328,7 +378,13 @@ describe("publishing", () => {
     await publish();
     const list = (await fetch(request("GET", "/publications", { token })).then((r) =>
       r.json(),
-    )) as { used: number; activeUsed: number; storedBytes: number; limit: number; publications: unknown[] };
+    )) as {
+      used: number;
+      activeUsed: number;
+      storedBytes: number;
+      limit: number;
+      publications: unknown[];
+    };
     expect(list).toMatchObject({ used: 1, activeUsed: 1, limit: PUBLICATION_LIMIT });
     expect(list.storedBytes).toBeGreaterThan(0);
     expect(list.publications).toHaveLength(1);
@@ -336,10 +392,16 @@ describe("publishing", () => {
 
   it("does not spend a daily write credit for an identical update", async () => {
     const created = (await publish().then((r) => r.json())) as { publicationId: string };
-    const first = h.db.db.prepare("SELECT writes FROM publish_usage WHERE owner_id = 'usr_test'").get() as { writes: number };
-    const response = await fetch(request("PUT", `/publications/${created.publicationId}`, { token, body: { scape: scape() } }));
+    const first = h.db.db
+      .prepare("SELECT writes FROM publish_usage WHERE owner_id = 'usr_test'")
+      .get() as { writes: number };
+    const response = await fetch(
+      request("PUT", `/publications/${created.publicationId}`, { token, body: { scape: scape() } }),
+    );
     expect(response.status).toBe(200);
-    const second = h.db.db.prepare("SELECT writes FROM publish_usage WHERE owner_id = 'usr_test'").get() as { writes: number };
+    const second = h.db.db
+      .prepare("SELECT writes FROM publish_usage WHERE owner_id = 'usr_test'")
+      .get() as { writes: number };
     expect(second.writes).toBe(first.writes);
     expect(h.r2.objects.size).toBe(1);
   });
@@ -347,18 +409,38 @@ describe("publishing", () => {
   it("enforces the per-account daily write budget", async () => {
     const created = (await publish().then((r) => r.json())) as { publicationId: string };
     for (let i = 0; i < 19; i++) {
-      const edited = fixtureScape(); edited.objects.brief.title = `revision ${i}`;
-      expect((await fetch(request("PUT", `/publications/${created.publicationId}`, { token, body: { scape: projectScape(edited).scape } }))).status).toBe(200);
+      const edited = fixtureScape();
+      edited.objects.brief.title = `revision ${i}`;
+      expect(
+        (
+          await fetch(
+            request("PUT", `/publications/${created.publicationId}`, {
+              token,
+              body: { scape: projectScape(edited).scape },
+            }),
+          )
+        ).status,
+      ).toBe(200);
     }
-    const edited = fixtureScape(); edited.objects.brief.title = "over budget";
-    const response = await fetch(request("PUT", `/publications/${created.publicationId}`, { token, body: { scape: projectScape(edited).scape } }));
+    const edited = fixtureScape();
+    edited.objects.brief.title = "over budget";
+    const response = await fetch(
+      request("PUT", `/publications/${created.publicationId}`, {
+        token,
+        body: { scape: projectScape(edited).scape },
+      }),
+    );
     expect(response.status).toBe(429);
     expect(await response.json()).toMatchObject({ error: "daily_write_limit" });
   });
 
   it("enforces current snapshot storage before it writes to R2", async () => {
     const now = Date.now();
-    h.db.db.prepare("INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_test', 'unpublished', 1, ?, ?, ?, ?)").run("pub_00000000000000000000000000", "b".repeat(64), 100 * 1024 * 1024, now, now);
+    h.db.db
+      .prepare(
+        "INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_test', 'unpublished', 1, ?, ?, ?, ?)",
+      )
+      .run("pub_00000000000000000000000000", "b".repeat(64), 100 * 1024 * 1024, now, now);
     const response = await publish();
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: "storage_limit" });
@@ -368,7 +450,11 @@ describe("publishing", () => {
 
 describe("administration and suspension", () => {
   const admin = async () => {
-    const session = await seedSession(h.db, { userId: "usr_admin", email: "admin@example.com", token: "a".repeat(40) });
+    const session = await seedSession(h.db, {
+      userId: "usr_admin",
+      email: "admin@example.com",
+      token: "a".repeat(40),
+    });
     h.db.db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(session.userId);
     return session;
   };
@@ -376,32 +462,70 @@ describe("administration and suspension", () => {
   it("denies every admin endpoint to a member", async () => {
     const { token } = await seedSession(h.db);
     expect((await fetch(request("GET", "/admin", { token }))).status).toBe(403);
-    expect((await fetch(request("POST", "/admin/invites", { token, body: { email: "new@example.com" } }))).status).toBe(403);
+    expect(
+      (
+        await fetch(
+          request("POST", "/admin/invites", { token, body: { email: "new@example.com" } }),
+        )
+      ).status,
+    ).toBe(403);
   });
 
   it("audits an invitation and can revoke it", async () => {
     const { token } = await admin();
-    expect((await fetch(request("POST", "/admin/invites", { token, body: { email: "New@Example.com" } }))).status).toBe(201);
+    expect(
+      (
+        await fetch(
+          request("POST", "/admin/invites", { token, body: { email: "New@Example.com" } }),
+        )
+      ).status,
+    ).toBe(201);
     expect(h.db.count("invites", "email = 'new@example.com' AND status = 'pending'")).toBe(1);
     expect(h.db.count("admin_audit", "action = 'invite.created'")).toBe(1);
-    expect((await fetch(request("DELETE", "/admin/invites/new%40example.com", { token }))).status).toBe(204);
+    expect(
+      (await fetch(request("DELETE", "/admin/invites/new%40example.com", { token }))).status,
+    ).toBe(204);
     expect(h.db.count("admin_audit", "action = 'invite.revoked'")).toBe(1);
   });
 
   it("suspends a member immediately for list and mutation requests", async () => {
     const { token: adminToken } = await admin();
-    const member = await seedSession(h.db, { userId: "usr_member", email: "member@example.com", token: "m".repeat(40) });
-    expect((await fetch(request("POST", `/admin/members/${member.userId}/suspend`, { token: adminToken }))).status).toBe(200);
-    expect((await fetch(request("GET", "/publications", { token: member.token }))).status).toBe(403);
-    expect((await fetch(request("POST", "/publications", { token: member.token, body: { scape: scape() } }))).status).toBe(403);
+    const member = await seedSession(h.db, {
+      userId: "usr_member",
+      email: "member@example.com",
+      token: "m".repeat(40),
+    });
+    expect(
+      (
+        await fetch(
+          request("POST", `/admin/members/${member.userId}/suspend`, { token: adminToken }),
+        )
+      ).status,
+    ).toBe(200);
+    expect((await fetch(request("GET", "/publications", { token: member.token }))).status).toBe(
+      403,
+    );
+    expect(
+      (
+        await fetch(
+          request("POST", "/publications", { token: member.token, body: { scape: scape() } }),
+        )
+      ).status,
+    ).toBe(403);
     expect(h.db.count("admin_audit", "action = 'member.suspend'")).toBe(1);
   });
 
   it("does not allow one administrator to suspend another", async () => {
     const { token } = await admin();
-    const second = await seedSession(h.db, { userId: "usr_second_admin", email: "second@example.com", token: "s".repeat(40) });
+    const second = await seedSession(h.db, {
+      userId: "usr_second_admin",
+      email: "second@example.com",
+      token: "s".repeat(40),
+    });
     h.db.db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(second.userId);
-    expect((await fetch(request("POST", `/admin/members/${second.userId}/suspend`, { token }))).status).toBe(403);
+    expect(
+      (await fetch(request("POST", `/admin/members/${second.userId}/suspend`, { token }))).status,
+    ).toBe(403);
     expect(h.db.count("admin_audit")).toBe(0);
   });
 });
@@ -518,7 +642,9 @@ describe("projection validation", () => {
       publicationId: string;
     };
     const stored = JSON.parse(
-      h.r2.objects.get(`publications/${created.publicationId}/v1/scape.json`)!,
+      [...h.r2.objects.entries()].find(([key]) =>
+        key.startsWith(`publications/${created.publicationId}/v1-`),
+      )![1],
     ) as { relationships: Array<{ id: string }> };
     expect(stored.relationships.map((rel) => rel.id)).not.toContain("dangling");
   });
@@ -551,10 +677,10 @@ describe("public reads", () => {
     expect(pointer.snapshotPath).toBe(`/p/${id}/v1/scape.json`);
   });
 
-  it("serves the versioned snapshot as immutable, so the edge can cache it", async () => {
+  it("serves the versioned snapshot with a short public cache, so unpublish takes effect", async () => {
     const response = await fetch(new Request(`https://publish.example/p/${id}/v1/scape.json`));
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("immutable");
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=300");
     expect(((await response.json()) as { objects: unknown[] }).objects).toHaveLength(13);
   });
 
@@ -592,7 +718,11 @@ describe("DELETE /account", () => {
   });
 
   it("does not allow the last active administrator to delete their account", async () => {
-    const { userId, token } = await seedSession(h.db, { userId: "usr_admin", email: "admin@example.com", token: "a".repeat(40) });
+    const { userId, token } = await seedSession(h.db, {
+      userId: "usr_admin",
+      email: "admin@example.com",
+      token: "a".repeat(40),
+    });
     h.db.db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(userId);
 
     const response = await fetch(request("DELETE", "/account", { token }));
@@ -602,9 +732,19 @@ describe("DELETE /account", () => {
   });
 
   it("allows an administrator to delete their account when another active admin remains", async () => {
-    const first = await seedSession(h.db, { userId: "usr_admin_one", email: "one@example.com", token: "a".repeat(40) });
-    const second = await seedSession(h.db, { userId: "usr_admin_two", email: "two@example.com", token: "b".repeat(40) });
-    h.db.db.prepare("UPDATE users SET role = 'admin' WHERE id IN (?, ?)").run(first.userId, second.userId);
+    const first = await seedSession(h.db, {
+      userId: "usr_admin_one",
+      email: "one@example.com",
+      token: "a".repeat(40),
+    });
+    const second = await seedSession(h.db, {
+      userId: "usr_admin_two",
+      email: "two@example.com",
+      token: "b".repeat(40),
+    });
+    h.db.db
+      .prepare("UPDATE users SET role = 'admin' WHERE id IN (?, ?)")
+      .run(first.userId, second.userId);
 
     expect((await fetch(request("DELETE", "/account", { token: first.token }))).status).toBe(204);
     expect(h.db.count("users", "id = 'usr_admin_one'")).toBe(0);
@@ -628,7 +768,9 @@ describe("CORS and rate limiting", () => {
   it("returns 429 when the rate limiter says no", async () => {
     const { token } = await seedSession(h.db);
     h.allowRequests.value = false;
-    const response = await fetch(request("POST", "/publications", { token, body: { scape: scape() } }));
+    const response = await fetch(
+      request("POST", "/publications", { token, body: { scape: scape() } }),
+    );
     expect(response.status).toBe(429);
   });
 
@@ -639,6 +781,86 @@ describe("CORS and rate limiting", () => {
     );
     expect(response.status).toBe(429);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
+it("withdraws a suspended owner's public links and restores them on restore", async () => {
+  const { token } = await seedSession(h.db);
+  const { publicationId: id } = (await fetch(
+    request("POST", "/publications", { token, body: { scape: scape() } }),
+  ).then((r) => r.json())) as { publicationId: string };
+  h.db.db.prepare("UPDATE users SET status = 'suspended' WHERE id = 'usr_test'").run();
+  expect((await fetch(new Request(`https://publish.example/p/${id}`))).status).toBe(410);
+  expect((await fetch(new Request(`https://publish.example/p/${id}/v1/scape.json`))).status).toBe(
+    410,
+  );
+  h.db.db.prepare("UPDATE users SET status = 'active' WHERE id = 'usr_test'").run();
+  expect((await fetch(new Request(`https://publish.example/p/${id}`))).status).toBe(200);
+});
+
+describe("concurrent writes", () => {
+  const edit = (title: string) => {
+    const edited = fixtureScape();
+    edited.objects.brief.title = title;
+    return projectScape(edited).scape;
+  };
+
+  it("a losing concurrent PUT never deletes the winner's snapshot", async () => {
+    const { token } = await seedSession(h.db);
+    const { publicationId: id } = (await fetch(
+      request("POST", "/publications", { token, body: { scape: scape() } }),
+    ).then((r) => r.json())) as { publicationId: string };
+    // Hold both R2 writes until each request has read version 1, forcing the real race.
+    const put = h.r2.put.bind(h.r2);
+    let release!: () => void,
+      waiting = 0;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    h.r2.put = async (key, value) => {
+      await put(key, value);
+      if (++waiting === 2) release();
+      await gate;
+    };
+    const [a, b] = await Promise.all([
+      fetch(request("PUT", `/publications/${id}`, { token, body: { scape: edit("A") } })),
+      fetch(request("PUT", `/publications/${id}`, { token, body: { scape: edit("B") } })),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 500]);
+    const pointer = (await fetch(new Request(`https://publish.example/p/${id}`)).then((r) =>
+      r.json(),
+    )) as { snapshotPath: string };
+    const snapshot = await fetch(new Request(`https://publish.example${pointer.snapshotPath}`));
+    expect(snapshot.status).toBe(200);
+    // The original plus exactly one winning v2; the loser removed only its own object.
+    expect(h.r2.objects.size).toBe(2);
+  });
+
+  it("a PUT racing a DELETE leaves no orphaned snapshot", async () => {
+    const { token } = await seedSession(h.db);
+    const { publicationId: id } = (await fetch(
+      request("POST", "/publications", { token, body: { scape: scape() } }),
+    ).then((r) => r.json())) as { publicationId: string };
+    const results = await Promise.all([
+      fetch(request("PUT", `/publications/${id}`, { token, body: { scape: edit("Late") } })),
+      fetch(request("DELETE", `/publications/${id}`, { token })),
+    ]);
+    expect(results[1].status).toBe(204);
+    expect([...h.r2.objects.keys()].filter((key) => key.includes(id))).toEqual([]);
+    expect(h.db.count("publications", "publication_id = ? AND status = 'deleted'", [id])).toBe(1);
+  });
+
+  it("serves a legacy row without a stored key from the versioned path", async () => {
+    const now = Date.now(),
+      id = "pub_33333333333333333333333333";
+    await seedSession(h.db);
+    h.db.db
+      .prepare(
+        "INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_test', 'published', 3, ?, 2, ?, ?)",
+      )
+      .run(id, "d".repeat(64), now, now);
+    await h.r2.put(`publications/${id}/v3/scape.json`, "{}");
+    expect((await fetch(new Request(`https://publish.example/p/${id}/v3/scape.json`))).status).toBe(
+      200,
+    );
   });
 });
 
@@ -663,19 +885,43 @@ describe("the cron sweeper", () => {
     await worker.scheduled({} as never, h.env as never);
 
     expect(h.r2.objects.size).toBe(1);
-    expect(h.r2.objects.has(`publications/${created.publicationId}/v2/scape.json`)).toBe(true);
+    expect([...h.r2.objects.keys()][0]).toMatch(
+      new RegExp(`^publications/${created.publicationId}/v2-`),
+    );
     expect(h.db.count("superseded_versions")).toBe(0);
+  });
+
+  it("sweeps a legacy superseded snapshot that has no stored key", async () => {
+    const id = "pub_22222222222222222222222222";
+    await h.r2.put(`publications/${id}/v1/scape.json`, "{}");
+    h.db.db
+      .prepare(
+        "INSERT INTO superseded_versions (publication_id, version, delete_after) VALUES (?, 1, ?)",
+      )
+      .run(id, Date.now() - 1);
+    await worker.scheduled({} as never, h.env as never);
+    expect(h.r2.objects.size).toBe(0);
   });
 
   it("backfills byte counts for pre-quota publications from R2 metadata", async () => {
     const now = Date.now();
     const id = "pub_11111111111111111111111111";
     const snapshot = JSON.stringify(scape());
-    await seedSession(h.db, { userId: "usr_legacy", email: "legacy@example.com", token: "l".repeat(40) });
-    h.db.db.prepare("INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_legacy', 'published', 1, ?, 0, ?, ?)").run(id, "c".repeat(64), now, now);
+    await seedSession(h.db, {
+      userId: "usr_legacy",
+      email: "legacy@example.com",
+      token: "l".repeat(40),
+    });
+    h.db.db
+      .prepare(
+        "INSERT INTO publications (publication_id, owner_id, status, version, hash, current_bytes, updated_at, created_at) VALUES (?, 'usr_legacy', 'published', 1, ?, 0, ?, ?)",
+      )
+      .run(id, "c".repeat(64), now, now);
     await h.r2.put(`publications/${id}/v1/scape.json`, snapshot);
     await worker.scheduled({} as never, h.env as never);
-    const row = h.db.db.prepare("SELECT current_bytes FROM publications WHERE publication_id = ?").get(id) as { current_bytes: number };
+    const row = h.db.db
+      .prepare("SELECT current_bytes FROM publications WHERE publication_id = ?")
+      .get(id) as { current_bytes: number };
     expect(row.current_bytes).toBe(new TextEncoder().encode(snapshot).byteLength);
   });
 });
@@ -683,20 +929,35 @@ describe("the cron sweeper", () => {
 it("host credentials can publish from desktop but cannot access account or admin APIs", async () => {
   const { userId } = await seedSession(h.db);
   const token = "a".repeat(64);
-  await h.db.prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'desktop', ?)").bind(await sha256(token), userId, Date.now()+60000).run();
-  const response = await fetch(request("POST", "/publications", {token, body: {scape: scape()}, origin: "tauri://localhost"}));
+  await h.db
+    .prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'desktop', ?)")
+    .bind(await sha256(token), userId, Date.now() + 60000)
+    .run();
+  const response = await fetch(
+    request("POST", "/publications", {
+      token,
+      body: { scape: scape() },
+      origin: "tauri://localhost",
+    }),
+  );
   expect(response.status).toBe(201);
   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("tauri://localhost");
-  expect((await fetch(request("DELETE", "/account", {token}))).status).toBe(401);
-  expect((await fetch(request("GET", "/admin/users", {token}))).status).toBe(401);
+  expect((await fetch(request("DELETE", "/account", { token }))).status).toBe(401);
+  expect((await fetch(request("GET", "/admin/users", { token }))).status).toBe(401);
 });
 
 it("logout revokes web agent host credentials but keeps the Mac connected", async () => {
   const { token, userId } = await seedSession(h.db);
   const web = "b".repeat(64);
   const mac = "c".repeat(64);
-  await h.db.prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'web', ?)").bind(await sha256(web), userId, Date.now()+60000).run();
-  await h.db.prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'desktop', ?)").bind(await sha256(mac), userId, Date.now()+60000).run();
+  await h.db
+    .prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'web', ?)")
+    .bind(await sha256(web), userId, Date.now() + 60000)
+    .run();
+  await h.db
+    .prepare("INSERT INTO mcp_hosts VALUES (?, ?, 'desktop', ?)")
+    .bind(await sha256(mac), userId, Date.now() + 60000)
+    .run();
   expect((await fetch(request("POST", "/auth/logout", { token }))).status).toBe(204);
   expect((await fetch(request("GET", "/publications", { token: web }))).status).toBe(401);
   expect((await fetch(request("GET", "/publications", { token: mac }))).status).toBe(200);

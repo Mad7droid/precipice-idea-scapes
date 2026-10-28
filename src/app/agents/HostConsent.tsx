@@ -36,7 +36,9 @@ export function HostConsent({ challenge }: { challenge: string }) {
         <h1 className="mt-5 text-lg text-fg">Connect your Mac to Precipice</h1>
         <p className="mt-2 text-xs text-fg-secondary">
           Allow the Precipice app that opened this page to host agents for your account. Its library
-          stays on your Mac. Only continue if you started this from Settings → Agents in Precipice.
+          stays on your Mac. Only approve if you just started this from Settings → Agents in the
+          Precipice app on your own Mac. Approving signs that Mac into your account; if someone sent
+          you this link, close the page.
         </p>
         {error && (
           <p role="alert" className="mt-3 text-xs text-danger">

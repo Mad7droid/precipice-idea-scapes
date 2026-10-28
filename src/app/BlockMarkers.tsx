@@ -98,8 +98,17 @@ export function BlockMarkers({
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            onBlur={addDraft}
+            // Leaving the field discards the draft: a half-typed tag must never land on a
+            // block just because focus moved (or the selection changed) mid-word.
+            onBlur={() => setDraft("")}
             onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                setDraft("");
+                event.currentTarget.blur();
+                return;
+              }
               // Comma as well as Enter: people type tag lists, they do not press Enter six times.
               if (event.key === "Enter" || event.key === ",") {
                 event.preventDefault();

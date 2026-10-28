@@ -4,7 +4,18 @@ import { createHash } from "node:crypto";
 import { TestD1 } from "../publish/harness";
 vi.mock("@cloudflare/workers-oauth-provider", () => ({ OAuthProvider: class {} }));
 vi.mock("./relay", () => ({ McpRelay: class {} }));
-import { __app, __mcpApi, mintTicket, readTicket, takeBudget, type Env } from "./index";
+import worker, {
+  __app,
+  __mcpApi,
+  mintTicket,
+  readTicket,
+  readTicketClaims,
+  takeBudget,
+  takeUserBudget,
+  USER_DAILY_REQUESTS,
+  type Env,
+} from "./index";
+import { claimNonce, type NonceStorage } from "./ticketNonce";
 
 const APP = "https://app.example";
 const TOKEN = "test_session_aaaaaaaaaaaaaaaaaaaaaaaa";
@@ -131,6 +142,108 @@ describe("hosted connector security", () => {
     expect(await Promise.all([takeBudget(env, now), takeBudget(env, now)])).toEqual([true, false]);
     expect(await takeBudget(env, now + 86400000)).toBe(true);
     expect(db.count("mcp_budget")).toBe(1);
+  });
+  it("enforces the per-user cap before the global budget, so denials do not spend it", async () => {
+    seedRequest();
+    await __app(request(`/connect/requests/${requestId}/approve`, "POST", approval), env);
+    const id = (db.db.prepare("SELECT id FROM mcp_connections").get() as { id: string }).id;
+    const day = new Date().toISOString().slice(0, 10);
+    db.db.prepare("INSERT INTO mcp_user_budget VALUES ('u1', ?, ?)").run(day, USER_DAILY_REQUESTS);
+    const call = () =>
+      __mcpApi.fetch(request("/mcp", "POST", {}), env, {
+        props: {
+          userId: "u1",
+          connectionId: id,
+          grant: { clientId: "c", clientName: "T", ...approval },
+        },
+      } as never);
+    for (let i = 0; i < 3; i++) expect((await call()).status).toBe(429);
+    expect(db.count("mcp_budget")).toBe(0);
+    expect(await takeUserBudget(env, "u1", Date.now() + 86400000)).toBe(true);
+  });
+  it("records whether the client supports MCP Apps at initialize", async () => {
+    seedRequest();
+    await __app(request(`/connect/requests/${requestId}/approve`, "POST", approval), env);
+    const id = (db.db.prepare("SELECT id FROM mcp_connections").get() as { id: string }).id;
+    const init = (capabilities: Record<string, unknown>) =>
+      __mcpApi.fetch(
+        new Request("https://mcp.example/mcp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json, text/event-stream",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+              protocolVersion: "2025-06-18",
+              capabilities,
+              clientInfo: { name: "t", version: "1" },
+            },
+          }),
+        }),
+        env,
+        {
+          props: {
+            userId: "u1",
+            connectionId: id,
+            grant: { clientId: "c", clientName: "T", ...approval },
+          },
+        } as never,
+      );
+    const flag = () =>
+      (db.db.prepare("SELECT mcp_apps FROM mcp_connections").get() as { mcp_apps: number })
+        .mcp_apps;
+    await init({ extensions: { "io.modelcontextprotocol/ui": {} } });
+    expect(flag()).toBe(1);
+    await init({});
+    expect(flag()).toBe(0);
+  });
+  it("relay tickets carry a nonce that the relay accepts only once", async () => {
+    const claims = await readTicketClaims(env, await mintTicket(env, "u1"));
+    expect(claims?.nonce).toMatch(/^tkt_/);
+    const map = new Map<string, number>();
+    const storage: NonceStorage = {
+      get: async <T>(key: string) => map.get(key) as T | undefined,
+      put: async <T>(key: string, value: T) => void map.set(key, value as number),
+      delete: async (keys: string[]) => keys.filter((key) => map.delete(key)).length,
+      list: async <T>() => new Map([...map]) as Map<string, T>,
+    };
+    const now = Date.now();
+    expect(await claimNonce(storage, claims!.nonce, claims!.expiresAt, now)).toBe(true);
+    expect(await claimNonce(storage, claims!.nonce, claims!.expiresAt, now)).toBe(false);
+    // Spent nonces are pruned once their ticket could no longer be used anyway.
+    await claimNonce(storage, "another_nonce", now + 120_000, claims!.expiresAt + 1);
+    expect(map.size).toBe(1);
+  });
+  it("rejects a relay upgrade from a foreign origin before touching the relay", async () => {
+    const ticket = await mintTicket(env, "u1");
+    const upgrade = (origin: string) =>
+      __app(
+        new Request(`https://mcp.example/relay?ticket=${ticket}`, {
+          headers: { Upgrade: "websocket", Origin: origin },
+        }),
+        env,
+      );
+    expect((await upgrade("https://evil.example")).status).toBe(403);
+  });
+  it("rate-limits the unauthenticated OAuth endpoints per IP when the binding exists", async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    const limited = { ...env, OAUTH_IP_LIMIT: { limit } } as Env;
+    for (const path of ["/register", "/token", "/authorize"]) {
+      const response = await worker.fetch(
+        new Request(`https://mcp.example${path}`, {
+          method: "POST",
+          headers: { "CF-Connecting-IP": "203.0.113.9" },
+        }),
+        limited,
+        {} as never,
+      );
+      expect(response.status).toBe(429);
+    }
+    expect(limit).toHaveBeenCalledWith({ key: "203.0.113.9" });
   });
   it("the kill switch blocks app and MCP calls", async () => {
     env.MCP_DISABLED = "1";

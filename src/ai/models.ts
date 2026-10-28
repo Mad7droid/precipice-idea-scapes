@@ -2,7 +2,10 @@ export interface ModelChoice {
   id: string;
   label: string;
   hint: string;
-  /** What routing may pick this model for. Several models can share a tier; the first wins. */
+  /**
+   * What routing may pick this model for. Several models share a tier: a person's own pick is
+   * kept for its tier, and otherwise routing uses that tier's entry in `TIER_MODEL`.
+   */
   tier: ModelTier;
 }
 
@@ -18,16 +21,16 @@ export type ModelTier = "instant" | "standard" | "deep";
  */
 export const MODELS: ModelChoice[] = [
   {
-    id: "claude-sonnet-5",
-    label: "Sonnet 5",
+    id: "claude-sonnet-5-5",
+    label: "Sonnet 5.5",
     hint: "Fast and good at structured output. The default.",
     tier: "standard",
   },
   {
-    id: "claude-sonnet-5-5",
-    label: "Sonnet 5.5",
-    hint: "The newest Sonnet, at the same price as Sonnet 5.",
-    tier: "standard",
+    id: "claude-opus-5-5",
+    label: "Opus 5.5",
+    hint: "Slower and pricier. Best on genuinely hard briefs.",
+    tier: "deep",
   },
   {
     id: "claude-haiku-5-5",
@@ -36,15 +39,22 @@ export const MODELS: ModelChoice[] = [
     tier: "instant",
   },
   {
-    id: "claude-opus-5",
-    label: "Opus 5",
-    hint: "Slower and pricier. Better on genuinely hard briefs.",
+    id: "claude-fable-5-1",
+    label: "Fable 5.1",
+    hint: "Anthropic's most capable model. Slowest and priciest; for the hardest briefs.",
     tier: "deep",
   },
+  // Earlier generation, kept so a saved choice still resolves.
   {
-    id: "claude-opus-5-5",
-    label: "Opus 5.5",
-    hint: "The newest Opus, and cheaper than Opus 5. Best on genuinely hard briefs.",
+    id: "claude-sonnet-5",
+    label: "Sonnet 5",
+    hint: "The previous Sonnet.",
+    tier: "standard",
+  },
+  {
+    id: "claude-opus-5",
+    label: "Opus 5",
+    hint: "The previous Opus. Opus 5.5 is cheaper and better.",
     tier: "deep",
   },
 ];
@@ -66,13 +76,21 @@ export function tierOf(modelId: string): ModelTier {
 
 /**
  * The model for a routed tier. A person's own pick wins inside its tier: someone who chose
- * Sonnet 5 keeps Sonnet 5 for standard requests rather than being moved to 5.5.
+ * Sonnet 5 keeps Sonnet 5 for standard requests rather than being moved to 5.5; otherwise the
+ * tier's model in `TIER_MODEL` is used, never list order.
  */
 export function modelForTier(tier: ModelTier, preferred: string): string {
   if (preferred.startsWith("chatgpt/")) return preferred;
   if (preferred.startsWith("claude-plan/"))
     return `claude-plan/${tier === "instant" ? "haiku" : tier === "deep" ? "opus" : "sonnet"}`;
   return tierOf(preferred) === tier ? preferred : TIER_MODEL[tier];
+}
+
+/** Why the "Search web" toggle is off, for its tooltip. */
+export function webSearchUnavailableReason(modelId: string): string {
+  return modelId.startsWith("claude-plan/")
+    ? "Web search isn’t available through a Claude plan connection. Use an Anthropic API key in Settings → AI to search the web."
+    : "Web search isn’t enabled for this API key. Turn it on in Anthropic Console.";
 }
 
 export function modelLabel(modelId: string): string {

@@ -22,6 +22,7 @@ export const ANTHROPIC_CREDENTIAL: CredentialSpec = {
   legacySessionKey: "anthropic.apiKey",
 };
 
+/** `read_typesafe_key` reports only whether a key is saved; `jev_route` uses it natively. */
 export const TYPESAFE_CREDENTIAL: CredentialSpec = {
   read: "read_typesafe_key",
   save: "save_typesafe_key",
@@ -55,13 +56,14 @@ export function useCredentials(spec: CredentialSpec = ANTHROPIC_CREDENTIAL, enab
     } catch {
       /* unavailable */
     }
-    void invoke<string | null>(spec.read)
+    // Presence-only credentials (TypeSafe) answer `true`/`false`: the secret stays native.
+    void invoke<string | boolean | null>(spec.read)
       .then((value) => {
         if (!active) return;
-        setSaved(value !== null);
+        setSaved(typeof value === "boolean" ? value : value !== null);
         setDenied(false);
         setError("");
-        if (revision.current === version) setKey(value ?? "");
+        if (revision.current === version) setKey(typeof value === "string" ? value : "");
       })
       .catch((failure) => {
         if (!active) return;

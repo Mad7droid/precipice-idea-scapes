@@ -4,11 +4,13 @@ import { emptyScape, fixtureScape } from "@/core/fixtures";
 import { useScapeStore } from "@/core/store";
 import type { Scape } from "@/core/types";
 import { render } from "@/test/react";
-import { mergeFlowNodes, toFlowEdges, toFlowNodes } from "./edges";
+import { mergeFlowNodes, toFlowEdges } from "./edges";
 import { layoutAction, layoutPositions, objectWidth, widthFor } from "./layout";
 import { ObjectNode } from "./ObjectNode";
 
 const store = () => useScapeStore.getState();
+/** A fresh React Flow mirror, as the canvas builds it on first render. */
+const toFlowNodes = (scape: Scape) => mergeFlowNodes([], scape);
 
 beforeEach(() => store().loadScape(fixtureScape()));
 
@@ -126,18 +128,18 @@ describe("edges derive from relationships", () => {
     const scape = store().scape!;
     const [plain] = toFlowEdges(scape, []).filter((e) => e.id === "r-brief-happy");
     const [active] = toFlowEdges(scape, ["brief"]).filter((e) => e.id === "r-brief-happy");
-    expect(plain.style?.strokeWidth).toBe(1.5);
-    expect(active.style?.strokeWidth).toBe(2);
+    expect(plain.style?.strokeWidth).toBe("var(--edge-width)");
+    expect(active.style?.strokeWidth).toBe("var(--edge-width-active)");
   });
 });
 
 describe("nodes", () => {
   it("preserves ScapeObject identity, so memoized nodes do not re-render on unrelated changes", () => {
     const scape = store().scape!;
-    const before = toFlowNodes(scape, []);
+    const before = toFlowNodes(scape);
 
     store().dispatchTx([{ type: "MoveObject", id: "brief", x: 999, y: 999 }]);
-    const after = toFlowNodes(store().scape!, []);
+    const after = toFlowNodes(store().scape!);
 
     const untouched = (nodes: ReturnType<typeof toFlowNodes>, id: string) =>
       nodes.find((n) => n.id === id)!.data.object;
@@ -156,7 +158,7 @@ describe("mergeFlowNodes", () => {
    */
   it("preserves React Flow's measured dimensions across a Scape change", () => {
     const scape = store().scape!;
-    const measured = toFlowNodes(scape, []).map((n) => ({
+    const measured = toFlowNodes(scape).map((n) => ({
       ...n,
       measured: { width: 220, height: 140 },
     }));
@@ -172,7 +174,7 @@ describe("mergeFlowNodes", () => {
 
   it("returns the identical node object when nothing about it changed", () => {
     const scape = store().scape!;
-    const before = toFlowNodes(scape, []);
+    const before = toFlowNodes(scape);
 
     store().dispatchTx([{ type: "MoveObject", id: "brief", x: 400, y: 400 }]);
     const merged = mergeFlowNodes(before, store().scape!);
@@ -182,9 +184,9 @@ describe("mergeFlowNodes", () => {
     expect(find(merged, "brief")).not.toBe(find(before, "brief"));
   });
 
-  it("keeps React Flow's selection, which React Flow owns", () => {
+  it("keeps the mirror's selection flags; the canvas syncs them from the store separately", () => {
     const scape = store().scape!;
-    const withSelection = toFlowNodes(scape, []).map((n) =>
+    const withSelection = toFlowNodes(scape).map((n) =>
       n.id === "brief" ? { ...n, selected: true } : n,
     );
 
@@ -195,7 +197,7 @@ describe("mergeFlowNodes", () => {
   });
 
   it("adds nodes created since the last merge and drops deleted ones", () => {
-    const before = toFlowNodes(store().scape!, []);
+    const before = toFlowNodes(store().scape!);
 
     store().dispatchTx([
       { type: "CreateObject", id: "fresh", objectType: "note", title: "Fresh" },
@@ -329,7 +331,7 @@ describe("relationships are editable, not just drawable", () => {
 
     const other = edges.find((e) => e.id === "r-happy-phone")!;
     expect(other.selected).toBe(false);
-    expect(other.style?.opacity).toBeLessThan(1);
+    expect(other.style?.opacity).toBe("var(--edge-opacity-dimmed)");
   });
 
   it("disconnects through the reducer, and undo puts the relationship back", () => {

@@ -28,10 +28,23 @@ export interface ApplyResult {
 export function applyAction(state: Scape, action: Action): ApplyResult {
   const result = reduce(state, action);
   if (!result.inverse) return { state, inverse: null };
+  // Moving the camera is not an edit, so it must not make a scape look recently changed.
+  // Otherwise the clock only moves forward: an undo replays inverses stamped with the
+  // original action's time, and must not drag `updatedAt` backwards.
+  if (action.type === "SetViewState") return result;
   return {
-    state: { ...result.state, updatedAt: action.ts },
+    state: { ...result.state, updatedAt: Math.max(state.updatedAt, action.ts) },
     inverse: result.inverse,
   };
+}
+
+function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  if (a === b) return true;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every(
+    (key) => Object.prototype.hasOwnProperty.call(b, key) && Object.is(a[key], b[key]),
+  );
 }
 
 /** Convenience for building an inverse: same transaction, same timestamp as the forward action. */
@@ -130,11 +143,11 @@ function reduce(state: Scape, action: Action): ApplyResult {
         tags?: string[];
       } = {};
       const next = { ...existing };
-      if (action.patch.title !== undefined) {
+      if (action.patch.title !== undefined && action.patch.title !== existing.title) {
         before.title = existing.title;
         next.title = action.patch.title;
       }
-      if (action.patch.data !== undefined) {
+      if (action.patch.data !== undefined && !shallowEqual(existing.data, action.patch.data)) {
         before.data = existing.data;
         next.data = action.patch.data;
       }
@@ -285,6 +298,15 @@ function reduce(state: Scape, action: Action): ApplyResult {
         return { state, inverse: null };
       }
       if (action.from === action.to) return { state, inverse: null };
+      // One relationship per direction: a second identical edge draws on top of the first and
+      // only shows up later as an undo step that appears to do nothing.
+      if (
+        Object.values(state.relationships).some(
+          (rel) => rel.from === action.from && rel.to === action.to,
+        )
+      ) {
+        return { state, inverse: null };
+      }
 
       const rel: Relationship = { id: action.id, from: action.from, to: action.to };
       if (action.label !== undefined) rel.label = action.label;
@@ -340,21 +362,6 @@ function reduce(state: Scape, action: Action): ApplyResult {
       };
     }
   }
-}
-
-/** Apply a whole transaction, returning the inverses in the order undo should replay them. */
-export function applyTransaction(
-  state: Scape,
-  actions: Action[],
-): { state: Scape; inverses: Action[] } {
-  let next = state;
-  const inverses: Action[] = [];
-  for (const action of actions) {
-    const result = applyAction(next, action);
-    next = result.state;
-    if (result.inverse) inverses.unshift(result.inverse);
-  }
-  return { state: next, inverses };
 }
 
 /** Stamp a set of payloads with one transaction id, so they undo as a single step. */

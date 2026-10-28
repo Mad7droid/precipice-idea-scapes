@@ -25,6 +25,29 @@ export const SERVER_VERSION = "1.0.0";
 
 export type ToolCaller = (tool: ToolName, args: Record<string, unknown>) => Promise<Outcome>;
 
+/** The MCP Apps extension identifier a client advertises under `capabilities.extensions`. */
+export const MCP_APPS_EXTENSION = "io.modelcontextprotocol/ui";
+/** Tools only an MCP Apps view may call; never offered to a client that cannot render one. */
+export const APP_ONLY_TOOLS: ReadonlySet<ToolName> = new Set<ToolName>([
+  "confirm_flow",
+  "share_flow_preview",
+]);
+
+export function advertisesMcpApps(capabilities: unknown): boolean {
+  const extensions = (capabilities as { extensions?: Record<string, unknown> } | undefined)
+    ?.extensions;
+  return Boolean(extensions && typeof extensions[MCP_APPS_EXTENSION] === "object");
+}
+
+export type McpServerOptions = {
+  /**
+   * Whether this connection's client supports MCP Apps. Stateless transports (the hosted
+   * Worker) build a fresh server per request and pass what initialize recorded; stateful ones
+   * fall back to the capabilities negotiated on this server.
+   */
+  appsSupported?: () => boolean;
+};
+
 export function toolResult(outcome: Outcome) {
   const failed = outcome.status === "failed";
   const { _meta, ...summary } = outcome;
@@ -77,7 +100,7 @@ const PROMPTS: {
   },
 ];
 
-export function buildMcpServer(call: ToolCaller): McpServer {
+export function buildMcpServer(call: ToolCaller, options: McpServerOptions = {}): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, title: "Precipice", version: SERVER_VERSION },
     { instructions },
@@ -109,9 +132,11 @@ export function buildMcpServer(call: ToolCaller): McpServer {
       ],
     }),
   );
+  const appsSupported = () =>
+    options.appsSupported?.() ?? advertisesMcpApps(server.server.getClientCapabilities());
   for (const name of Object.keys(toolSchemas) as ToolName[]) {
     const schema = toolSchemas[name] as unknown as z.ZodObject<z.ZodRawShape>;
-    server.registerTool(
+    const registered = server.registerTool(
       name,
       {
         title: titles[name],
@@ -148,6 +173,15 @@ export function buildMcpServer(call: ToolCaller): McpServer {
       },
       async (args: Record<string, unknown>) => toolResult(await call(name, args ?? {})),
     );
+    // The SDK omits disabled tools from tools/list and rejects calls to them, so deriving
+    // `enabled` from the client's capabilities hides app-only confirmation tools from clients
+    // without MCP Apps and refuses them if called anyway.
+    if (APP_ONLY_TOOLS.has(name))
+      Object.defineProperty(registered, "enabled", {
+        get: appsSupported,
+        set: () => undefined,
+        configurable: true,
+      });
   }
   for (const prompt of PROMPTS) {
     server.registerPrompt(

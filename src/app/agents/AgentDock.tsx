@@ -4,6 +4,7 @@ import { Button } from "@/design/Button";
 import { agentLabel, agentLabels, useAgentStore } from "@/mcp/host/agentStore";
 import { connectApi } from "@/mcp/host/connectApi";
 import { agentHost } from "@/mcp/host/host";
+import { installFromClientId, localTrustKey } from "@/mcp/host/localMode";
 
 /**
  * The only agent UI that appears on its own: a quiet "Claude is working" pill while an agent is
@@ -103,25 +104,33 @@ export function AgentDock() {
                 Decline
               </Button>
             </div>
-            {!deleting && !publishing && args.__clientId && (
-              <button
-                type="button"
-                className="mt-2 text-2xs text-fg-secondary hover:text-fg"
-                disabled={busy === operation.key}
-                onClick={() => {
-                  const trust = args.__clientId!.startsWith("local:")
-                    ? Promise.resolve().then(() =>
-                        localStorage.setItem(`precipice.agent.trust.${args.__client}`, "direct"),
-                      )
-                    : connectApi.mode(args.__clientId!, "direct");
-                  void trust
-                    .then(() => resolve(operation.key, true))
-                    .catch(() => notify.error("Could not save this agent's preference."));
-                }}
-              >
-                Always apply changes from {args.__client ?? "this agent"}
-              </button>
-            )}
+            {/* Local agents can only be trusted by their verified install token; an unverified
+                one (e.g. a hand-added command) always gets review. */}
+            {!deleting &&
+              !publishing &&
+              args.__clientId &&
+              (!args.__clientId.startsWith("local:") || installFromClientId(args.__clientId)) && (
+                <button
+                  type="button"
+                  className="mt-2 text-2xs text-fg-secondary hover:text-fg"
+                  disabled={busy === operation.key}
+                  onClick={() => {
+                    const trust = args.__clientId!.startsWith("local:")
+                      ? Promise.resolve().then(() =>
+                          localStorage.setItem(
+                            localTrustKey(installFromClientId(args.__clientId!)!),
+                            "direct",
+                          ),
+                        )
+                      : connectApi.mode(args.__clientId!, "direct");
+                    void trust
+                      .then(() => resolve(operation.key, true))
+                      .catch(() => notify.error("Could not save this agent's preference."));
+                  }}
+                >
+                  Always apply changes from {args.__client ?? "this agent"}
+                </button>
+              )}
           </div>
         );
       })}

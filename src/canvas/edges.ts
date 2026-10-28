@@ -12,21 +12,6 @@ export interface ObjectNodeData extends Record<string, unknown> {
   justGenerated?: boolean;
 }
 
-/** React Flow nodes derived from the Scape. The store is the source of truth, not React Flow. */
-export function toFlowNodes(scape: Scape, selection: ObjectId[]): Node<ObjectNodeData>[] {
-  const selected = new Set(selection);
-  return scape.objectOrder
-    .map((id) => scape.objects[id])
-    .filter(Boolean)
-    .map((object) => ({
-      id: object.id,
-      type: OBJECT_NODE_TYPE,
-      position: { x: object.x, y: object.y },
-      data: { object },
-      selected: selected.has(object.id),
-    }));
-}
-
 /**
  * Reconciles the local React Flow mirror against the Scape.
  *
@@ -140,8 +125,12 @@ export function toFlowEdges(
           ...(rel.label && active ? { label: rel.label } : {}),
           style: {
             stroke,
-            strokeWidth: isSelected ? 2.5 : active ? 2 : 1.5,
-            opacity: dimmed ? 0.25 : 1,
+            strokeWidth: isSelected
+              ? "var(--edge-width-selected)"
+              : active
+                ? "var(--edge-width-active)"
+                : "var(--edge-width)",
+            opacity: dimmed ? "var(--edge-opacity-dimmed)" : 1,
           },
           labelStyle: {
             fill: "var(--text-secondary)",

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { allPlugins } from "@/core/registry";
 import { MAX_INSTRUCTIONS } from "@/core/types";
 import { Button } from "@/design/Button";
 import { ScapiActionIcon } from "@/components/scapi/ScapiActionIcon";
@@ -7,7 +6,7 @@ import { Select } from "@/design/Select";
 import { DotMatrix } from "./DotMatrix";
 import { InstructionsPill } from "./Instructions";
 import type { Scope } from "./prompt";
-import { MODELS, type ModelChoice } from "./models";
+import { MODELS, webSearchUnavailableReason, type ModelChoice } from "./models";
 import { Elapsed, MicButton } from "@/dictation/MicButton";
 import { useDictation } from "@/dictation/useDictation";
 import { appendPhrase } from "@/dictation/vocabulary";
@@ -16,6 +15,7 @@ import { describeCommand } from "./router/commands";
 import { useRoute } from "./router/useRoute";
 import { LiveHistory, LiveLine } from "./live/LivePanel";
 import { useLiveVoice } from "./live/useLiveVoice";
+import { ALL_LOCKS, DIMENSION_NAMES, NO_LOCKS, PILL, TypePicker } from "./ComposerParts";
 import type { LocalCommand, RouteContext, RouteDimension, SendRoute } from "./router/types";
 
 /** Auto-grow to six lines, then scroll. Roughly six × --leading-base plus the padding. */
@@ -39,24 +39,6 @@ export interface ComposerRouting {
   /** Runs a recognised local command. Absent means this composer offers none. */
   onCommand?: (command: LocalCommand) => void;
 }
-
-const NO_LOCKS: ReadonlySet<RouteDimension> = new Set();
-const ALL_LOCKS: ReadonlySet<RouteDimension> = new Set([
-  "intent",
-  "scope",
-  "types",
-  "tier",
-  "webSearch",
-  "command",
-]);
-const DIMENSION_NAMES: Record<RouteDimension, string> = {
-  intent: "mode",
-  scope: "scope",
-  types: "types",
-  tier: "model",
-  webSearch: "web search",
-  command: "command",
-};
 
 export interface ComposerProps {
   models?: ModelChoice[];
@@ -486,8 +468,11 @@ export function Composer({
             title={autoTitle}
             aria-label={autoTitle}
             data-decider={decider}
+            // Shrinks and truncates first so Send never wraps onto its own line (1440px with
+            // "Connect ChatGPT" in the model pill).
             className={
               PILL +
+              " min-w-0 max-w-[12rem] shrink truncate" +
               (decider === "failed"
                 ? " text-danger"
                 : decider === "fallback"
@@ -614,7 +599,7 @@ export function Composer({
             }
             title={
               webSearchUnavailable
-                ? "Web search isn’t enabled for this API key."
+                ? webSearchUnavailableReason(effectiveModel)
                 : "Let Scapi search the web for this question"
             }
           >
@@ -711,7 +696,7 @@ export function Composer({
             onClick={send}
             disabled={!canSend}
             aria-label={label ?? "Send"}
-            className={label ? "h-8 py-0.5 pr-1" : ""}
+            className={"shrink-0 whitespace-nowrap" + (label ? " h-8 py-0.5 pr-1" : "")}
           >
             {label}
             {mode ? (
@@ -731,111 +716,6 @@ export function Composer({
           </Button>
         )}
       </div>
-    </div>
-  );
-}
-
-const PILL =
-  "mono cursor-pointer rounded-full border border-subtle bg-transparent px-2.5 py-1 " +
-  "normal-case tracking-normal text-fg-secondary transition-colors duration-instant " +
-  "ease-out hover:bg-hover hover:text-fg disabled:cursor-default disabled:opacity-40";
-
-/**
- * Constrains what the model is allowed to create.
- *
- * A multi-select is the wrong control here — the common case is "everything", and the second
- * most common is "only notes". So this is a set of toggles behind a pill that names the
- * current answer in plain words. An empty set means unconstrained rather than "nothing",
- * which keeps the default free of any prompt change at all.
- */
-function TypePicker({
-  types,
-  onChange,
-  disabled,
-  availableTypes,
-}: {
-  types: string[];
-  onChange: (types: string[]) => void;
-  disabled?: boolean;
-  /** Restricts the menu itself. A mind map never offers to create a wireframe. */
-  availableTypes?: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const all = allPlugins();
-  const plugins =
-    availableTypes && availableTypes.length > 0
-      ? all.filter((p) => availableTypes.includes(p.type))
-      : all;
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
-
-  const selected = types.filter((t) => plugins.some((p) => p.type === t));
-  const names = (list: string[]) =>
-    list.map((t) => plugins.find((p) => p.type === t)?.label ?? t).join(" + ");
-  const label =
-    selected.length === 0 || selected.length === plugins.length
-      ? // "All types" is a lie when the scape's starter has already narrowed the menu — a mind
-        // map's picker offering "All types" reads as though a wireframe is one keystroke away.
-        plugins.length < all.length
-        ? names(plugins.map((p) => p.type))
-        : "All types"
-      : names(selected);
-
-  const toggle = (type: string) => {
-    const current = selected.length === 0 ? plugins.map((p) => p.type) : selected;
-    const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type];
-    // Every type on is the same as no constraint, and so is none: refusing to create
-    // anything is never what someone means by unticking the last box.
-    onChange(next.length === 0 || next.length === plugins.length ? [] : next);
-  };
-
-  return (
-    <div className="relative" ref={root}>
-      <button
-        type="button"
-        disabled={disabled}
-        aria-haspopup="true"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className={PILL}
-        title="Which object types this generation may create"
-      >
-        {label}
-      </button>
-      {open && (
-        <div className="absolute bottom-full left-0 z-10 mb-1.5 min-w-40 rounded-md border border-subtle bg-raised p-1 shadow-md">
-          {plugins.map((plugin) => {
-            const on = selected.length === 0 || selected.includes(plugin.type);
-            return (
-              <label
-                key={plugin.type}
-                className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => toggle(plugin.type)}
-                  className="accent-[var(--accent)]"
-                />
-                {plugin.label}
-              </label>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

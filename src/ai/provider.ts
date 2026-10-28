@@ -104,14 +104,22 @@ export function describeProviderError(error: unknown): { message: string; detail
 
   const { status, type, message: raw } = providerErrorFacts(error);
 
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return {
+      message: "You're offline",
+      detail: "Reconnect to the internet, then try again.",
+    };
+  }
   if (
     status === 401 ||
+    status === 403 ||
+    type === "permission_error" ||
     type === "authentication_error" ||
     /authentication|invalid x-api-key/i.test(raw)
   ) {
     return {
-      message: "Scapi could not connect",
-      detail: "Check the API key in settings, then try again.",
+      message: "Your API key was rejected — check it in Settings → AI",
+      detail: "The key may be mistyped, revoked, or missing access to this model.",
     };
   }
   if (
@@ -160,12 +168,6 @@ export function describeProviderError(error: unknown): { message: string; detail
     return {
       message: "Anthropic credits unavailable",
       detail: "Check the API account’s billing and credit balance, then try again.",
-    };
-  }
-  if (status === 403 || type === "permission_error") {
-    return {
-      message: "Scapi access was denied",
-      detail: "Check the API key’s permissions and model access, then try again.",
     };
   }
   if ((status !== undefined && status >= 500) || type === "api_error") {

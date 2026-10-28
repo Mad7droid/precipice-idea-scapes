@@ -80,6 +80,8 @@ export function claudeFetcher(): typeof fetch {
     if (String(input) === "/__chatgpt/status") {
       const status = await invoke<{ connected: boolean; email?: string; connectionId?: string }>(
         "claude_status",
+        // Reuse the native 60-second account check rather than spawning Claude Code per request.
+        { cached: true },
       );
       return new Response(
         JSON.stringify({

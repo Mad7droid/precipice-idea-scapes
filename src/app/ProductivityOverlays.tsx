@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogFocus } from "./home/Dialog";
+import { isDesktop } from "@/desktop/runtime";
 
 export interface CommandItem {
   id: string;
@@ -99,8 +100,7 @@ const SHORTCUT_GROUPS = [
   {
     title: "Create & edit",
     shortcuts: [
-      ["Tab", "Extend the selected thought to the right"],
-      ["⇧Tab", "Add a connected predecessor to the left"],
+      ["E", "Extend the selected block (Shift+E: add one leading into it)"],
       ["Enter", "Edit the selected object's title"],
       ["⌘D", "Duplicate selection"],
       ["N · J · W", "Add a Note, Journey, or Wireframe"],
@@ -129,11 +129,11 @@ const SHORTCUT_GROUPS = [
 const HOW_TO = [
   {
     title: "Start a scape",
-    body: "Choose a starting shape on Home, describe what you want to explore, or open a blank canvas. Your work stays in this browser unless you export it.",
+    body: `Choose a starting shape on Home, describe what you want to explore, or open a blank canvas. Your work stays ${isDesktop() ? "on this Mac" : "in this browser"} unless you export it.`,
   },
   {
     title: "Build the map",
-    body: "Use the + button, N, J, or W to add objects. Drag an object's connection handle into open space to add and connect a new block in one gesture.",
+    body: "Use the + button, N, J, W, or S to add objects. Drag an object's connection handle into open space to add and connect a new block in one gesture.",
   },
   {
     title: "Shape the idea",

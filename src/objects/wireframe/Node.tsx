@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
+import { InlineTitle } from "../InlineTitle";
 import { WireframeBody } from "./Body";
 
 /**
@@ -20,26 +20,11 @@ export function WireframeNode({ object, selected }: { object: ScapeObject; selec
       {...(editingTitle
         ? {
             renderTitle: (
-              <input
-                autoFocus
-                defaultValue={object.title}
-                onBlur={(e) => {
-                  setEditingTitle(false);
-                  if (!readOnly) {
-                    useScapeStore.getState().dispatchTx([
-                      {
-                        type: "UpdateObject",
-                        id: object.id,
-                        patch: { title: e.currentTarget.value },
-                      },
-                    ]);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  if (e.key === "Escape") setEditingTitle(false);
-                }}
-                className="nodrag nopan w-full rounded-sm border border-focus bg-raised px-1 text-sm font-medium text-fg focus-self"
+              <InlineTitle
+                id={object.id}
+                title={object.title}
+                readOnly={readOnly}
+                onDone={() => setEditingTitle(false)}
               />
             ),
           }

@@ -151,12 +151,30 @@ describe("safe error presentation", () => {
   it.each([
     [413, "Request too large", "This conversation is too large"],
     [400, "Your credit balance is too low", "Anthropic credits unavailable"],
-    [403, "Forbidden", "Scapi access was denied"],
+    [401, "Unauthorized", "Your API key was rejected — check it in Settings → AI"],
+    [403, "Forbidden", "Your API key was rejected — check it in Settings → AI"],
     [500, "Internal error", "Anthropic is temporarily unavailable"],
   ])("explains HTTP %s failures", (statusCode, message, expected) => {
     expect(describeProviderError(Object.assign(new Error(message), { statusCode })).message).toBe(
       expected,
     );
+  });
+  it("says the person is offline rather than blaming the provider", () => {
+    const online = Object.getOwnPropertyDescriptor(Navigator.prototype, "onLine");
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    try {
+      expect(describeProviderError(new TypeError("Failed to fetch")).message).toBe(
+        "You're offline",
+      );
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).onLine;
+      if (online) Object.defineProperty(Navigator.prototype, "onLine", online);
+    }
+  });
+  it("never stacks two failure sentences in the status line", async () => {
+    const { errorStatus } = await import("./ScapiPanel");
+    expect(errorStatus("Scapi is temporarily busy")).toBe("Scapi is temporarily busy");
+    expect(errorStatus("You're offline")).toBe("Scapi could not respond: You're offline");
   });
   it("recognises malformed internal tool history for a clean-context retry", () => {
     expect(

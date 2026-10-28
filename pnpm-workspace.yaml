@@ -10,7 +10,9 @@ allowBuilds:
 # Transitive via @ai-sdk/*. Not reachable from browser code, but it carries advisories and
 # pinning it forward costs nothing. pnpm 11 reads overrides here, not from package.json.
 overrides:
-  undici: ">=6.27.0"
+  undici: ">=8.12.2 <9"
+  # Transitive via jspdf (html() sanitising only). Patch release inside the same major.
+  dompurify: ">=3.4.17 <4"
   # Dev-only, all three: they reach the tree through @modelcontextprotocol/sdk's express and
   # ajv trees and a build-time vite chain, and none of them is in `pnpm audit --prod`. Pinned
   # forward anyway — each patch is inside the major the parent already asks for.

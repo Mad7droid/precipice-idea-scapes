@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useScapeStore } from "@/core/store";
 import type { ScapeObject } from "@/core/types";
 import { useCanvasReadOnly } from "@/canvas/readOnly";
+import { InlineTextEdit, InlineTitle } from "../InlineTitle";
 import { JourneyBody, type JourneyEditField } from "./Body";
 import type { JourneyData, JourneyStep } from "./schema";
 
@@ -15,9 +16,6 @@ export function JourneyNode({ object, selected }: { object: ScapeObject; selecte
   const readOnly = useCanvasReadOnly();
 
   const dispatch = useScapeStore.getState().dispatchTx;
-
-  const commitTitle = (title: string) =>
-    !readOnly && dispatch([{ type: "UpdateObject", id: object.id, patch: { title } }]);
 
   const commitStep = (index: number, label: string) => {
     const next: JourneyStep[] = steps.map((s, i) => (i === index ? { ...s, label } : s));
@@ -33,17 +31,11 @@ export function JourneyNode({ object, selected }: { object: ScapeObject; selecte
       {...(editing === "title"
         ? {
             renderTitle: (
-              <input
-                autoFocus
-                defaultValue={object.title}
-                onBlur={(e) => {
-                  setEditing(null);
-                  commitTitle(e.currentTarget.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  if (e.key === "Escape") setEditing(null);
-                }}
+              <InlineTitle
+                id={object.id}
+                title={object.title}
+                readOnly={readOnly}
+                onDone={() => setEditing(null)}
                 className="nodrag nopan min-h-7 w-full rounded-sm border border-focus bg-raised px-1.5 py-1 text-sm font-medium leading-snug text-fg focus-self"
               />
             ),
@@ -51,17 +43,11 @@ export function JourneyNode({ object, selected }: { object: ScapeObject; selecte
         : {})}
       renderStepLabel={(i) =>
         editing === i ? (
-          <input
-            autoFocus
-            defaultValue={steps[i]?.label ?? ""}
-            onBlur={(e) => {
-              setEditing(null);
-              commitStep(i, e.currentTarget.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") setEditing(null);
-            }}
+          <InlineTextEdit
+            value={steps[i]?.label ?? ""}
+            ariaLabel={`Step ${i + 1}`}
+            onDone={() => setEditing(null)}
+            onCommit={(label) => commitStep(i, label)}
             className="nodrag nopan min-h-6 w-full rounded-sm border border-focus bg-raised px-1.5 py-0.5 leading-snug text-fg-secondary focus-self"
           />
         ) : undefined

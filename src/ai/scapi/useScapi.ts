@@ -293,6 +293,18 @@ export function useScapi({
     [],
   );
 
+  /**
+   * Each question gets a request id. Events and cleanup from an earlier, cancelled request are
+   * dropped rather than applied to whatever turn happens to be newest now.
+   */
+  const requestId = useRef(0);
+  /** Read by `send` and `retry` so a stale closure can never start a second concurrent stream. */
+  const streamingRef = useRef(false);
+  const setStreamingBoth = useCallback((value: boolean) => {
+    streamingRef.current = value;
+    setStreaming(value);
+  }, []);
+
   const handleEvent = useCallback(
     (event: AskEvent) => {
       if (import.meta.env.DEV && window.location.pathname.startsWith("/dev/")) {
@@ -318,7 +330,7 @@ export function useScapi({
           drainNow();
           updateLast((turn) => ({ ...turn, body: cleanFinalMarkdown(turn.body) }));
           commit(event);
-          setStreaming(false);
+          setStreamingBoth(false);
           return;
 
         case "history-reset":
@@ -335,7 +347,14 @@ export function useScapi({
           return;
       }
     },
-    [commit, drainNow, scheduleDrain],
+    [commit, drainNow, scheduleDrain, setStreamingBoth],
+  );
+
+  const eventsFor = useCallback(
+    (id: number) => (event: AskEvent) => {
+      if (requestId.current === id) handleEvent(event);
+    },
+    [handleEvent],
   );
 
   const send = useCallback(
@@ -350,11 +369,12 @@ export function useScapi({
       },
     ) => {
       const scape = getScape();
-      if (!scape || !question.trim() || streaming) return;
+      if (!scape || !question.trim() || streamingRef.current) return;
 
       const pinned = overrides?.scope === "scape" ? [] : (getSelection?.() ?? []);
       controller.current?.abort();
-      controller.current = new AbortController();
+      const signal = (controller.current = new AbortController()).signal;
+      const id = ++requestId.current;
 
       queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
       streamTiming.current = { startedAt: performance.now(), lastEventAt: performance.now() };
@@ -362,7 +382,7 @@ export function useScapi({
         ...prev,
         startTurn(question.trim(), pinned, overrides?.modelId ?? modelId),
       ]);
-      setStreaming(true);
+      setStreamingBoth(true);
 
       try {
         // The provider SDK is large and is already kept out of the initial bundle by the
@@ -376,11 +396,12 @@ export function useScapi({
           apiKey,
           modelId: overrides?.modelId ?? modelId,
           webSearch: (overrides?.webSearch ?? webSearch) && searchAvailability !== "unavailable",
-          signal: controller.current.signal,
+          signal,
           ...(overrides?.spoken ? { spoken: overrides.spoken } : {}),
-          onEvent: handleEvent,
+          onEvent: eventsFor(id),
         });
       } catch (error) {
+        if (requestId.current !== id) return;
         // `ask` reports provider failures through onEvent; this is the last resort for a
         // failure to even start one — a bad dynamic import, say.
         commit({
@@ -389,7 +410,7 @@ export function useScapi({
           detail: error instanceof Error ? error.message : String(error),
         });
         commit({ kind: "done", turn: null });
-        setStreaming(false);
+        setStreamingBoth(false);
       }
     },
     [
@@ -397,23 +418,27 @@ export function useScapi({
       commit,
       getScape,
       getSelection,
-      handleEvent,
+      eventsFor,
       modelId,
       searchAvailability,
-      streaming,
+      setStreamingBoth,
       webSearch,
     ],
   );
 
   const cancel = useCallback(() => {
+    if (!streamingRef.current) return;
     controller.current?.abort();
     drainNow();
     commit({ kind: "done", turn: null });
-    setStreaming(false);
-  }, [commit, drainNow]);
+    // Detach the cancelled request: its own late `done` must not touch a later turn.
+    requestId.current++;
+    setStreamingBoth(false);
+  }, [commit, drainNow, setStreamingBoth]);
 
   const clear = useCallback(() => {
     controller.current?.abort();
+    requestId.current++;
     queue.current = { text: "", reasoning: "", lastPaintAt: performance.now() };
     history.current = [];
     if (storageKey) {
@@ -424,16 +449,16 @@ export function useScapi({
       }
     }
     setTurns([]);
-    setStreaming(false);
-  }, []);
+    setStreamingBoth(false);
+  }, [setStreamingBoth, storageKey]);
 
   /** Re-asks the last question. The failed turn is replaced, not stacked beneath the retry. */
   const retry = useCallback(() => {
     const last = turns[turns.length - 1];
-    if (!last || streaming) return;
+    if (!last || streamingRef.current) return;
     setTurns((prev) => prev.slice(0, -1));
     void send(last.question);
-  }, [send, streaming, turns]);
+  }, [send, turns]);
 
   return {
     turns,

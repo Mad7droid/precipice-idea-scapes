@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { LIMITS, failure, type Outcome } from "../../src/mcp/contracts";
 import type { Envelope } from "../../src/mcp/contracts";
+import { claimNonce } from "./ticketNonce";
 
 /**
  * One relay object per person. Their open Precipice tab (or desktop app) holds a hibernating
@@ -27,6 +28,11 @@ export class McpRelay extends DurableObject {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (request.headers.get("Upgrade") === "websocket") {
+      // Tickets are single-use: the Worker verified the signature, this object spends the nonce.
+      const nonce = request.headers.get("X-Relay-Ticket-Nonce") ?? "";
+      const expiresAt = Number(request.headers.get("X-Relay-Ticket-Expires"));
+      if (!(await claimNonce(this.ctx.storage as never, nonce, expiresAt)))
+        return new Response("Unauthorized", { status: 401 });
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       // Newest tab wins: older sockets are closed so calls have one unambiguous destination.

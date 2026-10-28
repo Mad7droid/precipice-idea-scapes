@@ -284,3 +284,24 @@ describe("Markdown streaming safety", () => {
     ]);
   });
 });
+
+describe("request identity", () => {
+  it("drops a cancelled request's late done instead of finishing the newest turn", async () => {
+    const h = await harness();
+    const stale = stub.emit!;
+    act(() => h.read().cancel());
+    await act(async () => {
+      void h.read().send("Second question");
+    });
+    expect(h.read().turns).toHaveLength(2);
+    expect(h.turn().status).toBe("streaming");
+
+    act(() => stale({ kind: "done", turn: null }));
+    expect(h.turn().status).toBe("streaming");
+    expect(h.read().streaming).toBe(true);
+
+    h.emit({ kind: "done", turn: { user: { role: "user", content: "q" }, response: [] } });
+    expect(h.turn().status).toBe("done");
+    h.mounted.unmount();
+  });
+});

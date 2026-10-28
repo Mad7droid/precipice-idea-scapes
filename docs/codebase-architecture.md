@@ -66,24 +66,24 @@ secret.
 
 ## 2. Repository map
 
-| Area | Responsibility | Important files |
-| --- | --- | --- |
-| `src/app` | Application shell, routing, home, editor composition, settings, overlays | `App.tsx`, `Home.tsx`, `home/`, `Editor.tsx` |
-| `src/core` | Domain types, action protocol, pure reducer, store, serialization, registries | `types.ts`, `actions.ts`, `reducer.ts`, `store.ts` |
-| `src/canvas` | React Flow adapter, node/edge derivation, gestures, layout, camera | `Canvas.tsx`, `edges.ts`, `layout.ts` |
-| `src/objects` | Extensible object plugins and read-only viewer variants | `note/`, `journey/`, `wireframe/`, `scape/` |
-| `src/persistence` | Dexie repository, autosave, multi-tab lease, migration, import/export | `scapeRepository.ts`, `autosave.ts`, `lease.ts` |
-| `src/export` | Portable `.scape` and PDF export | `scapeFile.ts`, `pdf/document.ts`, `pdf/describe.ts` |
-| `src/ai` | Provider adapter, context projection, prompts, tools, streaming apply, ribbon | `provider.ts`, `context.ts`, `generate.ts` |
-| `src/publish` | Publication projection, contract, auth/session client, publish state/UI | `contract.ts`, `project.ts`, `session.ts` |
-| `src/viewer` | Read-only public rendering and hostile-input handling | `App.tsx`, `api.ts`, `publication.ts` |
-| `worker/index.ts` | Anthropic CORS relay | `wrangler.toml` |
-| `worker/publish` | Authenticated publication API and scheduled cleanup | `index.ts`, `migrations/` |
-| `src/mcp`, `src/app/agents` | Shared command contracts, revision/idempotency checks, review and host transports | `contracts.ts`, `host/`, `AgentsPanel.tsx` |
-| `worker/mcp` | OAuth, scoped grants, relay and request budgets | `index.ts` |
-| `src-tauri`, `src/desktop` | macOS shell, local MCP transport, Keychain and desktop detection | `src/mcp.rs`, `runtime.ts` |
-| `public` | Pages redirects, headers/CSP, service worker, branding | `_redirects`, `_headers`, `sw.js` |
-| `.conductor` | Local workspace setup/run/archive scripts | `settings.local.toml` |
+| Area                        | Responsibility                                                                    | Important files                                      |
+| --------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `src/app`                   | Application shell, routing, home, editor composition, settings, overlays          | `App.tsx`, `Home.tsx`, `home/`, `Editor.tsx`         |
+| `src/core`                  | Domain types, action protocol, pure reducer, store, serialization, registries     | `types.ts`, `actions.ts`, `reducer.ts`, `store.ts`   |
+| `src/canvas`                | React Flow adapter, node/edge derivation, gestures, layout, camera                | `Canvas.tsx`, `edges.ts`, `layout.ts`                |
+| `src/objects`               | Extensible object plugins and read-only viewer variants                           | `note/`, `journey/`, `wireframe/`, `scape/`          |
+| `src/persistence`           | Dexie repository, autosave, multi-tab lease, migration, import/export             | `scapeRepository.ts`, `autosave.ts`, `lease.ts`      |
+| `src/export`                | Portable `.scape` and PDF export                                                  | `scapeFile.ts`, `pdf/document.ts`, `pdf/describe.ts` |
+| `src/ai`                    | Provider adapter, context projection, prompts, tools, streaming apply, ribbon     | `provider.ts`, `context.ts`, `generate.ts`           |
+| `src/publish`               | Publication projection, contract, auth/session client, publish state/UI           | `contract.ts`, `project.ts`, `session.ts`            |
+| `src/viewer`                | Read-only public rendering and hostile-input handling                             | `App.tsx`, `api.ts`, `publication.ts`                |
+| `worker/index.ts`           | Anthropic CORS relay                                                              | `wrangler.toml`                                      |
+| `worker/publish`            | Authenticated publication API and scheduled cleanup                               | `index.ts`, `migrations/`                            |
+| `src/mcp`, `src/app/agents` | Shared command contracts, revision/idempotency checks, review and host transports | `contracts.ts`, `host/`, `AgentsPanel.tsx`           |
+| `worker/mcp`                | OAuth, scoped grants, relay and request budgets                                   | `index.ts`                                           |
+| `src-tauri`, `src/desktop`  | macOS shell, local MCP transport, Keychain and desktop detection                  | `src/mcp.rs`, `runtime.ts`                           |
+| `public`                    | Pages redirects, headers/CSP, service worker, branding                            | `_redirects`, `_headers`, `sw.js`                    |
+| `.conductor`                | Local workspace setup/run/archive scripts                                         | `settings.local.toml`                                |
 
 The top-level `package.json` has one build graph and one test command:
 
@@ -198,7 +198,8 @@ cleanup, and exact undo semantics.
 - whether AI generation is streaming.
 
 Every action carries a `txId`. Consecutive actions with the same transaction id share one undo
-entry. A manual drag emits one action; a whole AI generation uses one id; a re-layout uses one
+entry. A manual drag emits one move per dragged block under one id; a whole AI generation
+uses one id; a re-layout uses one
 `LayoutScape` action. This is why “undo generation” is predictable even though generation is
 progressive.
 
@@ -277,13 +278,13 @@ so a refresh does not duplicate a generation or starter seed.
 
 It orchestrates; the pieces live in `src/app/home/`:
 
-| File | Responsibility |
-|---|---|
-| `library.ts` | `LibraryPreferences`, the `HOME_KEYS` settings keys, `selectScapes` filter/search/sort, and `withHomeLease` |
-| `LibraryControls.tsx` | Filter, search, sort, and gallery/list controls |
-| `ScapeCard.tsx` | One scape: preview, metadata, publication badge, pin, action menu |
-| `CreationPanel.tsx` | The inline prompt, starter and model selection, and manual creation |
-| `Dialog.tsx` | `useDialogFocus` — focus containment and restoration, shared with the settings and help modals |
+| File                  | Responsibility                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `library.ts`          | `LibraryPreferences`, the `HOME_KEYS` settings keys, `selectScapes` filter/search/sort, and `withHomeLease` |
+| `LibraryControls.tsx` | Filter, search, sort, and gallery/list controls                                                             |
+| `ScapeCard.tsx`       | One scape: preview, metadata, publication badge, pin, action menu                                           |
+| `CreationPanel.tsx`   | The inline prompt, starter and model selection, and manual creation                                         |
+| `Dialog.tsx`          | `useDialogFocus` — focus containment and restoration, shared with the settings and help modals              |
 
 Home leads with a prompt composer and a short template row, followed by the local library.
 Filter, sort, view, and pins are browser-local preferences written through the settings
@@ -333,10 +334,18 @@ the inspector. Splitting them is deferred.
 `src/canvas/Canvas.tsx` adapts the domain document to `@xyflow/react`:
 
 - `toFlowNodes` and `toFlowEdges` derive the visible graph from the scape.
-- React Flow is controlled; the domain store remains the source of truth.
+- React Flow is controlled; the domain store remains the source of truth, including
+  selection. Pointer selection changes enter through `onNodesChange`; outline and command
+  selections use the same store. A separate effect updates visual selection flags without
+  resetting live drag positions or measurements. Unchanged nodes retain their references.
 - A local node mirror preserves measured geometry and animates drag frames without dispatching
   one action per frame.
-- Drag commits one `MoveObject` on drag end.
+- Drag commits one `MoveObject` per dragged block in one transaction on drag end.
+  Intermediate positions stay in the local mirror; unchanged blocks keep their object
+  identities and no-op moves do not add undo steps.
+- Creating a block or opening its inspector focuses the first enabled field in the plugin's
+  content section (currently the title), excluding shared marker/tag controls. Deferred focus
+  checks that the requested block is still selected before moving the cursor.
 - Connections commit `ConnectObjects`.
 - Deletion, duplication, keyboard movement, and layout all dispatch through the store.
 - Edge modes (`none`, `selected`, `all`) and hidden object types are view preferences.
@@ -387,8 +396,13 @@ independent of the storage technology.
 
 The snapshot is the load path: opening a scape reads one complete document, not thousands of
 actions. The action log is useful for recent history, diagnostics, and dev tooling, but is trimmed
-at 5,000 actions per scape. `saveSnapshot` uses per-scape sequence numbers so an older async write
-cannot finish after a newer write and roll the document back.
+at 5,000 actions per scape. `saveSnapshot` drops a write whose sequence is not newer than the last
+one applied to that scape, so an older async write cannot roll the document back. Every writer takes
+its sequence from `nextSnapshotSeq()` in `src/persistence/sequence.ts`, one clock-seeded counter per
+tab, because the repository's last-applied sequence outlives any single editor session. A failed
+snapshot write notifies and rejects; autosave counts a write as saved only after it lands. Rename
+and duplicate migrate the stored snapshot first and refuse rows written by a newer build. When
+another tab upgrades the database schema, the repository closes its connection and asks for a reload.
 
 ### Autosave
 
@@ -401,7 +415,9 @@ This balances responsiveness with fewer IndexedDB transactions during a drag or 
 `src/persistence/lease.ts` uses `BroadcastChannel` to elect one writer per scape. Followers can
 read and inspect but cannot dispatch document edits. “Edit here” asks the holder to flush and yield;
 the promoted tab reloads before writing. A deterministic tab-id tie-break prevents simultaneous
-claims from producing two writers.
+claims from producing two writers. A localStorage fencing token records the latest holder; a tab
+that was frozen through a timed-out takeover sees a different token on its next write check and
+steps down instead of overwriting the new holder.
 
 If `BroadcastChannel` is unavailable, the code fails open and treats the tab as the writer so the
 browser remains usable. That is an availability choice, not a strong concurrency guarantee.
@@ -413,7 +429,9 @@ evict the origin automatically. This is best effort and is not backup or encrypt
 
 `.scape` files are readable, indented JSON with a version number and optional action log. Older
 versions migrate forward; newer versions are rejected. Imports always create a new scape, avoiding
-silent overwrite. Important work should still be exported because browser profiles can be cleared,
+silent overwrite, and take a " (imported)" suffix when the name is already used. Imported documents
+are checked by `src/persistence/repair.ts`: entries keyed under the wrong id are re-keyed, duplicate
+ids are refused, and `objectOrder` is de-duplicated and reconciled with the objects present. Important work should still be exported because browser profiles can be cleared,
 lost, or compromised.
 
 ## 8. AI architecture and LLM API-key management
@@ -747,12 +765,12 @@ contract again and is authoritative.
 of the editor origin. The desktop's local origin cannot serve a public link. Publication
 records cache IDs and hashes, so correcting the URL does not require recreating publications.
 
-| Data | Store | Reason |
-| --- | --- | --- |
-| users, invites, sessions, OAuth state | D1 | transactional metadata and auth |
-| publication status/version/hash/owner | D1 | cheap pointer and authorization checks |
-| current/superseded snapshots | R2 | immutable, large JSON payloads |
-| local publication badge | browser Dexie | UI cache only, never authorization |
+| Data                                  | Store         | Reason                                 |
+| ------------------------------------- | ------------- | -------------------------------------- |
+| users, invites, sessions, OAuth state | D1            | transactional metadata and auth        |
+| publication status/version/hash/owner | D1            | cheap pointer and authorization checks |
+| current/superseded snapshots          | R2            | immutable, large JSON payloads         |
+| local publication badge               | browser Dexie | UI cache only, never authorization     |
 
 Every update writes a new R2 version. The D1 pointer is updated to the new version; superseded
 versions are retained for seven days and cleaned by the hourly cron. The public reader first asks
@@ -986,7 +1004,6 @@ That division keeps the editor fast, makes undo and persistence understandable, 
 cloud/team features a place to attach without turning the current local workspace into a fragile
 always-online system.
 
-
 ## macOS target and library transfer
 
 `src-tauri/` packages the same Vite frontend as a macOS app. The restricted native
@@ -995,9 +1012,12 @@ bridge manages separate non-synchronizing Keychain items for Anthropic and host 
 The AI SDK uses the web proxy in a browser and Anthropic directly in the desktop.
 
 `src/persistence/libraryTransfer.ts` exports a transactionally consistent library
-of versioned `.scape` documents into `Precipice-library.json`. Import validates
-all documents and adds them with fresh IDs in one database transaction. It does
-not read settings, authentication, publications, or MCP receipts. File transfer
+of versioned `.scape` documents into `Precipice-library.json`, without action logs.
+Scapes this build cannot read are left out and named to the user. Import validates
+all documents and adds them with fresh IDs in one database transaction, so it
+writes the tables directly instead of through `ScapeRepository` (which writes one
+scape per transaction); MCP `saveOperation` does the same to commit a snapshot with
+its receipt. It does not read settings, authentication, publications, or MCP receipts. File transfer
 is user initiated and local; it is not an automatic sync service.
 
 ## Agent command and transport boundary
@@ -1018,7 +1038,6 @@ Hosted grants select a browser or desktop destination and access scope; browser 
 select individual scapes. Connection revocation blocks later calls. Local desktop access trusts
 same-user processes via a private socket and a local review policy. Neither path sends the
 Anthropic key to an agent. The old Node bridge is a development harness, not the desktop setup.
-
 
 ### MCP Apps flow preview
 

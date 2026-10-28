@@ -338,7 +338,6 @@ export function arrowHead(x1: Pt, y1: Pt, x2: Pt, y2: Pt, size: Pt): [Pt, Pt, Pt
 export const MIN_LEGIBLE_SCALE = 0.22;
 /** Below this there is room for a title but not for body text or edge labels. */
 const MIN_DETAIL_SCALE = 0.45;
-const MIN_ID_SCALE = 0.5;
 
 export function diagramFrame(): Rect {
   return {
@@ -504,16 +503,8 @@ export function buildDiagramPage(input: PdfDocumentInput, measure: TextMeasure):
         }
       }
 
-      if (scale >= MIN_ID_SCALE) {
-        node.idLine = {
-          x: rect.x + pad,
-          y: rect.y + rect.h - pad,
-          text: id,
-          role: "mono",
-          size: Math.max(4.5, 8 * scale),
-          color: INK.tertiary,
-        };
-      }
+      // Internal object ids are not printed: they mean nothing to a reader and are
+      // implementation detail a shared PDF should not disclose.
     }
 
     nodes.push(node);
@@ -676,7 +667,7 @@ export function outlineEntries(input: PdfDocumentInput): OutlineEntry[] {
 
 /** The lines an entry contributes, before anything knows how wide the page is. */
 export function entryLines(entry: OutlineEntry): DocumentLine[] {
-  const lines: DocumentLine[] = [{ text: entry.id, role: "mono" }];
+  const lines: DocumentLine[] = [];
 
   for (const section of entry.sections) {
     if (section.heading) lines.push({ text: section.heading, role: "heading" });

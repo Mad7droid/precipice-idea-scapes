@@ -60,13 +60,32 @@ export function normalizeAccent(accent: string | undefined): string {
  * Case is preserved as typed — "Phase 2" reads better than "phase 2" on a card — but two tags
  * differing only in case are one tag, because they are one tag to the person reading them.
  */
+/**
+ * Cut by user-perceived characters, not UTF-16 units: `slice` can split a surrogate pair or a
+ * ZWJ emoji sequence and leave a lone half that renders as a replacement glyph.
+ */
+function truncateGraphemes(text: string, max: number): string {
+  if (text.length <= max) return text;
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    let out = "";
+    let count = 0;
+    for (const { segment } of segmenter.segment(text)) {
+      if (count++ >= max) break;
+      out += segment;
+    }
+    return out;
+  }
+  return Array.from(text).slice(0, max).join("");
+}
+
 export function normalizeTags(tags: readonly string[] | undefined): string[] {
   if (!tags) return [];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of tags) {
     if (typeof raw !== "string") continue;
-    const tag = raw.replace(/\s+/g, " ").trim().slice(0, MAX_TAG_LENGTH).trim();
+    const tag = truncateGraphemes(raw.replace(/\s+/g, " ").trim(), MAX_TAG_LENGTH).trim();
     if (!tag) continue;
     const key = tag.toLowerCase();
     if (seen.has(key)) continue;

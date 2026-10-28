@@ -7,13 +7,15 @@ installation are separate steps; the checks below distinguish implemented behavi
 
 Settings → AI offers three explicit connections. The Claude plan is the default; the API key
 is never chosen automatically. Only the selected connection is checked, and each remembers
-its own model:
+its own model. Upgrading from 0.1.15 or earlier, which had no saved connection, keeps the
+Anthropic API connection once if a saved Anthropic key or Anthropic model is found; the
+result is saved so the check (one Keychain read on the Mac) never repeats:
 
-| Connection | Setup | Billing | Runtime |
-| --- | --- | --- | --- |
-| Claude plan | Install Claude Code; Sign in to Claude | Selected Claude plan and its limits | Local Claude Code CLI |
-| ChatGPT plan | Sign in to ChatGPT; approve plan usage in the system browser | Selected ChatGPT plan and its limits | Native OAuth + Responses API |
-| Anthropic API | Enter an Anthropic API key | Separate API billing | Existing Anthropic SDK transport |
+| Connection    | Setup                                                        | Billing                              | Runtime                          |
+| ------------- | ------------------------------------------------------------ | ------------------------------------ | -------------------------------- |
+| Claude plan   | Install Claude Code; Sign in to Claude                       | Selected Claude plan and its limits  | Local Claude Code CLI            |
+| ChatGPT plan  | Sign in to ChatGPT; approve plan usage in the system browser | Selected ChatGPT plan and its limits | Native OAuth + Responses API     |
+| Anthropic API | Enter an Anthropic API key                                   | Separate API billing                 | Existing Anthropic SDK transport |
 
 Being signed in to ChatGPT Desktop or Claude Desktop does not automatically connect Scapi.
 The Agents settings connect those assistants to Precipice's tools in the opposite direction.
@@ -30,7 +32,8 @@ Claude requires a current Claude Code installation supporting `--safe-mode`, `--
 `claude auth login --claudeai`; `claude auth login` in Terminal is a recovery option.
 Claude manages the underlying account, so logging out or changing accounts there affects
 Precipice. Each account check starts Claude Code, so requests reuse a check from the last
-60 seconds and window focus re-checks at most once a minute. Precipice never copies its tokens. Sonnet, Haiku and Opus use Claude Code's model
+60 seconds (`claude_status` with `cached: true`; Settings always checks afresh) and window
+focus re-checks at most once a minute. Precipice never copies its tokens. Sonnet, Haiku and Opus use Claude Code's model
 aliases; account availability still applies. Claude plan web search is unavailable.
 
 ## Request lifecycle
@@ -45,7 +48,11 @@ fails or is cancelled.
 
 Native requests are bounded to eight concurrent operations and 180 seconds each. Stop
 cancels native HTTP or drops/kills the CLI child. Account changes and screen unmounts cancel
-active work. A cancelled sign-in closes its listener. There is no automatic retry of canvas
+active work for that connection only: switching or disconnecting a ChatGPT account never
+cancels a running Claude plan request. An unreadable saved ChatGPT session is discarded with
+an explanation instead of blocking every ChatGPT command. Provider failures map to plain
+copy: a rejected key (401/403) reads "Your API key was rejected — check it in Settings → AI",
+and no network reads "You're offline". A cancelled sign-in closes its listener. There is no automatic retry of canvas
 operations or switch to a differently billed provider.
 
 ## Automated verification

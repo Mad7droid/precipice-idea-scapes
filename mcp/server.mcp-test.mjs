@@ -34,7 +34,13 @@ test("a paired browser tab receives and acknowledges an MCP action batch", async
     const { sessionId } = await created.json();
 
     const pending = bridge.enqueue(sessionId, [
-      { type: "CreateObject", id: "sign-up", objectType: "journey", title: "Sign up", data: { steps: [] } },
+      {
+        type: "CreateObject",
+        id: "sign-up",
+        objectType: "journey",
+        title: "Sign up",
+        data: { steps: [] },
+      },
     ]);
     const commands = await fetch(`${origin}/bridge/sessions/${sessionId}/commands`, {
       headers: { "X-Precipice-Bridge-Code": code },
@@ -43,11 +49,14 @@ test("a paired browser tab receives and acknowledges an MCP action batch", async
     assert.equal(queued.length, 1);
     assert.equal(queued[0].actions[0].id, "sign-up");
 
-    const acknowledged = await fetch(`${origin}/bridge/sessions/${sessionId}/commands/${queued[0].id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Precipice-Bridge-Code": code },
-      body: JSON.stringify({ status: "applied", applied: 1, skipped: 0, scape }),
-    });
+    const acknowledged = await fetch(
+      `${origin}/bridge/sessions/${sessionId}/commands/${queued[0].id}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Precipice-Bridge-Code": code },
+        body: JSON.stringify({ status: "applied", applied: 1, skipped: 0, scape }),
+      },
+    );
     assert.equal(acknowledged.status, 204);
     assert.deepEqual(await pending, { status: "applied", applied: 1, skipped: 0, scape });
   });
@@ -77,6 +86,31 @@ test("the loopback bridge refuses untrusted origins", async () => {
       headers: { Origin: "https://untrusted.example" },
     });
     assert.equal(response.status, 403);
+  });
+});
+
+test("the loopback bridge refuses a rebound hostname", async () => {
+  await withBridge(async (origin) => {
+    const port = new URL(origin).port;
+    const { request } = await import("node:http");
+    const status = await new Promise((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port,
+          path: "/bridge/health",
+          headers: { Host: `attacker.example:${port}` },
+        },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode);
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    assert.equal(status, 421);
+    assert.equal((await fetch(`http://localhost:${port}/bridge/health`)).status, 200);
   });
 });
 

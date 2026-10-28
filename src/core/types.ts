@@ -166,6 +166,8 @@ export interface ScapeRepository {
   /**
    * `seq` is a monotonically increasing write sequence. Dexie writes are async and can
    * interleave; implementations drop a write whose seq is older than the last one applied.
+   * Callers take it from `nextSnapshotSeq()` (src/persistence/sequence.ts), which is shared by
+   * every writer in the tab. Rejects, after notifying, when the write fails.
    */
   saveSnapshot(scape: Scape, seq: number): Promise<void>;
   appendActions(scapeId: ScapeId, actions: Action[]): Promise<void>;

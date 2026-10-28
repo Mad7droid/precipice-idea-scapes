@@ -92,6 +92,15 @@
   /* ---------- Non-themed primitives ---------- */
 
   --font-ui: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Editor panel geometry. Widths the outline/inspector/Scapi rails use and clamp to. */
+  --panel-rail: 32px;
+  --panel-left: 280px;
+  --panel-right: 320px;
+  --panel-min: 260px;
+  --panel-max: 440px;
+  --panel-scapi: 420px;
+  --panel-scapi-wide: 720px;
+  --composer-max: 720px;
   --font-mono: "Geist Pixel", ui-monospace, "SF Mono", Menlo, monospace;
 
   --text-2xs: 11px;
@@ -192,7 +201,8 @@
 
   --text-primary: var(--ash-900);
   --text-secondary: var(--ash-600);
-  --text-tertiary: var(--ash-400);
+  /* ≥4.82:1 on every light surface (inset #f0ede7 is the worst case); ash-400 was 2.5–2.9:1. */
+  --text-tertiary: #6f665b;
   --text-inverse: var(--ash-25);
   --text-accent: var(--signal-600);
   --text-on-accent: #ffffff;
@@ -266,7 +276,8 @@
 
   --text-primary: #ede9e1;
   --text-secondary: #a79e92;
-  --text-tertiary: var(--ash-500);
+  /* ≥4.54:1 on every dark surface (raised #2b2721 is the worst case); ash-500 was 3.0–3.8:1. */
+  --text-tertiary: #968d80;
   --text-inverse: var(--ash-900);
   --text-accent: var(--signal-300);
   --text-on-accent: #1e1b17;
@@ -446,4 +457,16 @@ body {
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Canvas edge geometry and the pending-connection preview (appended by the canvas). */
+:root {
+  --edge-width: 1.5px;
+  --edge-width-active: 2px;
+  --edge-width-selected: 2.5px;
+  --edge-opacity-dimmed: 0.25;
+  --pending-connection-line-opacity: 0.62;
+  --pending-connection-dot-opacity: 0.72;
+  --wireframe-inset: 2px; /* checkbox radius, toggle padding */
+  --wireframe-line: 3px; /* placeholder text bars and their rhythm */
 }

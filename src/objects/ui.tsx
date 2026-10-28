@@ -100,7 +100,7 @@ const FIELD_CLASS =
   "w-full rounded-md border border-subtle bg-inset px-2.5 py-1.5 text-fg " +
   "placeholder:text-fg-tertiary focus:border-focus focus-self";
 
-export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput(props: React.ComponentProps<"input">) {
   return <input {...props} className={`${FIELD_CLASS} ${props.className ?? ""}`} />;
 }
 
@@ -326,11 +326,13 @@ export function IconButton({
   onClick,
   children,
   danger,
+  disabled,
 }: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -338,9 +340,10 @@ export function IconButton({
       aria-label={label}
       title={label}
       onClick={onClick}
+      disabled={disabled}
       className={
         "grid h-6 w-6 shrink-0 place-items-center rounded-sm transition-colors " +
-        "duration-instant ease-out hover:bg-hover " +
+        "duration-instant ease-out hover:bg-hover disabled:pointer-events-none disabled:opacity-30 " +
         (danger ? "text-fg-tertiary hover:text-danger" : "text-fg-tertiary hover:text-fg")
       }
     >

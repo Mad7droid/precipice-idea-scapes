@@ -13,6 +13,7 @@ import type {
   ScapeRepository,
   ScapeSummary,
 } from "@/core/types";
+import { isDesktop } from "@/desktop/runtime";
 import { db, type PrecipiceDb, type ScapeRow } from "./db";
 import { CURRENT_DOC_VERSION, migrateScape } from "./migrate";
 import { summarize } from "./summary";
@@ -47,6 +48,24 @@ export class DexieScapeRepository implements ScapeRepository {
     this.maxLoggedActions = limits.maxLoggedActions ?? MAX_LOGGED_ACTIONS;
     this.trimCheckEvery = limits.trimCheckEvery ?? TRIM_CHECK_EVERY;
     this.publications = new DexiePublicationStore(this.database);
+    // Another tab opened a newer schema. Holding our connection open would block its upgrade,
+    // and Dexie's default — closing quietly — leaves every later save failing with an opaque
+    // error. Close, and tell the person once what to do.
+    this.database.on("versionchange", () => {
+      this.database.close();
+      this.notifyReloadNeeded();
+      return false;
+    });
+  }
+
+  private reloadNotified = false;
+  private notifyReloadNeeded(): void {
+    if (this.reloadNotified) return;
+    this.reloadNotified = true;
+    notify.error(
+      "Precipice was updated in another window",
+      "Reload this window to keep saving. Changes made here since then were not saved.",
+    );
   }
 
   readonly publications: PublicationStore;
@@ -97,7 +116,11 @@ export class DexieScapeRepository implements ScapeRepository {
   async rename(id: ScapeId, name: string): Promise<void> {
     const row = await this.database.scapes.get(id);
     if (!row) return;
-    await this.write({ ...row.snapshot, name, updatedAt: Date.now() });
+    // Migrate before writing: the row is restamped at CURRENT_DOC_VERSION, so writing an
+    // older-shaped snapshot back would mislabel it, and a newer one would be downgraded.
+    const snapshot = this.upgrade(row);
+    if (!snapshot) throw new Error(`“${row.name}” was saved by a newer version of Precipice.`);
+    await this.write({ ...snapshot, name, updatedAt: Date.now() });
   }
 
   /**
@@ -108,10 +131,12 @@ export class DexieScapeRepository implements ScapeRepository {
   async duplicate(id: ScapeId): Promise<Scape> {
     const row = await this.database.scapes.get(id);
     if (!row) throw new Error(`No scape ${id}`);
+    const snapshot = this.upgrade(row);
+    if (!snapshot) throw new Error(`“${row.name}” was saved by a newer version of Precipice.`);
     const copy: Scape = {
-      ...structuredClone(row.snapshot),
+      ...structuredClone(snapshot),
       id: newScapeId(),
-      name: `${row.snapshot.name} copy`,
+      name: `${snapshot.name} copy`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -144,6 +169,7 @@ export class DexieScapeRepository implements ScapeRepository {
     this.appendsSinceTrim.delete(id);
   }
 
+  /** `seq` comes from `nextSnapshotSeq()`; see sequence.ts. Rejects if the write fails. */
   async saveSnapshot(scape: Scape, seq: number): Promise<void> {
     const last = this.lastSeq.get(scape.id) ?? -1;
     if (seq <= last) return; // stale write, a newer snapshot already landed
@@ -202,38 +228,52 @@ export class DexieScapeRepository implements ScapeRepository {
       .map(({ scapeId: id, ts, txId, action }) => ({ scapeId: id, ts, txId, action }));
   }
 
+  /** Throws after notifying: a caller must never report a snapshot saved that was not. */
   private async write(scape: Scape): Promise<void> {
     // Serialize through the core schema so a stray non-cloneable field can never reach disk.
     const snapshot = toPlainScape(scape);
-    await this.guard(() =>
-      this.database.scapes.put({
-        id: snapshot.id,
-        name: snapshot.name,
-        updatedAt: snapshot.updatedAt,
-        objectCount: snapshot.objectOrder.length,
-        snapshot,
-        version: CURRENT_DOC_VERSION,
-      }),
+    await this.guard(
+      () =>
+        this.database.scapes.put({
+          id: snapshot.id,
+          name: snapshot.name,
+          updatedAt: snapshot.updatedAt,
+          objectCount: snapshot.objectOrder.length,
+          snapshot,
+          version: CURRENT_DOC_VERSION,
+        }),
+      { rethrow: true },
     );
   }
 
-  /** Quota exhaustion is real for large scapes. Surface it; never swallow it. */
-  private async guard<T>(operation: () => Promise<T>): Promise<T | undefined> {
+  /**
+   * Quota exhaustion is real for large scapes. Surface it; never swallow it. Snapshot writes
+   * rethrow after notifying so callers cannot report success; the action log is secondary to
+   * the snapshot and only notifies.
+   */
+  private async guard<T>(
+    operation: () => Promise<T>,
+    { rethrow = false }: { rethrow?: boolean } = {},
+  ): Promise<T | undefined> {
     try {
       return await operation();
     } catch (error) {
       const name = (error as { name?: string })?.name;
-      if (name === "QuotaExceededError") {
+      const place = isDesktop() ? "this Mac" : "this browser";
+      if (name === "DatabaseClosedError") {
+        this.notifyReloadNeeded();
+      } else if (name === "QuotaExceededError") {
         notify.error(
-          "Out of browser storage",
+          `Out of storage on ${place}`,
           "Export this scape to a file, then delete scapes you no longer need.",
         );
       } else {
         notify.error(
-          "Could not save to this browser",
+          `Could not save to ${place}`,
           error instanceof Error ? error.message : String(error),
         );
       }
+      if (rethrow) throw error;
       return undefined;
     }
   }

@@ -73,12 +73,26 @@ function describeNote(data: unknown): DocumentSection[] {
   if (blocks.length === 0) return [{ lines: [{ text: "Empty.", role: "muted" }] }];
   return [
     {
-      lines: blocks.map((block) => ({
-        text: clamp(block.text, 1200),
-        ...(block.list ? { indent: 1 as const } : {}),
-      })),
+      lines: withTruncationNote(
+        blocks.map((block) => ({
+          text: clamp(block.text, 1200),
+          ...(block.list ? { indent: 1 as const } : {}),
+        })),
+        blocks,
+      ),
     },
   ];
+}
+
+/** A clamped paragraph says so, rather than silently printing less than the note holds. */
+function withTruncationNote(
+  lines: DocumentLine[],
+  blocks: Array<{ text: string }>,
+): DocumentLine[] {
+  const cut = blocks.some((block) => block.text.replace(/\s+/g, " ").trim().length > 1200);
+  return cut
+    ? [...lines, { text: "Shortened for print. Open the scape for the full text.", role: "muted" }]
+    : lines;
 }
 
 /**
@@ -91,15 +105,12 @@ function describeScapeBlock(data: unknown): DocumentSection[] {
     typeof (data as { body?: unknown }).body === "string" ? (data as { body: string }).body : "";
   const blocks = richTextToBlocks(body);
   if (blocks.length === 0) return [{ lines: [{ text: "Empty.", role: "muted" }] }];
-  return [
-    {
-      lines: blocks.map((block) => ({
-        text: clamp(block.text, 1200),
-        ...(block.heading ? { role: "heading" as const } : {}),
-        ...(block.list ? { indent: 1 as const } : {}),
-      })),
-    },
-  ];
+  const lines: DocumentLine[] = blocks.map((block) => ({
+    text: clamp(block.text, 1200),
+    ...(block.heading ? { role: "heading" as const } : {}),
+    ...(block.list ? { indent: 1 as const } : {}),
+  }));
+  return [{ lines: withTruncationNote(lines, blocks) }];
 }
 
 interface Step {

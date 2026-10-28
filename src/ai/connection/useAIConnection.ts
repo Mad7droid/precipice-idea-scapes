@@ -12,6 +12,8 @@ import { isKeychainDenied } from "@/desktop/keychain";
 
 export interface ConnectionSummary {
   available: boolean;
+  /** The native vault refused access; set from the error itself, never from wording. */
+  keychainDenied?: boolean;
   status: "checking" | "disconnected" | "connecting" | "connected";
   email?: string;
   connectionId?: string;
@@ -34,6 +36,37 @@ const CLAUDE_FOCUS_REUSE_MS = 60_000;
 async function nativeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   const { invoke } = await import("@tauri-apps/api/core");
   return args ? invoke<T>(command, args) : invoke<T>(command);
+}
+
+const LEGACY_SESSION_KEY = "anthropic.apiKey";
+
+/**
+ * One-time upgrade from 0.1.15 and earlier, which had no `ai.connection` and always used the
+ * Anthropic key. Someone who saved a key or an Anthropic model keeps the API key connection
+ * instead of being silently moved to the new default. Returns the connection to persist, or
+ * `null` to retry on a later launch (for example when Keychain access was refused).
+ */
+export async function legacyConnection(
+  desktop: boolean,
+  providers: ProviderId[],
+): Promise<ProviderId | null> {
+  if (!providers.includes("anthropic")) return providers[0];
+  const model = await settingsRepository.get<string>(PROVIDERS.anthropic.modelKey);
+  if (typeof model === "string" && model) return "anthropic";
+  if (!desktop) {
+    try {
+      if (window.sessionStorage.getItem(LEGACY_SESSION_KEY)) return "anthropic";
+    } catch {
+      /* storage unavailable */
+    }
+    return providers[0];
+  }
+  try {
+    const key = await nativeInvoke<string | null>("read_api_key");
+    return key ? "anthropic" : providers[0];
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -81,6 +114,7 @@ export function useAIConnection() {
         setSummary({
           ...EMPTY,
           available: true,
+          keychainDenied: isKeychainDenied(error),
           error: isKeychainDenied(error)
             ? "Precipice needs Keychain access to use your saved ChatGPT connection."
             : "Could not read your ChatGPT connection. Check Keychain access and try again.",
@@ -145,6 +179,14 @@ export function useAIConnection() {
       );
       if (!active) return;
       if (isProviderId(saved) && providers.includes(saved)) setProvider(saved);
+      else if (saved === undefined || saved === null) {
+        const migrated = await legacyConnection(desktop, providers);
+        if (!active) return;
+        if (migrated) {
+          setProvider(migrated);
+          void settingsRepository.set("ai.connection", migrated);
+        }
+      }
       setChosenModels(Object.fromEntries(models.filter(([, model]) => !!model)));
       setRestored(true);
     })();
@@ -363,6 +405,7 @@ export function useAIConnection() {
     changeModel,
     refresh,
     chatgpt: summary,
+    keychainDenied: provider === "chatgpt" && summary.keychainDenied === true,
     chatgptAvailable: summary.available || desktop,
     connect,
     disconnect,

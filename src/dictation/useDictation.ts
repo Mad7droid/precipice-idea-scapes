@@ -20,6 +20,13 @@ export interface Dictation {
   /** Interim words for this composer's live session; empty when nothing is pending. */
   partial: string;
   startedAt: number | null;
+  /**
+   * What the last session achieved, so an error can say the right thing: a failure before
+   * listening began is not "stopped", and an untouched draft is not "still here".
+   */
+  lastSession: { listened: boolean; delivered: boolean };
+  /** When the current language-pack or model download began; null when none is running. */
+  installStartedAt: number | null;
   toggle: () => void;
   cancel: () => void;
   install: () => void;
@@ -40,6 +47,8 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
   const [level] = useState(createLevelSignal);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [partial, setPartial] = useState("");
+  const [lastSession, setLastSession] = useState({ listened: false, delivered: false });
+  const [installStartedAt, setInstallStartedAt] = useState<number | null>(null);
   const owns = useRef(false);
   const identity = useRef(Symbol("dictation composer"));
   const startup = useRef<Promise<void> | null>(null);
@@ -57,6 +66,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
     const unsubscribe = engine.subscribe({
       status: (next) => {
         setStatus(next);
+        if (next.kind !== "installing") setInstallStartedAt(null);
         if (next.kind !== "starting" && next.kind !== "listening" && next.kind !== "finishing") {
           if (sessionOwner === identity.current) sessionOwner = null;
           owns.current = false;
@@ -70,6 +80,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
       phrase: (text) => {
         if (!owns.current) return;
         setPartial("");
+        setLastSession((prev) => (prev.delivered ? prev : { ...prev, delivered: true }));
         deliver.current(text);
       },
     });
@@ -89,6 +100,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
     if (sessionOwner !== null) return;
     sessionOwner = identity.current;
     owns.current = true;
+    setLastSession({ listened: false, delivered: false });
     setStatus({ kind: "starting" });
     try {
       const stored = await settingsRepository.get<DictationLanguage>(
@@ -100,6 +112,7 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
         prompt: dictationVocabulary(useScapeStore.getState().scape),
       });
       if (owns.current) {
+        setLastSession((prev) => ({ ...prev, listened: true }));
         setStartedAt(Date.now());
         setStatus({ kind: "listening" });
       }
@@ -187,10 +200,14 @@ export function useDictation(onPhrase: (text: string) => void): Dictation {
     level,
     partial,
     startedAt,
+    lastSession,
+    installStartedAt,
     toggle,
     cancel,
-    install: () =>
-      void engine.install().catch((e) => setStatus({ kind: "error", message: String(e) })),
+    install: () => {
+      setInstallStartedAt(Date.now());
+      void engine.install().catch((e) => setStatus({ kind: "error", message: String(e) }));
+    },
     cancelInstall: () => void engine.cancelInstall().catch(fail),
     prepare: () => {
       if (status?.kind === "ready") void engine.prepare().catch(fail);

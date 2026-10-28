@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, useReducer } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionPayload } from "@/core/actions";
 import { applyAction, transaction } from "@/core/reducer";
@@ -441,5 +441,79 @@ describe("wireframe layout", () => {
     expect(applyAction(state, inverse!).state.objects[object.id].data).toEqual(object.data);
 
     unmount();
+  });
+});
+
+describe("editing round-off", () => {
+  it("wireframe width slider commits one ResizeObject per gesture", () => {
+    const plugin = getPlugin("wireframe")!;
+    const object = Object.values(fixtureScape().objects).find((o) => o.type === "wireframe")!;
+    const dispatch = vi.fn<(payload: ActionPayload) => void>();
+    const { container, unmount } = render(<plugin.Inspector object={object} dispatch={dispatch} />);
+    const slider = container.querySelector<HTMLInputElement>('input[aria-label="Card width"]')!;
+    for (const value of ["300", "320", "340"]) typeInto(slider, value);
+    expect(dispatch).not.toHaveBeenCalled();
+    act(() => slider.dispatchEvent(new Event("pointerup", { bubbles: true })));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith({ type: "ResizeObject", id: object.id, width: 340 });
+    unmount();
+  });
+
+  it("journey: Add step focuses the new step's label", () => {
+    const plugin = getPlugin("journey")!;
+    let scape = fixtureScape();
+    const id = Object.values(scape.objects).find((o) => o.type === "journey")!.id;
+    let refresh = () => {};
+    // Applies through the real reducer so the inspector sees the new step, as in the app.
+    const dispatch = (payload: ActionPayload) => {
+      scape = applyAction(scape, transaction([payload])[0]).state;
+      refresh();
+    };
+    const Host = () => {
+      const [, force] = useReducer((n: number) => n + 1, 0);
+      refresh = force;
+      return <plugin.Inspector object={scape.objects[id]} dispatch={dispatch} />;
+    };
+    const mounted = render(<Host />);
+    const add = [...mounted.container.querySelectorAll("button")].find(
+      (b) => b.textContent === "Add step",
+    )!;
+    act(() => add.click());
+    const labels = mounted.container.querySelectorAll<HTMLInputElement>(
+      'input[aria-label$="label"]',
+    );
+    expect(document.activeElement).toBe(labels[labels.length - 1]);
+    mounted.unmount();
+  });
+
+  it("journey: move buttons at the ends are disabled", () => {
+    const plugin = getPlugin("journey")!;
+    const object = Object.values(fixtureScape().objects).find((o) => o.type === "journey")!;
+    const { container, unmount } = render(<plugin.Inspector object={object} dispatch={() => {}} />);
+    expect(
+      container.querySelector<HTMLButtonElement>('[aria-label="Move step 1 up"]')!.disabled,
+    ).toBe(true);
+    unmount();
+  });
+
+  it("inline title: Escape cancels and an unchanged commit dispatches nothing", async () => {
+    const { InlineTextEdit } = await import("./InlineTitle");
+    const onCommit = vi.fn();
+    const onDone = vi.fn();
+    const { container, unmount } = render(
+      <InlineTextEdit value="Same" onCommit={onCommit} onDone={onDone} />,
+    );
+    const input = container.querySelector("input")!;
+    typeInto(input, "Changed");
+    act(() => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(onDone).toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+    unmount();
+
+    const second = render(<InlineTextEdit value="Same" onCommit={onCommit} onDone={() => {}} />);
+    const input2 = second.container.querySelector("input")!;
+    act(() => input2.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    expect(onCommit).not.toHaveBeenCalled();
+    second.unmount();
   });
 });

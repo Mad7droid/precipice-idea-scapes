@@ -1,6 +1,10 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { notify } from "@/core/notify";
+import type { Scape } from "@/core/types";
 import { scapeRepository } from "@/persistence/scapeRepository";
+import { nextSnapshotSeq } from "@/persistence/sequence";
+import { repairScape } from "@/persistence/repair";
+import { isDesktop } from "@/desktop/runtime";
 import { consumePublicCopy, localCopyFromPublication } from "@/shared/publicCopy";
 import {
   completeSignIn,
@@ -82,20 +86,34 @@ function usePublicCopyImport(): boolean {
   useEffect(() => {
     if (!source) return;
     let live = true;
-    const copy = localCopyFromPublication(source);
-
     void (async () => {
-      await scapeRepository.saveSnapshot(copy, Date.now());
+      // Repaired like any other document entering the library: a publication listing one
+      // object twice would otherwise leave a duplicate id in `objectOrder`.
+      let copy: Scape;
+      try {
+        copy = repairScape(localCopyFromPublication(source));
+      } catch {
+        notify.error("Could not create a local copy.", "That public scape is damaged.");
+        return;
+      }
+      await scapeRepository.saveSnapshot(copy, nextSnapshotSeq());
       if (!live) return;
       // Repositories surface quota failures as a notification and leave no row behind. Do not
       // navigate to an editor for a document that did not make it to durable local storage.
       if (!(await scapeRepository.get(copy.id))) {
-        notify.error("Could not create a local copy.", "Your browser could not save the scape.");
+        notify.error("Could not create a local copy.", "The scape could not be saved.");
         return;
       }
       navigate(scapeRoute(copy.id));
-      notify.success("Local copy created.", "This copy is private to this browser.");
-    })().finally(() => live && setPending(false));
+      notify.success(
+        "Local copy created.",
+        `This copy is private to ${isDesktop() ? "this Mac" : "this browser"}.`,
+      );
+    })()
+      .catch(() => {
+        // The repository already reports the storage failure; keep the current route.
+      })
+      .finally(() => live && setPending(false));
 
     return () => {
       live = false;
@@ -159,6 +177,13 @@ function useSignInReturn(): {
 function Routes() {
   const route = useRoute();
 
+  // Development harnesses write fixtures straight into the library without a lease. They are
+  // compiled out of production builds entirely; `import.meta.env.DEV` is a build constant.
+  if (import.meta.env.DEV && route.startsWith("/dev")) return <DevRoutes route={route} />;
+  return <AppRoutes route={route} />;
+}
+
+function DevRoutes({ route }: { route: string }) {
   if (route === "/dev/objects")
     return (
       <DevRoute>
@@ -189,8 +214,10 @@ function Routes() {
         <DevPublish />
       </DevRoute>
     );
-  if (route.startsWith("/dev")) return <DevIndex route={route} />;
+  return <DevIndex route={route} />;
+}
 
+function AppRoutes({ route }: { route: string }) {
   const hostChallenge = match("/host", route);
   if (hostChallenge) return <HostConsent challenge={hostChallenge} />;
 

@@ -547,13 +547,15 @@ export function createCommandService(deps: ServiceDeps) {
 
     if (tool === "get_operation" || tool === "cancel_operation") {
       const operation = await deps.operations.get(args.operation_id);
-      if (!operation || !allowedScape(grant, operation.scapeId))
-        return failure("not_found", "No such operation.");
+      // Operation IDs are per connection: another agent with access to the same scape must not
+      // read, cancel or learn about this one's receipts.
       if (
-        operation.command.tool === "preview_flow" &&
-        (operation.command.args.__clientId !== grant.clientId ||
-          operation.command.args.__host !== grant.host)
+        !operation ||
+        !allowedScape(grant, operation.scapeId) ||
+        operation.command.args.__clientId !== grant.clientId
       )
+        return failure("not_found", "No such operation.");
+      if (operation.command.tool === "preview_flow" && operation.command.args.__host !== grant.host)
         return failure("not_found", "No matching preview for this connection.");
       if (tool === "cancel_operation") {
         if (operation.result.status !== "awaiting_review")
@@ -767,7 +769,12 @@ export function createCommandService(deps: ServiceDeps) {
         return write(envelope, scapeId, target, [], `Delete the scape “${scape.name}”.`);
       case "revert_operation": {
         const operation = await deps.operations.get(args.operation_id);
-        if (!operation || operation.scapeId !== scapeId || !operation.inverses?.length)
+        if (
+          !operation ||
+          operation.scapeId !== scapeId ||
+          operation.command.args.__clientId !== envelope.grant.clientId ||
+          !operation.inverses?.length
+        )
           return failure("not_found", "No revertible operation with that ID on this scape.");
         if (operation.afterRevision !== (await revision(scape)))
           return failure(

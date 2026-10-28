@@ -12,11 +12,13 @@ journey, Screen flow, and Research synthesis. Each explains its starting blocks 
 prompts. Older Mind map and Product brief scapes use Research synthesis and Product concept.
 A template focuses the initial draft; every scape can still add every supported block type.
 
-Search by name or press `/` to focus search. Filter by all, pinned, published, or template;
+Search by name or press `/` to focus search. Filter by all, pinned, or published;
 counts show the available groups. Choose gallery or list and a sort order. Pinned scapes
 appear first. Preferences and pins are local settings; pinning does not change document content
 or its edited time. A card’s menu groups open, rename, duplicate, export, publish, and delete.
-Rename and delete respect the same single-writer protection as the editor.
+Rename and delete respect the same single-writer protection as the editor. Deleting a scape that
+has ever been published first removes its server copy (sign-in required), then deletes the local
+document, its history, its publication record, and its pin.
 
 ## Published links
 
@@ -37,7 +39,10 @@ composer or the agent instruction tools.
 
 ## Move and protect your library
 
-**Back up library** downloads `Precipice-library.json`. Import adds copies with new IDs and
-never overwrites existing scapes. A `.scape` file transfers individual documents. Credentials,
+**Back up library** downloads `Precipice-library.json`: every scape's current document, without
+its edit history (action log). A scape saved by a newer version of Precipice is left out, and the
+backup names it. Import adds copies with new IDs and never overwrites existing scapes; a copy
+whose name is already in the library is named "Name (imported)". A file that is not a Precipice
+`.scape` or library backup is refused with "This isn't a Precipice file." A `.scape` file transfers individual documents. Credentials,
 preferences, publication ownership, and MCP connections do not transfer. Browser and desktop
 stores remain separate. Keep backups private and outside Git. See [local data](security-and-local-data.md).

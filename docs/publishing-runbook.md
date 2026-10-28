@@ -17,14 +17,14 @@ deployment. Never replace the template with production values in Git.
 cp wrangler.publish.example.toml wrangler.publish.toml
 ```
 
-| Item | Production value |
-| --- | --- |
-| Worker config | ignored `wrangler.publish.toml` (copy the committed example) |
-| App origin | `https://precipice.pages.dev` |
-| Database migrations | `worker/publish/migrations` |
-| Retained slots | 50 per account, published or unpublished |
-| Current snapshot storage | 100 MiB per account |
-| Create/update budget | 20 per account per UTC day |
+| Item                     | Production value                                             |
+| ------------------------ | ------------------------------------------------------------ |
+| Worker config            | ignored `wrangler.publish.toml` (copy the committed example) |
+| App origin               | `https://precipice.pages.dev`                                |
+| Database migrations      | `worker/publish/migrations`                                  |
+| Retained slots           | 50 per account, published or unpublished                     |
+| Current snapshot storage | 100 MiB per account                                          |
+| Create/update budget     | 20 per account per UTC day                                   |
 
 Apply all pending migrations, including the MCP schema, before deploying code that requires them:
 
@@ -156,6 +156,21 @@ pnpm wrangler d1 execute precipice-publications --remote --config wrangler.publi
   --command "UPDATE publications SET status = 'unpublished' WHERE status = 'published'"
 ```
 
+- Each write stores its snapshot under a key unique to that attempt
+  (`publications/<id>/v<N>-<random>/scape.json`), recorded in `publications.snapshot_key`
+  (migration `0007`). Rows from before the migration have no key and keep the legacy
+  `v<N>/scape.json` path. A losing concurrent update deletes only its own object; DELETE marks the
+  row deleted before sweeping the R2 prefix, and a PUT that lands afterwards removes its own object.
+- Versioned snapshots are served `Cache-Control: public, max-age=300`, so unpublish, delete and
+  suspension reach edge caches within five minutes.
+- Suspending an account (`/admin/members/:id/suspend`) makes all of that owner's public links
+  answer 410 (as if unpublished) without changing their rows; restoring the account brings them
+  back. Suspension does not delete snapshots — delete publications explicitly to remove data.
+- The MCP connector's `/register`, `/token` and `/authorize` are limited per client IP through the
+  optional `OAUTH_IP_LIMIT` rate-limit binding in `wrangler.mcp.toml` (see
+  `wrangler.mcp.example.toml`). Without the binding they are not IP-limited, so add it before
+  production.
+
 To take down one abusive publication and free its slot, delete its R2 prefix and then mark its
 row `deleted`; use the account owner or a controlled D1 operation, and preserve the audit trail.
 If abuse is active, remove the Worker route or deploy an emergency Worker that returns 503 for
@@ -190,7 +205,6 @@ Use fictional content for acceptance tests; do not publish a private workspace t
 Desktop sign-in runs through the system browser and returns through a PKCE-bound callback.
 See [desktop setup](desktop.md) and [MCP deployment](mcp.md) for host credentials and the optional
 connector Worker. Browser and desktop libraries remain separate after signing in.
-
 
 ## MCP flow preview snapshots
 

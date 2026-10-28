@@ -4,14 +4,15 @@ import { buildMcpServer } from "@/mcp/server";
 import type { Grant } from "@/mcp/service";
 import { agentHost } from "./host";
 import { useAgentStore } from "./agentStore";
-import { localApplyMode } from "./localMode";
+import { localApplyMode, localClientId } from "./localMode";
 
 /**
  * The desktop app's built-in MCP server.
  *
  * Claude Desktop, Claude Code, Codex or Cursor launch `Precipice --mcp`, a tiny stdio pipe
- * that connects to the running app over a Unix socket (and launches the app if it is not
- * running). The Rust side relays each line to this webview, where the MCP server runs against
+ * that connects to the running app over a Unix socket. It answers discovery while the app
+ * is closed and asks the user to open it for library calls; it never launches the GUI.
+ * The Rust side relays each connected line to this webview, where the MCP server runs against
  * the same command service as the hosted connector. No port, no account, no pairing.
  */
 
@@ -54,15 +55,17 @@ export async function startDesktopLocalMcp(): Promise<() => void> {
   const publish = () =>
     useAgentStore.getState().setLocalClients([...connections.values()].map((c) => c.client()));
 
-  async function open(conn: number) {
+  async function open(conn: number, install: string | null) {
     const transport = new TauriLineTransport(conn, sendLine);
     let clientName = "Local agent";
     const server = buildMcpServer((tool, args) => {
       const grant: Grant = {
-        clientId: `local:${clientName}`,
+        // Bound to this connection, not the self-reported name, so another agent claiming
+        // the same name can neither read these receipts nor inherit trust.
+        clientId: localClientId(conn, install),
         clientName,
         scapes: "all",
-        mode: localApplyMode(clientName),
+        mode: localApplyMode(install),
         write: true,
       };
       return agentHost().execute({ id: crypto.randomUUID(), tool, args, grant });
@@ -78,12 +81,12 @@ export async function startDesktopLocalMcp(): Promise<() => void> {
   }
 
   const pending = new Map<number, Promise<TauriLineTransport>>();
-  const unlistenMessage = await listen<{ conn: number; line: string }>(
+  const unlistenMessage = await listen<{ conn: number; line: string; install?: string | null }>(
     "mcp://message",
     ({ payload }) => {
       let ready = pending.get(payload.conn);
       if (!ready) {
-        ready = open(payload.conn);
+        ready = open(payload.conn, payload.install ?? null);
         pending.set(payload.conn, ready);
       }
       void ready.then((transport) => transport.receive(payload.line));

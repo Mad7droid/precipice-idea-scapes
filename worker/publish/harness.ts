@@ -59,7 +59,16 @@ export class TestD1 {
   readonly db = new DatabaseSync(":memory:");
 
   constructor() {
-    for (const migration of ["0001_initial.sql", "0002_security.sql", "0003_session_ttl.sql", "0004_mcp_connections.sql", "0005_mcp_budget.sql", "0006_mcp_hosts.sql"]) {
+    for (const migration of [
+      "0001_initial.sql",
+      "0002_security.sql",
+      "0003_session_ttl.sql",
+      "0004_mcp_connections.sql",
+      "0005_mcp_budget.sql",
+      "0006_mcp_hosts.sql",
+      "0007_snapshot_keys.sql",
+      "0008_mcp_user_budget.sql",
+    ]) {
       this.db.exec(readFileSync(resolve(__dirname, "migrations", migration), "utf8"));
     }
   }
@@ -147,7 +156,10 @@ export function harness(): Harness {
       PUBLIC_READ_LIMIT: { limit: async () => ({ success: allowRequests.value }) },
       MUTATION_IP_LIMIT: { limit: async () => ({ success: allowRequests.value }) },
       MUTATION_USER_LIMIT: { limit: async () => ({ success: allowRequests.value }) },
-      __verifyTurnstile: async (token: string) => token === "valid-turnstile-token" ? { success: true, hostname: new URL(APP_ORIGIN).hostname, action: "publish-auth" } : { success: false },
+      __verifyTurnstile: async (token: string) =>
+        token === "valid-turnstile-token"
+          ? { success: true, hostname: new URL(APP_ORIGIN).hostname, action: "publish-auth" }
+          : { success: false },
     },
   };
 }
@@ -180,7 +192,11 @@ export async function sha256(value: string): Promise<string> {
 export function request(
   method: string,
   path: string,
-  { token, body, origin = APP_ORIGIN }: { token?: string; body?: unknown; origin?: string | null } = {},
+  {
+    token,
+    body,
+    origin = APP_ORIGIN,
+  }: { token?: string; body?: unknown; origin?: string | null } = {},
 ): Request {
   const headers: Record<string, string> = {};
   if (origin) headers.Origin = origin;

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Scapi } from "@/components/scapi/Scapi";
-import type { Scape, ThemePreference } from "@/core/types";
+import type { Scape } from "@/core/types";
+import { isDesktop } from "@/desktop/runtime";
 import { Menu, MenuItem } from "@/design/Menu";
 import { starterFor } from "@/starters";
 import { describeState, type PublicationState } from "@/publish/usePublication";
-import { ThemeControl } from "./ThemeControl";
 import { Brand } from "./Brand";
 import { buttonClass } from "@/design/Button";
 
@@ -27,8 +27,6 @@ export function TopBar({
   onOpenSettings,
   onPublish,
   publicationState,
-  theme,
-  onThemeChange,
 }: {
   scape: Scape;
   onOpenScapi?: () => void;
@@ -42,8 +40,6 @@ export function TopBar({
   onPublish?: () => void;
   /** Omitted on surfaces that have no publication context, such as the dev harnesses. */
   publicationState?: PublicationState;
-  theme: ThemePreference;
-  onThemeChange: (next: ThemePreference) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(scape.name);
@@ -106,6 +102,7 @@ export function TopBar({
           type="button"
           onClick={() => setEditing(true)}
           title="Rename"
+          aria-label={`Rename ${scape.name}`}
           className="min-w-0 max-w-[140px] truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover sm:max-w-[420px]"
         >
           {scape.name}
@@ -122,7 +119,7 @@ export function TopBar({
         className="hidden text-xs text-fg-secondary lg:inline"
         title="Your work autosaves locally. Export a scape file to back it up or move it to another device."
       >
-        Autosaves to this browser
+        {isDesktop() ? "Autosaves on this Mac" : "Autosaves to this browser"}
       </span>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
@@ -140,7 +137,7 @@ export function TopBar({
         )}
         {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
         <ExportMenu onExport={onExport} busy={exporting ?? false} />
-        <ThemeControl value={theme} onChange={onThemeChange} />
+        {/* Theme lives in Settings → General: the top bar has to fit an 800px window. */}
         <button
           type="button"
           aria-label="Open settings"

@@ -44,7 +44,9 @@ pub fn host() -> Option<&'static str> {
 }
 
 fn valid_host(url: &str) -> bool {
-    let Ok(parsed) = tauri::Url::parse(url) else { return false };
+    let Ok(parsed) = tauri::Url::parse(url) else {
+        return false;
+    };
     parsed.scheme() == "https"
         && parsed.username().is_empty()
         && parsed.password().is_none()
@@ -114,7 +116,9 @@ pub fn install(
     if have > 0 {
         request = request.header("Range", format!("bytes={have}-"));
     }
-    let response = request.call().map_err(|_| "Could not reach the model host")?;
+    let response = request
+        .call()
+        .map_err(|_| "Could not reach the model host")?;
     if response.status().as_u16() == 200 && have > 0 {
         // The host ignored the range; start over.
         hasher = Sha256::new();
@@ -131,19 +135,19 @@ pub fn install(
         .open(&part)
         .map_err(|_| "Could not write the model")?;
     let mut writer = BufWriter::with_capacity(1 << 20, file);
-    let mut reader = response.into_body().into_reader();
-    let mut buffer = vec![0u8; 1 << 16];
+    let chunks = read_in_background(response.into_body().into_reader());
     let mut received = have;
     let mut reported = 0u64;
     loop {
-        if cancel.load(Ordering::Relaxed) {
-            writer.flush().ok();
-            return Err("cancelled".into());
-        }
-        let n = reader.read(&mut buffer).map_err(|_| "The download was interrupted")?;
-        if n == 0 {
-            break;
-        }
+        let buffer = match next_chunk(&chunks, cancel, READ_IDLE_TIMEOUT) {
+            Ok(Some(buffer)) => buffer,
+            Ok(None) => break,
+            Err(error) => {
+                writer.flush().ok();
+                return Err(error);
+            }
+        };
+        let n = buffer.len();
         received += n as u64;
         if received > spec.bytes {
             drop(writer);
@@ -151,7 +155,9 @@ pub fn install(
             return Err("The model host sent an unexpected file".into());
         }
         hasher.update(&buffer[..n]);
-        writer.write_all(&buffer[..n]).map_err(|_| "Could not write the model")?;
+        writer
+            .write_all(&buffer[..n])
+            .map_err(|_| "Could not write the model")?;
         if received - reported >= spec.bytes / 200 {
             reported = received;
             progress(received, spec.bytes);
@@ -173,6 +179,62 @@ pub fn install(
     Ok(final_path)
 }
 
+/// A download that delivers nothing for this long is treated as interrupted, so a stalled
+/// connection never leaves the install spinning forever.
+const READ_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+/// How often a blocked read is interrupted to notice a cancellation.
+const CANCEL_POLL: Duration = Duration::from_millis(200);
+
+type Chunk = Result<Vec<u8>, ()>;
+
+/// Blocking reads happen on their own thread so the installer can time out or cancel without
+/// waiting for the socket. An abandoned reader ends when the connection closes.
+fn read_in_background(mut reader: impl Read + Send + 'static) -> std::sync::mpsc::Receiver<Chunk> {
+    let (tx, rx) = std::sync::mpsc::sync_channel::<Chunk>(4);
+    std::thread::spawn(move || {
+        let mut buffer = vec![0u8; 1 << 16];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => {
+                    if tx.send(Ok(buffer[..n].to_vec())).is_err() {
+                        break;
+                    }
+                }
+                Err(_) => {
+                    let _ = tx.send(Err(()));
+                    break;
+                }
+            }
+        }
+    });
+    rx
+}
+
+/// The next chunk, `None` at the end, or an error for cancellation, failure or a stall.
+fn next_chunk(
+    chunks: &std::sync::mpsc::Receiver<Chunk>,
+    cancel: &AtomicBool,
+    idle: Duration,
+) -> Result<Option<Vec<u8>>, String> {
+    let started = std::time::Instant::now();
+    loop {
+        if cancel.load(Ordering::Relaxed) {
+            return Err("cancelled".into());
+        }
+        match chunks.recv_timeout(CANCEL_POLL.min(idle)) {
+            Ok(Ok(chunk)) => return Ok(Some(chunk)),
+            Ok(Err(())) => return Err("The download was interrupted".into()),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                if started.elapsed() >= idle {
+                    return Err("The download stalled. Check your connection and try again.".into());
+                }
+            }
+        }
+    }
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -182,10 +244,50 @@ mod tests {
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("precipice-models-{name}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("precipice-models-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// A reader that never returns, like a stalled socket.
+    struct Stalled;
+    impl Read for Stalled {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            std::thread::sleep(Duration::from_secs(3600));
+            Ok(0)
+        }
+    }
+
+    #[test]
+    fn stalled_download_times_out() {
+        let chunks = read_in_background(Stalled);
+        let error = next_chunk(&chunks, &AtomicBool::new(false), Duration::from_millis(300));
+        assert!(error.unwrap_err().contains("stalled"));
+    }
+
+    #[test]
+    fn cancellation_interrupts_a_blocked_read() {
+        let chunks = read_in_background(Stalled);
+        let started = std::time::Instant::now();
+        let error = next_chunk(&chunks, &AtomicBool::new(true), Duration::from_secs(30));
+        assert_eq!(error.unwrap_err(), "cancelled");
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn finished_reader_ends_cleanly() {
+        let chunks = read_in_background(&b"abc"[..]);
+        let cancel = AtomicBool::new(false);
+        assert_eq!(
+            next_chunk(&chunks, &cancel, Duration::from_secs(5)).unwrap(),
+            Some(b"abc".to_vec())
+        );
+        assert_eq!(
+            next_chunk(&chunks, &cancel, Duration::from_secs(5)).unwrap(),
+            None
+        );
     }
 
     #[test]

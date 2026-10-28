@@ -4,7 +4,7 @@ import {
   type OAuthHelpers,
 } from "@cloudflare/workers-oauth-provider";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { buildMcpServer } from "../../src/mcp/server";
+import { advertisesMcpApps, buildMcpServer } from "../../src/mcp/server";
 import { failure, type Envelope, type Grant, type Outcome } from "../../src/mcp/contracts";
 import { McpRelay } from "./relay";
 import { hostUser, issueHost, approveHost, exchangeHost, revokeHost } from "./hostAuth";
@@ -32,6 +32,11 @@ export interface Env {
   OAUTH_KV: KVNamespace;
   RELAY: DurableObjectNamespace;
   OAUTH_PROVIDER: OAuthHelpers;
+  /**
+   * Optional Cloudflare rate-limit binding for the unauthenticated OAuth endpoints, keyed by
+   * client IP. When absent (local dev, older deployments) the endpoints are not IP-limited.
+   */
+  OAUTH_IP_LIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
 /** What the OAuth library encrypts into every access token for this connection. */
@@ -62,7 +67,8 @@ function b64url(bytes: ArrayBuffer | Uint8Array): string {
 }
 async function hmac(secret: string, value: string): Promise<string> {
   // Fail closed: a missing or short secret would make relay tickets forgeable.
-  if (typeof secret !== "string" || secret.length < 32) throw new Error("TICKET_SECRET is not configured");
+  if (typeof secret !== "string" || secret.length < 32)
+    throw new Error("TICKET_SECRET is not configured");
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
@@ -79,28 +85,44 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/** A short-lived, stateless proof that the socket opener is this user. Nothing is stored. */
+/**
+ * A short-lived signed proof that the socket opener is this user. The random nonce makes it
+ * single-use: the relay object records it on the first upgrade and refuses any replay.
+ */
 export async function mintTicket(env: Env, userId: string, now = Date.now()): Promise<string> {
-  const body = b64url(encoder.encode(JSON.stringify({ u: userId, e: now + TICKET_MS })));
+  const body = b64url(
+    encoder.encode(JSON.stringify({ u: userId, e: now + TICKET_MS, n: randomId("tkt", 12) })),
+  );
   return `${body}.${await hmac(env.TICKET_SECRET, body)}`;
+}
+export type TicketClaims = { userId: string; nonce: string; expiresAt: number };
+export async function readTicketClaims(
+  env: Env,
+  ticket: string,
+  now = Date.now(),
+): Promise<TicketClaims | null> {
+  const [body, signature] = ticket.split(".");
+  if (!body || !signature || !safeEqual(signature, await hmac(env.TICKET_SECRET, body)))
+    return null;
+  try {
+    const { u, e, n } = JSON.parse(atob(body.replaceAll("-", "+").replaceAll("_", "/"))) as {
+      u: string;
+      e: number;
+      n: string;
+    };
+    return typeof u === "string" && typeof n === "string" && typeof e === "number" && e > now
+      ? { userId: u, nonce: n, expiresAt: e }
+      : null;
+  } catch {
+    return null;
+  }
 }
 export async function readTicket(
   env: Env,
   ticket: string,
   now = Date.now(),
 ): Promise<string | null> {
-  const [body, signature] = ticket.split(".");
-  if (!body || !signature || !safeEqual(signature, await hmac(env.TICKET_SECRET, body)))
-    return null;
-  try {
-    const { u, e } = JSON.parse(atob(body.replaceAll("-", "+").replaceAll("_", "/"))) as {
-      u: string;
-      e: number;
-    };
-    return typeof u === "string" && e > now ? u : null;
-  } catch {
-    return null;
-  }
+  return (await readTicketClaims(env, ticket, now))?.userId ?? null;
 }
 
 function cors(request: Request, env: Env): Headers {
@@ -245,10 +267,17 @@ async function app(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/authorize" && request.method === "GET") return authorize(request, env);
 
   if (url.pathname === "/relay" && request.headers.get("Upgrade") === "websocket") {
-    const userId = await readTicket(env, url.searchParams.get("ticket") ?? "");
-    if (!userId) return new Response("Unauthorized", { status: 401 });
-    const stub = env.RELAY.get(env.RELAY.idFromName(userId));
-    return stub.fetch(new Request("https://relay/socket", request));
+    // Browsers and the desktop webview always send Origin on a WebSocket upgrade; anything
+    // else is not Precipice.
+    if (![env.APP_ORIGIN, "tauri://localhost"].includes(request.headers.get("Origin") ?? ""))
+      return new Response("Forbidden", { status: 403 });
+    const claims = await readTicketClaims(env, url.searchParams.get("ticket") ?? "");
+    if (!claims) return new Response("Unauthorized", { status: 401 });
+    const stub = env.RELAY.get(env.RELAY.idFromName(claims.userId));
+    const headers = new Headers(request.headers);
+    headers.set("X-Relay-Ticket-Nonce", claims.nonce);
+    headers.set("X-Relay-Ticket-Expires", String(claims.expiresAt));
+    return stub.fetch(new Request("https://relay/socket", { method: request.method, headers }));
   }
 
   // Everything below is called by the Precipice app with its publishing session.
@@ -457,19 +486,41 @@ async function revokeConnection(env: Env, userId: string, connectionId: string):
 }
 
 /** Checks the connection still exists and its person is still allowed, on every request. */
-async function liveConnection(env: Env, props: Props): Promise<Grant | null> {
+async function liveConnection(
+  env: Env,
+  props: Props,
+): Promise<(Grant & { mcpApps: boolean }) | null> {
   const row = await env.PUBLISH_DB.prepare(
-    "SELECT mcp_connections.last_used_at, mcp_connections.mode, users.status FROM mcp_connections JOIN users ON users.id = mcp_connections.user_id WHERE mcp_connections.id = ? AND mcp_connections.user_id = ?",
+    "SELECT mcp_connections.last_used_at, mcp_connections.mode, mcp_connections.mcp_apps, users.status FROM mcp_connections JOIN users ON users.id = mcp_connections.user_id WHERE mcp_connections.id = ? AND mcp_connections.user_id = ?",
   )
     .bind(props.connectionId, props.userId)
-    .first<{ last_used_at: number; status: string; mode: "direct" | "review" }>();
+    .first<{ last_used_at: number; status: string; mode: "direct" | "review"; mcp_apps: number }>();
   if (!row || row.status !== "active") return null;
   const now = Date.now();
   if (now - row.last_used_at > TOUCH_MS)
     await env.PUBLISH_DB.prepare("UPDATE mcp_connections SET last_used_at = ? WHERE id = ?")
       .bind(now, props.connectionId)
       .run();
-  return { ...props.grant, mode: row.mode };
+  return { ...props.grant, mode: row.mode, mcpApps: row.mcp_apps === 1 };
+}
+
+/** Reads `initialize` from a JSON-RPC body (single or batch) without consuming the request. */
+async function initializeCapabilities(
+  request: Request,
+): Promise<{ found: boolean; apps: boolean }> {
+  if (request.method !== "POST") return { found: false, apps: false };
+  try {
+    const body = (await request.clone().json()) as unknown;
+    const messages = Array.isArray(body) ? body : [body];
+    const init = messages.find(
+      (m) => m && typeof m === "object" && (m as { method?: unknown }).method === "initialize",
+    ) as { params?: { capabilities?: unknown } } | undefined;
+    return init
+      ? { found: true, apps: advertisesMcpApps(init.params?.capabilities) }
+      : { found: false, apps: false };
+  } catch {
+    return { found: false, apps: false };
+  }
 }
 
 export async function callRelay(env: Env, userId: string, envelope: Envelope): Promise<Outcome> {
@@ -496,6 +547,34 @@ export async function takeBudget(env: Env, now = Date.now()): Promise<boolean> {
     .bind(day)
     .first();
   return row !== null;
+}
+
+/** Per-person daily cap, checked before the deployment-wide budget so denials never spend it. */
+export const USER_DAILY_REQUESTS = 2000;
+export async function takeUserBudget(env: Env, userId: string, now = Date.now()): Promise<boolean> {
+  const day = new Date(now).toISOString().slice(0, 10);
+  const row = await env.PUBLISH_DB.prepare(
+    `INSERT INTO mcp_user_budget (user_id, day, requests) VALUES (?, ?, 1)
+     ON CONFLICT(user_id) DO UPDATE SET day = excluded.day,
+       requests = CASE WHEN mcp_user_budget.day = excluded.day THEN mcp_user_budget.requests + 1 ELSE 1 END
+     WHERE mcp_user_budget.day != excluded.day OR mcp_user_budget.requests < ?
+     RETURNING requests`,
+  )
+    .bind(userId, day, USER_DAILY_REQUESTS)
+    .first();
+  return row !== null;
+}
+
+const OAUTH_PATHS = new Set(["/register", "/token", "/authorize"]);
+/** Per-IP limit for the unauthenticated OAuth endpoints; degrades open without the binding. */
+export async function oauthRateLimited(request: Request, env: Env): Promise<boolean> {
+  if (!env.OAUTH_IP_LIMIT || !OAUTH_PATHS.has(new URL(request.url).pathname)) return false;
+  const key = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  try {
+    return !(await env.OAUTH_IP_LIMIT.limit({ key })).success;
+  } catch {
+    return false;
+  }
 }
 
 const mcpApi = {
@@ -525,6 +604,15 @@ const mcpApi = {
           },
         },
       );
+    if (!(await takeUserBudget(env, props.userId)))
+      return Response.json(
+        {
+          error: "rate_limited",
+          message:
+            "This account's daily Precipice connector limit is used up. Retry after midnight UTC.",
+        },
+        { status: 429 },
+      );
     if (!(await takeBudget(env)))
       return Response.json(
         {
@@ -533,13 +621,24 @@ const mcpApi = {
         },
         { status: 429 },
       );
-    const server = buildMcpServer((tool, args) =>
-      callRelay(env, `${props.userId}:${grant.host ?? "web"}`, {
-        id: crypto.randomUUID(),
-        tool,
-        args,
-        grant,
-      }),
+    const { mcpApps, ...relayGrant } = grant;
+    let appsSupported = mcpApps;
+    const init = await initializeCapabilities(request);
+    if (init.found) {
+      appsSupported = init.apps;
+      await env.PUBLISH_DB.prepare("UPDATE mcp_connections SET mcp_apps = ? WHERE id = ?")
+        .bind(init.apps ? 1 : 0, props.connectionId)
+        .run();
+    }
+    const server = buildMcpServer(
+      (tool, args) =>
+        callRelay(env, `${props.userId}:${grant.host ?? "web"}`, {
+          id: crypto.randomUUID(),
+          tool,
+          args,
+          grant: relayGrant,
+        }),
+      { appsSupported: () => appsSupported },
     );
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -586,7 +685,12 @@ function provider(origin: string): OAuthProvider<Env> {
 }
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    if (await oauthRateLimited(request, env))
+      return Response.json(
+        { error: "rate_limited", error_description: "Too many requests. Wait a minute and retry." },
+        { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } },
+      );
     return provider(new URL(request.url).origin).fetch(request, env, ctx);
   },
 };

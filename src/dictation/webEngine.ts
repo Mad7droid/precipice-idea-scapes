@@ -75,9 +75,16 @@ const ERRORS: Record<string, string> = {
   network: "On-device speech recognition is unavailable in this browser.",
 };
 
-export function webEngine(): DictationEngine {
+/** Language packs are tens of MB; past this the wait is reported as failed rather than endless. */
+export const INSTALL_TIMEOUT_MS = 5 * 60_000;
+
+export function webEngine({
+  installTimeoutMs = INSTALL_TIMEOUT_MS,
+}: { installTimeoutMs?: number } = {}): DictationEngine {
   const listeners = new Set<DictationHandlers>();
   let installing = false;
+  /** Ends the current wait for a language pack. The browser may keep downloading. */
+  let stopWaiting: ((outcome: "cancelled" | "timeout") => void) | null = null;
   let session: {
     recognition: Recognition;
     stream: MediaStream | null;
@@ -176,25 +183,48 @@ export function webEngine(): DictationEngine {
   return {
     status,
     async install() {
+      if (installing) return;
       installing = true;
       emit("status", { kind: "installing", received: 0, total: 0 });
+      let timer = 0;
+      const ended = new Promise<"cancelled" | "timeout">((resolve) => {
+        stopWaiting = resolve;
+        timer = window.setTimeout(() => resolve("timeout"), installTimeoutMs);
+      });
       try {
-        const ok = (await query("install", await locale())) as boolean;
+        const outcome = await Promise.race([
+          (async () => (await query("install", await locale())) as boolean)(),
+          ended,
+        ]);
         emit(
           "status",
-          ok
+          outcome === true
             ? { kind: "ready" }
-            : {
-                kind: "error",
-                message: "The browser could not download its speech model. Try again later.",
-              },
+            : outcome === "cancelled"
+              ? { kind: "needs-model", bytes: 0 }
+              : {
+                  kind: "error",
+                  message:
+                    outcome === "timeout"
+                      ? "The language pack is taking too long to download. Check your connection and try again."
+                      : "The browser could not download its speech model. Try again later.",
+                },
         );
+      } catch {
+        emit("status", {
+          kind: "error",
+          message: "The browser could not download its speech model. Try again later.",
+        });
       } finally {
+        window.clearTimeout(timer);
+        stopWaiting = null;
         installing = false;
       }
     },
-    // Browsers expose no way to cancel a language-pack download; the next status reflects it.
-    cancelInstall: async () => {},
+    // Browsers expose no way to stop a language-pack download, so this stops waiting for it.
+    cancelInstall: async () => {
+      stopWaiting?.("cancelled");
+    },
     prepare: async () => {},
     async start({ language, prompt }) {
       const Recognition = recognitionClass();

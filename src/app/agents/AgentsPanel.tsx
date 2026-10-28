@@ -154,7 +154,9 @@ function LocalSetup({ client }: { client: ClientId }) {
             Add to Claude Desktop
           </Button>
         </li>
-        <li>Restart Claude Desktop. Precipice appears in its tools; no sign-in needed.</li>
+        <li>
+          Restart Claude Desktop. Open Precipice when you want to use its tools; no sign-in needed.
+        </li>
       </Steps>
     );
   if (client === "codex" || client === "cursor")
@@ -165,7 +167,7 @@ function LocalSetup({ client }: { client: ClientId }) {
             Add to {client === "codex" ? "Codex" : "Cursor"}
           </Button>
         </li>
-        <li>Start a new session. Precipice opens itself when the agent needs it.</li>
+        <li>Start a new session. Open Precipice when you want to use its tools.</li>
       </Steps>
     );
   if (client === "claude-code")
@@ -176,6 +178,10 @@ function LocalSetup({ client }: { client: ClientId }) {
           <Snippet
             text={`claude mcp add precipice -- "${helper ?? "/Applications/Precipice.app/Contents/MacOS/Precipice"}" --mcp`}
           />
+        </li>
+        <li>
+          A hand-added command carries no install token, so Precipice always asks you to review this
+          agent's changes.
         </li>
       </Steps>
     );
@@ -208,6 +214,17 @@ export function AgentsPanel() {
     return () => window.removeEventListener("precipice-agent-auth", update);
   }, []);
   const signedIn = hostToken() !== null;
+  // Another copy of Precipice owns the agent socket; agents reach that copy, not this one.
+  const [otherCopy, setOtherCopy] = useState(false);
+  useEffect(() => {
+    if (!desktop) return;
+    void import("@tauri-apps/api/core").then(({ invoke }) =>
+      invoke<{ listener: string }>("mcp_status").then(
+        (status) => setOtherCopy(status.listener === "other-copy"),
+        () => undefined,
+      ),
+    );
+  }, [desktop]);
 
   const load = useCallback(() => {
     if (!signedIn || !MCP_ENDPOINT) return;
@@ -229,10 +246,9 @@ export function AgentsPanel() {
   const cloudAvailable = Boolean(MCP_ENDPOINT);
 
   return (
-    <section aria-labelledby="agents-heading">
-      <h3 id="agents-heading" className="sr-only">
-        Agents
-      </h3>
+    // The Settings nav already names this section; a second "Agents" heading made screen
+    // readers announce it twice.
+    <section>
       <p className="text-xs text-fg-secondary">
         Let Claude, Codex and other agents read and build on your scapes. They work on the copy on
         this device, through the same undo as your own edits.
@@ -306,7 +322,7 @@ export function AgentsPanel() {
           </>
         ) : (
           <p className="mt-2 text-xs text-fg-tertiary">
-            The cloud connector is not configured for this build.
+            Cloud agents aren't available in this version of Precipice. Use a local agent instead.
           </p>
         )}
       </div>
@@ -314,6 +330,12 @@ export function AgentsPanel() {
       {desktop && (
         <div className="mt-5">
           <span className="mb-1 block text-xs text-fg-secondary">Agents on this Mac</span>
+          {otherCopy && (
+            <p role="status" className="mb-2 text-xs text-fg-secondary">
+              Another copy of Precipice is running, so local agents connect to that copy. Quit it to
+              use agents with this one.
+            </p>
+          )}
           <label className="flex cursor-pointer items-center gap-2 text-xs text-fg">
             <input
               type="checkbox"
