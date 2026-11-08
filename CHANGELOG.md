@@ -3,6 +3,11 @@
 All notable user-visible changes to Precipice are recorded here. Releases are
 numbered (see `docs/releases/`); entries are grouped by date and version.
 
+## Unreleased
+
+- Light-mode selected navigation and Inbox view tabs replace the left accent stroke with a
+  hairline outline that follows the rounded corners.
+
 ## 2026-11-09 — 0.1.17
 
 ### Workspace and appearance

@@ -28,10 +28,11 @@
   margin-top: 0.4em;
 }
 
-/* Light selection needs a stable edge as well as a tinted fill. Dark retains its
-   existing treatment; the marker never changes layout or consumes focus styling. */
+/* Light selection pairs the tinted fill with a hairline outline that follows the item's own
+   radius, so it stays visible without a side bar. Dark retains its existing treatment; the
+   outline never changes layout or consumes focus styling. */
 :root:not(.dark) .workspace-selected {
-  box-shadow: inset 3px 0 0 var(--border-focus);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-focus) 28%, transparent);
   font-weight: var(--weight-ui);
 }
 
