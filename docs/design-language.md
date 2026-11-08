@@ -1,7 +1,8 @@
 # Precipice design language
 
 Light-mode follow-up, 9 November 2026: selected navigation combines a stronger semantic fill
-with a slim inset accent marker (`workspace-selected`). Never depend on a barely tinted fill
+with a hairline accent outline that follows the item's radius (`workspace-selected`). No side
+bars or edge strokes on selected items. Never depend on a barely tinted fill
 alone. Graphite and Field use distinct neutral page, card and inset surfaces. Dark palette
 values are unchanged. Editable search/capture/Inbox fields explicitly specify primary text,
 tertiary placeholders and selected-text colors; font-size utilities must not set color.
