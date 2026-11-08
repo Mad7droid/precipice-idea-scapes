@@ -1,7 +1,7 @@
 {
   "name": "precipice",
   "private": true,
-  "version": "0.1.18",
+  "version": "0.1.19",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -36,13 +36,13 @@
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "zod": "^3.25.0",
+    "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@cloudflare/workers-oauth-provider": "^1.1.0",
     "@cloudflare/workers-types": "^5.20260904.1",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@tauri-apps/cli": "^2.11.4",
     "@types/dagre": "^0.7.53",
     "@types/jsdom": "^30.0.0",
@@ -58,8 +58,8 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.13",
     "typescript": "^5.7.3",
-    "vite": "^6.0.11",
-    "vitest": "^4.1.11",
+    "vite": "^6.4.5",
+    "vitest": "^4.1.12",
     "wrangler": "4.120.0"
   }
 }
