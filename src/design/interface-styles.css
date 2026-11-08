@@ -1,0 +1,146 @@
+/* Interface style changes colour only. Identity assets, fonts, geometry, data and
+   status/marker meanings are shared. Current inherits tokens.css without overrides.
+   Root scoping is essential: React Flow also uses .light and .dark classes. */
+:root[data-interface-style="graphite"] {
+  --bg-canvas: #e7ebe5;
+  --bg-base: #f0f2ef;
+  --bg-surface: #fafbf7;
+  --bg-raised: #fdfefa;
+  --bg-inset: #e9ede7;
+  --bg-hover: #25332e0a;
+  --bg-active: #25332e12;
+  --bg-selected: #ceded2;
+  --text-primary: #25332e;
+  --text-secondary: #4f5f56;
+  --text-tertiary: #4f5f54;
+  --text-inverse: #f3f5ef;
+  --text-accent: #285d49;
+  --text-on-accent: #ffffff;
+  --border-subtle: #25332e14;
+  --border-default: #25332e26;
+  --border-strong: #25332e4d;
+  --border-focus: #346a58;
+  --accent: #346a58;
+  --accent-hover: #285743;
+  --accent-active: #214735;
+  --accent-subtle: #dce8df;
+  --accent-ring: #346a5873;
+  --action-primary: #315c4b;
+  --action-primary-hover: #284d3e;
+  --action-primary-active: #203e32;
+  --text-on-action-primary: #ffffff;
+  --canvas-dot: #25332e29;
+  --edge-stroke: #89988e;
+  --edge-stroke-active: #346a58;
+  --shadow-sm: 0 1px 2px #25332e0d;
+  --shadow-md: 0 2px 8px #25332e12;
+  --shadow-lg: 0 8px 28px #25332e1a;
+}
+
+:root.dark[data-interface-style="graphite"] {
+  --bg-canvas: #141819;
+  --bg-base: #191c1e;
+  --bg-surface: #202427;
+  --bg-raised: #292e31;
+  --bg-inset: #141819;
+  --bg-hover: #e6e9e70d;
+  --bg-active: #e6e9e717;
+  --bg-selected: #293f36;
+  --text-primary: #e6e9e7;
+  --text-secondary: #adb8b2;
+  --text-tertiary: #a0ada5;
+  --text-inverse: #191c1e;
+  --text-accent: #9bcbbb;
+  --text-on-accent: #152820;
+  --border-subtle: #e6e9e712;
+  --border-default: #e6e9e71f;
+  --border-strong: #e6e9e73d;
+  --border-focus: #9bcbbb;
+  --accent: #9bcbbb;
+  --accent-hover: #b0d8ca;
+  --accent-active: #c3e2d7;
+  --accent-subtle: #293f36;
+  --accent-ring: #9bcbbb80;
+  --action-primary: #bfd9cd;
+  --action-primary-hover: #cce2d8;
+  --action-primary-active: #d9ebe3;
+  --text-on-action-primary: #152820;
+  --canvas-dot: #e6e9e724;
+  --edge-stroke: #58645e;
+  --edge-stroke-active: #9bcbbb;
+  --shadow-sm: 0 1px 2px #00000059;
+  --shadow-md: 0 2px 10px #00000073;
+  --shadow-lg: 0 12px 36px #0000008c;
+}
+
+:root[data-interface-style="field"] {
+  --bg-canvas: #e7e5df;
+  --bg-base: #f0eee8;
+  --bg-surface: #faf8f2;
+  --bg-raised: #fdfcf7;
+  --bg-inset: #e7e5df;
+  --bg-hover: #272a300a;
+  --bg-active: #272a3012;
+  --bg-selected: #d7d6e8;
+  --text-primary: #272a30;
+  --text-secondary: #50545d;
+  --text-tertiary: #525762;
+  --text-inverse: #f1f0e9;
+  --text-accent: #494f8c;
+  --text-on-accent: #ffffff;
+  --border-subtle: #272a3014;
+  --border-default: #272a3026;
+  --border-strong: #272a304d;
+  --border-focus: #535a9a;
+  --accent: #535a9a;
+  --accent-hover: #484e86;
+  --accent-active: #3b416e;
+  --accent-subtle: #dbddea;
+  --accent-ring: #535a9a73;
+  --action-primary: #4e548f;
+  --action-primary-hover: #424877;
+  --action-primary-active: #363b62;
+  --text-on-action-primary: #ffffff;
+  --canvas-dot: #272a3029;
+  --edge-stroke: #92949f;
+  --edge-stroke-active: #535a9a;
+  --shadow-sm: 0 1px 2px #272a300d;
+  --shadow-md: 0 2px 8px #272a3012;
+  --shadow-lg: 0 8px 28px #272a301a;
+}
+
+:root.dark[data-interface-style="field"] {
+  --bg-canvas: #191a1d;
+  --bg-base: #202124;
+  --bg-surface: #28292d;
+  --bg-raised: #303136;
+  --bg-inset: #191a1d;
+  --bg-hover: #e7e5df0d;
+  --bg-active: #e7e5df17;
+  --bg-selected: #393b50;
+  --text-primary: #e7e5df;
+  --text-secondary: #b8b8bb;
+  --text-tertiary: #adadb4;
+  --text-inverse: #202124;
+  --text-accent: #c1c3f0;
+  --text-on-accent: #20212c;
+  --border-subtle: #e7e5df12;
+  --border-default: #e7e5df1f;
+  --border-strong: #e7e5df3d;
+  --border-focus: #b6b8e8;
+  --accent: #b6b8e8;
+  --accent-hover: #c9cbef;
+  --accent-active: #d9daf5;
+  --accent-subtle: #393b50;
+  --accent-ring: #b6b8e880;
+  --action-primary: #b6b8e8;
+  --action-primary-hover: #c9cbef;
+  --action-primary-active: #d9daf5;
+  --text-on-action-primary: #20212c;
+  --canvas-dot: #e7e5df24;
+  --edge-stroke: #656672;
+  --edge-stroke-active: #b6b8e8;
+  --shadow-sm: 0 1px 2px #00000059;
+  --shadow-md: 0 2px 10px #00000073;
+  --shadow-lg: 0 12px 36px #0000008c;
+}

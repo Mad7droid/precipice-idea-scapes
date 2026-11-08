@@ -8,6 +8,7 @@ import { ScapeThumbnail } from "../ScapeThumbnail";
 import { describeContents, relativeTime } from "./library";
 import { MoreIcon, PinIcon } from "./icons";
 import { StarterMark } from "./StarterMark";
+import type { WorkState } from "@/persistence/workspace";
 
 export type CardAction =
   | "open"
@@ -30,6 +31,8 @@ export function ScapeCard({
   list,
   busy,
   onAction,
+  workState,
+  onWorkState,
 }: {
   scape: ScapeSummary;
   pinned: boolean;
@@ -37,6 +40,8 @@ export function ScapeCard({
   list: boolean;
   busy: boolean;
   onAction: (action: CardAction) => void;
+  workState?: WorkState;
+  onWorkState?: (state: WorkState | undefined) => void;
 }) {
   const [menu, setMenu] = useState(false);
   const boundary = useRef<HTMLDivElement>(null),
@@ -116,6 +121,33 @@ export function ScapeCard({
               <MenuItem onSelect={() => choose("rename")}>Rename…</MenuItem>
               <MenuItem onSelect={() => choose("duplicate")}>Duplicate</MenuItem>
               <MenuItem onSelect={() => choose("pin")}>{pinned ? "Unpin" : "Pin to top"}</MenuItem>
+              {onWorkState && (
+                <>
+                  <MenuSeparator />
+                  <MenuLabel>Work state{workState ? ` · ${workState}` : ""}</MenuLabel>
+                  {(["active", "parked", "done"] as const).map((state) => (
+                    <MenuItem
+                      key={state}
+                      onSelect={() => {
+                        close();
+                        onWorkState(state);
+                      }}
+                    >
+                      {state === "active" ? "Active" : state === "parked" ? "Parked" : "Done"}
+                    </MenuItem>
+                  ))}
+                  {workState && (
+                    <MenuItem
+                      onSelect={() => {
+                        close();
+                        onWorkState(undefined);
+                      }}
+                    >
+                      Clear work state
+                    </MenuItem>
+                  )}
+                </>
+              )}
               <MenuSeparator />
               <MenuLabel>Download</MenuLabel>
               <MenuItem onSelect={() => choose("scape")} caption="For backup or another device">
@@ -185,6 +217,9 @@ export function ScapeCard({
             {scape.name}
           </button>
           <p className="truncate text-xs text-fg-tertiary" title={contents}>
+            {workState
+              ? `${workState === "active" ? "Active" : workState === "parked" ? "Parked" : "Done"} · `
+              : ""}
             {starter.id === "blank" ? contents : `${starter.label} · ${contents}`}
           </p>
         </div>
@@ -226,6 +261,9 @@ export function ScapeCard({
           {scape.name}
         </button>
         <p className="mt-0.5 truncate text-xs text-fg-tertiary" title={contents}>
+          {workState
+            ? `${workState === "active" ? "Active" : workState === "parked" ? "Parked" : "Done"} · `
+            : ""}
           {starter.id === "blank" ? contents : `${starter.label} · ${contents}`}
         </p>
         <div className="mt-3 flex min-h-8 items-center gap-3">

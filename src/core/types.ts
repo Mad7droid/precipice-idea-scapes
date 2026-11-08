@@ -182,6 +182,8 @@ export interface ScapeRepository {
 }
 
 export type ThemePreference = "system" | "light" | "dark";
+/** Local interface palette, independent of light/dark appearance and document content. */
+export type InterfaceStyle = "current" | "graphite" | "field";
 
 export interface SettingsRepository {
   get<T>(key: string): Promise<T | undefined>;
@@ -192,6 +194,7 @@ export interface SettingsRepository {
 export const SETTING_KEYS = {
   model: "anthropic.model",
   theme: "ui.theme",
+  interfaceStyle: "ui.interfaceStyle",
   lastScapeId: "ui.lastScapeId",
   /** Which object types a generation may create, when the scape's starter does not decide. */
   generateTypes: "ui.generateTypes",

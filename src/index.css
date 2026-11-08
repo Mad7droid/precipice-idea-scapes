@@ -1,4 +1,5 @@
 @import "./design/tokens.css";
+@import "./design/interface-styles.css";
 
 @tailwind base;
 @tailwind components;
@@ -26,6 +27,14 @@
 .rich-text p + p {
   margin-top: 0.4em;
 }
+
+/* Light selection needs a stable edge as well as a tinted fill. Dark retains its
+   existing treatment; the marker never changes layout or consumes focus styling. */
+:root:not(.dark) .workspace-selected {
+  box-shadow: inset 3px 0 0 var(--border-focus);
+  font-weight: var(--weight-ui);
+}
+
 
 .rich-text ul,
 .rich-text ol {

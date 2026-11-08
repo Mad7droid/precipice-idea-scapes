@@ -1,5 +1,15 @@
 # Security and local data
 
+Workspace capture, search and appearance contracts are documented in
+[workspace contracts](workspace-contracts.md). Inbox records stay in the existing local
+settings database; library backups intentionally include capture text, including archived
+captures. Search indexes authored content locally in memory and makes no model or network
+request. Appearance preferences contain no document content. Editor and unsaved capture drafts use
+tab session storage and are never submitted automatically. Deleting a scape also removes its
+work state, last-opened time and stored editor layout/selection/draft. Only archived Inbox notes
+can be deleted. These additions grant no native permissions and do not
+change publishing, credential storage, agent scopes or the public viewer.
+
 Precipice is designed as a local-first workspace. Your Scapes are kept in the
 browser that you use, while AI generation is an explicit request made with your
 own Anthropic (Claude) API key.

@@ -22,7 +22,7 @@ import { useGeneration } from "@/ai/useGeneration";
 import { createApplier } from "@/ai/applier";
 import { useScapi } from "@/ai/scapi/useScapi";
 import { useScapiMood } from "@/ai/scapi/useScapiMood";
-import { suggestScapiQuestions } from "@/ai/scapi/suggestions";
+import { suggestScapiQuestions, SCAPI_ACTIONS } from "@/ai/scapi/suggestions";
 import { isToolName } from "@/ai/tools";
 import { Canvas, type CanvasCommands } from "@/canvas/Canvas";
 import { Scapi } from "@/components/scapi/Scapi";
@@ -42,7 +42,14 @@ import {
 import { usePublication } from "@/publish/usePublication";
 import { BlockMarkers, scapeTags } from "./BlockMarkers";
 import { Outline } from "./Outline";
-import { takeEditorIntent, takePendingWork } from "./pending";
+import { takeEditorIntent, takePendingWork, takePendingFocus } from "./pending";
+import { openWorkspaceTool } from "./workspaceEvents";
+import {
+  readEditorPreferences,
+  saveEditorPreferences,
+  readEditorDraft,
+  saveEditorDraft,
+} from "./editor/sessionPreferences";
 import { CommandPalette, HelpPanel, type CommandItem } from "./ProductivityOverlays";
 import { RelationshipInspector } from "./RelationshipInspector";
 import { navigate, scapeRoute } from "./router";
@@ -94,6 +101,7 @@ const AnswerError = lazy(() =>
  * the canvas because a brief is about what you are looking at.
  */
 export function Editor({ scapeId }: { scapeId: string }) {
+  const [savedSession] = useState(() => readEditorPreferences(scapeId));
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
   const dispatchTx = useScapeStore((s) => s.dispatchTx);
@@ -127,16 +135,20 @@ export function Editor({ scapeId }: { scapeId: string }) {
   /** Whether the canvas bar is showing its full controls. The bar itself is always present. */
   const [canvasComposerOpen, setCanvasComposerOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(PANEL.left);
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(PANEL.right);
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(
+    savedSession.leftWidth ?? PANEL.left,
+  );
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(
+    savedSession.rightWidth ?? PANEL.right,
+  );
   // A narrow window gives the canvas the room: the outline yields first, then the inspector.
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(
-    () => window.innerWidth < OUTLINE_COLLAPSE_BELOW,
+    () => window.innerWidth < OUTLINE_COLLAPSE_BELOW || savedSession.leftCollapsed === true,
   );
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(
-    () => window.innerWidth < INSPECTOR_COLLAPSE_BELOW,
+    () => window.innerWidth < INSPECTOR_COLLAPSE_BELOW || savedSession.rightCollapsed === true,
   );
-  const [scapiOpen, setScapiOpen] = useState(false);
+  const [scapiOpen, setScapiOpen] = useState(savedSession.scapiOpen ?? false);
   const [scapiMode, setScapiMode] = useState<"ask" | "edit">("ask");
   /**
    * One draft behind both composers, and one record of which of them last sent.
@@ -145,7 +157,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
    * decides where the answer surfaces: whichever composer you typed in is the one that shows
    * the result, because that is where you are already looking.
    */
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => readEditorDraft(scapeId));
   const [lastOrigin, setLastOrigin] = useState<"canvas" | "panel">("canvas");
   const [dismissedTurnId, setDismissedTurnId] = useState<string | null>(null);
   const [scapiWide, setScapiWide] = useState(false);
@@ -196,6 +208,58 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const composerInput = useRef<HTMLTextAreaElement | null>(null);
   const canvasArea = useRef<HTMLDivElement | null>(null);
   const { booted, readOnly, takingOver, takeOver } = useEditorSession(scapeId, commands);
+
+  const sessionToSave = useRef<Parameters<typeof saveEditorPreferences>[1] | null>(null);
+  useEffect(() => {
+    const flush = () => {
+      if (sessionToSave.current) saveEditorPreferences(scapeId, sessionToSave.current);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [scapeId]);
+
+  useEffect(() => {
+    if (!booted) return;
+    const value = {
+      leftWidth: leftPanelWidth,
+      rightWidth: rightPanelWidth,
+      leftCollapsed: leftPanelCollapsed,
+      rightCollapsed: rightPanelCollapsed,
+      scapiOpen,
+      selection,
+    };
+    sessionToSave.current = value;
+    const timer = window.setTimeout(() => saveEditorPreferences(scapeId, value), 200);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    scapeId,
+    booted,
+    leftPanelWidth,
+    rightPanelWidth,
+    leftPanelCollapsed,
+    rightPanelCollapsed,
+    scapiOpen,
+    selection,
+  ]);
+  useEffect(() => {
+    saveEditorDraft(scapeId, draft);
+  }, [scapeId, draft]);
+
+  useEffect(() => {
+    const focus = () => {
+      const id = takePendingFocus(scapeId);
+      if (!id || !useScapeStore.getState().scape?.objects[id]) return;
+      useScapeStore.getState().setSelection([id]);
+      commands.current?.focus(id);
+    };
+    window.addEventListener("precipice:focus-pending", focus);
+    return () => window.removeEventListener("precipice:focus-pending", focus);
+  }, [scapeId]);
 
   // Auto-collapse the outline when the window narrows past the breakpoint, so an 800px
   // window keeps a usable canvas. Widening does not reopen it: that is the person's call.
@@ -606,6 +670,16 @@ export function Editor({ scapeId }: { scapeId: string }) {
       const current = useScapeStore.getState().scape;
       const area = canvasArea.current?.getBoundingClientRect();
       if (!current || !area) return;
+      const target = takePendingFocus(scapeId);
+      const selected =
+        target && current.objects[target]
+          ? [target]
+          : (savedSession.selection ?? []).filter((id) => current.objects[id]);
+      if (selected.length) useScapeStore.getState().setSelection(selected);
+      if (target && current.objects[target]) {
+        window.requestAnimationFrame(() => ready.focus(target));
+        return;
+      }
       if (!viewportShowsContent(current, current.viewState, area.width, area.height)) {
         window.requestAnimationFrame(() => commands.current?.fit());
       }
@@ -692,6 +766,32 @@ export function Editor({ scapeId }: { scapeId: string }) {
       ];
 
   const commandItems: CommandItem[] = [
+    ...SCAPI_ACTIONS.map((action) => ({
+      id: `scapi-${action.id}`,
+      label: action.label,
+      hint: selection.length
+        ? "Prepare a question about the selection"
+        : "Prepare a question about this scape",
+      run: () => {
+        setScapiMode("ask");
+        setDraft(action.prompt);
+        setScapiOpen(true);
+      },
+    })),
+    {
+      id: "search-library",
+      label: "Search library content",
+      shortcut: "⌘⇧F",
+      run: () => openWorkspaceTool("search"),
+    },
+    {
+      id: "capture-note",
+      label: "Capture a note",
+      shortcut: "⌘⌥N",
+      run: () => openWorkspaceTool("capture"),
+    },
+    { id: "open-inbox", label: "Open Inbox", run: () => navigate("/inbox") },
+    { id: "open-home", label: "Open scapes", run: () => navigate("/") },
     ...editCommands,
     { id: "fit", label: "Fit canvas", shortcut: "⇧1", run: () => commands.current?.fit() },
     {
@@ -1074,6 +1174,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
                     searchAvailability={scapi.searchAvailability}
                     restored={scapi.restored}
                     suggestions={scapiSuggestions}
+                    actions={SCAPI_ACTIONS.map((action) => ({
+                      label: action.label,
+                      run: () => {
+                        setScapiMode("ask");
+                        setDraft(action.prompt);
+                      },
+                    }))}
                     mood={scapiMood}
                     disabled={!appSettings.aiReady || busy}
                     value={draft}

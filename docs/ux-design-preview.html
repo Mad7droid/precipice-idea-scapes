@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Precipice interface preview</title>
+    <style>
+      body {
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        max-width: 740px;
+        margin: 48px auto;
+        padding: 0 24px;
+        color: #252a2c;
+        background: #efefea;
+      }
+      h1 {
+        font-size: 28px;
+        font-weight: 500;
+      }
+      a {
+        color: #315c4b;
+      }
+      li {
+        margin: 12px 0;
+      }
+      code {
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Precipice interface preview</h1>
+    <p>
+      Use the running app to compare the shared interface. This is an acceptance checklist, not a
+      second implementation.
+    </p>
+    <p><a href="http://127.0.0.1:4173/">Open local preview</a></p>
+    <ol>
+      <li>
+        Settings → General: compare Current, Graphite and Field in Light and Dark. Check System and
+        reload.
+      </li>
+      <li>Capture a fictional note, close/reopen, save, edit, archive and restore it.</li>
+      <li>Add it to a new scape. Return Home and Continue working.</li>
+      <li>Choose Active, Parked or Done from its menu; test filters and gallery/list.</li>
+      <li>Search for a phrase in its body; open the matching block.</li>
+      <li>Prepare a Scapi task prompt; verify no send or mutation occurs.</li>
+      <li>
+        Back up and import into an isolated test library; verify new copies and captured text.
+      </li>
+      <li>Check keyboard focus, narrow windows, reduced motion and public/private separation.</li>
+    </ol>
+    <p>
+      Use fictional content only. Runtime evidence and limitations:
+      <code>docs/ux-implementation-record.md</code>.
+    </p>
+  </body>
+</html>

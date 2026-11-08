@@ -42,6 +42,7 @@ export interface ScapiPanelProps {
   searchAvailability?: SearchAvailability;
   restored?: boolean;
   suggestions?: string[];
+  actions?: Array<{ label: string; run: () => void }>;
   disabled?: boolean;
   placeholder?: string;
   /**
@@ -155,6 +156,7 @@ export function ScapiPanel({
   searchAvailability = "unknown",
   restored = false,
   suggestions = [],
+  actions = [],
   value,
   onValueChange,
   composer,
@@ -227,7 +229,26 @@ export function ScapiPanel({
             </p>
           )}
           {turns.length === 0 && !activity ? (
-            <EmptyState suggestions={suggestions} onSend={onSend} />
+            <>
+              <EmptyState suggestions={suggestions} onSend={onSend} />
+              {actions.length > 0 && (
+                <div className="mt-5 border-t border-subtle pt-4">
+                  <p className="mb-2 text-xs text-fg-secondary">Prepare a question</p>
+                  <div className="flex flex-wrap gap-2">
+                    {actions.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={action.run}
+                        className="rounded-md border border-default px-2.5 py-1.5 text-xs text-fg-secondary hover:bg-hover focus-self"
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <ol className="space-y-5">
               {turns.map((turn, index) => (
@@ -249,8 +270,7 @@ export function ScapiPanel({
               size={56}
               state={live.state}
               reactionKey={live.reactionKey}
-              playful
-              idleReactions
+              effects={false}
               className="mt-3"
             />
           )}
@@ -296,7 +316,7 @@ function EmptyState({
 }) {
   return (
     <div className="mt-6">
-      <Scapi size={96} playful className="mb-3" />
+      <Scapi size={96} effects={false} className="mb-3" />
       <p className="text-base font-[var(--weight-emph)] text-fg">Ask about this scape.</p>
       <p className="mt-1 text-sm text-fg-secondary">
         Scapi can read every object on the canvas. Ask answers questions without changing your work.
@@ -309,7 +329,7 @@ function EmptyState({
               key={suggestion}
               type="button"
               onClick={() => onSend(suggestion)}
-              className="animate-home-enter rounded-lg border border-subtle bg-raised px-3 py-2 text-left text-sm text-fg transition-colors duration-instant ease-out hover:bg-hover"
+              className="rounded-lg border border-subtle bg-raised px-3 py-2 text-left text-sm text-fg transition-colors duration-instant ease-out hover:bg-hover"
             >
               {suggestion}
             </button>

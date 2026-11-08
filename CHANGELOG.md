@@ -3,7 +3,45 @@
 All notable user-visible changes to Precipice are recorded here. Releases are
 numbered (see `docs/releases/`); entries are grouped by date and version.
 
-## Unreleased
+## 2026-11-09 — 0.1.17
+
+### Workspace and appearance
+
+- Library backups no longer fail when scapes plus Inbox notes exceed 1,000; each has its own
+  limit. Archived Inbox notes can be deleted after confirmation, freeing Inbox space. Notes
+  whose scape was deleted no longer show a broken Open link. A malformed Inbox note in a
+  backup imports as an ordinary scape instead of failing the whole import.
+- Closing Capture keeps an unsaved note for the current tab; Discard clears it. Deleting a
+  scape also removes its work state, last-opened time and saved editor layout.
+- Content search reports a scape-name match once rather than listing every block in that
+  scape, keeps more documents cached in large libraries, and supports ↑/↓ and Enter.
+
+- Light-mode selection now uses a stronger theme tint and a slim accent marker in workspace
+  navigation. Graphite and Field separate neutral page, card and input surfaces more clearly;
+  template cards have clearer boundaries. Dark palette values remain unchanged.
+- Search, capture and Inbox editing explicitly color typed, placeholder and selected text.
+  Inbox notes have bounded reading surfaces, clear selected-view controls and Cancel editing;
+  archive is disabled while a draft is being edited.
+- Inbox uses compact cards in two columns on wide windows and one column on narrow windows.
+  Add to scape reveals its destination picker on request; archive and editing stay visible.
+  The rejected colored edge and footer strip have been removed.
+
+- Settings → General offers Current, Graphite and Field interface styles independently of
+  Light/Dark/System. Current remains the default; the logo, orange Scapi artwork, fonts and
+  controls are shared. Style changes persist locally and apply before first paint.
+- Returning-user Home leads with Continue working. Last opened is recorded separately from
+  edited time; optional Active, Parked and Done states remain independent of pins.
+- Capture a note without AI or a template, then edit, archive, restore or add it to a scape
+  from Inbox. Promotion commits the note and source receipt together and respects writer leases.
+  Library backups include Inbox text in a format older versions can open as ordinary scapes.
+- Local content search finds names, object text and tags and opens the matching block. Search
+  uses a bounded in-memory cache and never uploads the library or invokes an AI model.
+- Panel choices, valid selection and tab-session drafts resume without replaying AI work.
+  Scapi task actions prepare explicit Ask prompts without sending or applying them.
+- Decorative Scapi click/idle reactions are disabled on working surfaces. Corrected the
+  Tailwind colour/size namespace collision that could paint `text-base` like the background.
+- Aligned the locked Rust deep-link plugin to 2.6.2, matching the existing JavaScript plugin,
+  so desktop packaging passes its version guard without bypass flags.
 
 ### Fixed
 

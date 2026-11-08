@@ -254,6 +254,8 @@ describe("home workflows", () => {
     expect(deletePublication).toHaveBeenCalledWith("p", { token: "test" });
     expect(scapeRepository.remove).toHaveBeenCalledWith("a");
     expect(settingsRepository.remove).toHaveBeenCalledWith("home.pin.a");
+    expect(settingsRepository.remove).toHaveBeenCalledWith("workspace.state.a");
+    expect(settingsRepository.remove).toHaveBeenCalledWith("workspace.opened.a");
   });
   it("exports both formats without opening the editor", async () => {
     vi.mocked(scapeRepository.list).mockResolvedValue([sample]);

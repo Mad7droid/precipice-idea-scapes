@@ -6,11 +6,22 @@ import { downloadBlob } from "@/export/download";
 import { db, type PrecipiceDb } from "./db";
 import { CURRENT_DOC_VERSION, migrateScape } from "./migrate";
 import { importedName, parseScapeFile, ScapeImportError } from "./portable";
+import {
+  capturesFromSettings,
+  captureAsScape,
+  captureFromScape,
+  MAX_CAPTURES,
+  WORKSPACE_KEYS,
+} from "./workspace";
 
 const envelope = z.object({
   format: z.literal("precipice-library"),
   version: z.literal(1),
-  scapes: z.array(z.unknown()).min(1).max(1000),
+  // Up to 1,000 scapes plus up to MAX_CAPTURES Inbox notes stored as note scapes.
+  scapes: z
+    .array(z.unknown())
+    .min(1)
+    .max(1000 + MAX_CAPTURES),
 });
 export const MAX_LIBRARY_BYTES = 100 * 1024 * 1024;
 
@@ -30,9 +41,18 @@ export interface LibraryExport {
  * read transaction across every row; the repository has no consistent bulk read.
  */
 export async function exportLibrary(database: PrecipiceDb = db): Promise<LibraryExport> {
-  return database.transaction("r", database.scapes, async () => {
+  return database.transaction("r", database.scapes, database.settings, async () => {
     const rows = await database.scapes.toArray();
-    if (!rows.length) throw new Error("There are no scapes to export.");
+    const captureRows = await database.settings
+      .where("key")
+      .startsWith(WORKSPACE_KEYS.capture)
+      .toArray();
+    const captures = capturesFromSettings(
+      Object.fromEntries(captureRows.map((row) => [row.key, row.value])),
+    );
+    if (!rows.length && !captures.length)
+      throw new Error("There are no scapes or Inbox items to export.");
+    // Inbox notes have their own limit, so they never block a library within the scape limit.
     if (rows.length > 1000)
       throw new Error("Export individual scapes for libraries larger than 1,000 scapes.");
     const scapes = [];
@@ -48,6 +68,7 @@ export async function exportLibrary(database: PrecipiceDb = db): Promise<Library
         skipped.push(row.name);
       }
     }
+    scapes.push(...captures.map((item) => toScapeFile(captureAsScape(item))));
     if (!scapes.length) throw new Error("None of these scapes can be read by this version.");
     const text = JSON.stringify({ format: "precipice-library", version: 1, scapes });
     if (new Blob([text]).size > MAX_LIBRARY_BYTES)
@@ -82,32 +103,58 @@ export async function importLibrary(text: string, database: PrecipiceDb = db): P
   }
   const parsed = envelope.safeParse(json);
   if (!parsed.success)
-    throw new ScapeImportError("Expected a version 1 Precipice library with 1–1,000 scapes.");
+    throw new ScapeImportError(
+      "Expected a version 1 Precipice library with 1–1,000 scapes and up to 1,000 Inbox notes.",
+    );
   const files = parsed.data.scapes.map((file) => parseScapeFile(JSON.stringify(file)));
-  await database.transaction("rw", database.scapes, database.actions, async () => {
-    const names = new Set((await database.scapes.toArray()).map((row) => row.name));
-    for (const file of files) {
-      const name = importedName(file.scape.name, names);
-      names.add(name);
-      const snapshot = toPlainScape({ ...file.scape, name, id: newScapeId() });
-      await database.scapes.add({
-        id: snapshot.id,
-        name: snapshot.name,
-        updatedAt: snapshot.updatedAt,
-        objectCount: snapshot.objectOrder.length,
-        snapshot,
-        version: CURRENT_DOC_VERSION,
-      });
-      if (file.actionLog.length)
-        await database.actions.bulkAdd(
-          file.actionLog.map((action) => ({
-            scapeId: snapshot.id,
-            ts: action.ts,
-            txId: action.txId,
-            action,
-          })),
-        );
-    }
-  });
+  // Parse capture metadata before the transaction too: malformed content cannot partly import.
+  const captures = files.map((file) => captureFromScape(file.scape));
+  await database.transaction(
+    "rw",
+    database.scapes,
+    database.actions,
+    database.settings,
+    async () => {
+      const incoming = captures.filter(Boolean).length;
+      if (incoming) {
+        const existing = await database.settings
+          .where("key")
+          .startsWith(WORKSPACE_KEYS.capture)
+          .count();
+        if (existing + incoming > MAX_CAPTURES)
+          throw new ScapeImportError(
+            `This library would exceed ${MAX_CAPTURES.toLocaleString("en")} Inbox notes. Delete archived notes, then import again.`,
+          );
+      }
+      const names = new Set((await database.scapes.toArray()).map((row) => row.name));
+      for (const [index, file] of files.entries()) {
+        const capture = captures[index];
+        if (capture) {
+          await database.settings.add({ key: WORKSPACE_KEYS.capture + capture.id, value: capture });
+          continue;
+        }
+        const name = importedName(file.scape.name, names);
+        names.add(name);
+        const snapshot = toPlainScape({ ...file.scape, name, id: newScapeId() });
+        await database.scapes.add({
+          id: snapshot.id,
+          name: snapshot.name,
+          updatedAt: snapshot.updatedAt,
+          objectCount: snapshot.objectOrder.length,
+          snapshot,
+          version: CURRENT_DOC_VERSION,
+        });
+        if (file.actionLog.length)
+          await database.actions.bulkAdd(
+            file.actionLog.map((action) => ({
+              scapeId: snapshot.id,
+              ts: action.ts,
+              txId: action.txId,
+              action,
+            })),
+          );
+      }
+    },
+  );
   return files.length;
 }
