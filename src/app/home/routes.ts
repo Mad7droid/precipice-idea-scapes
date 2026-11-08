@@ -1,6 +1,7 @@
 /** The pages that share the home shell. Anything else is a scape, a consent screen, or dev. */
 export const HOME_PAGES = {
   "/": "home",
+  "/inbox": "inbox",
   "/templates": "templates",
   "/published": "published",
   "/agents": "agents",
@@ -15,6 +16,7 @@ export function homePage(route: string): HomePage | null {
 
 export const PAGE_ROUTE: Record<HomePage, string> = {
   home: "/",
+  inbox: "/inbox",
   templates: "/templates",
   published: "/published",
   agents: "/agents",

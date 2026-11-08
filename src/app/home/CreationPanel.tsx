@@ -55,7 +55,7 @@ export function CreationPanel({
         <Scapi
           state={busy ? "thinking" : "idle"}
           size={144}
-          playful
+          effects={false}
           style={{ width: "100%", height: "100%" }}
         />
       </div>

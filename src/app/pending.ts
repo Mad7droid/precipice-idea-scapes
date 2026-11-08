@@ -44,3 +44,15 @@ export function takeEditorIntent(scapeId: string): EditorIntent | null {
   editorIntent = null;
   return intent?.scapeId === scapeId ? intent.panel : null;
 }
+
+let pendingFocus: { scapeId: string; objectId: string } | null = null;
+/** A navigation cue only. No object content is placed in a URL or generated on restoration. */
+export function setPendingFocus(scapeId: string, objectId: string): void {
+  pendingFocus = { scapeId, objectId };
+}
+export function takePendingFocus(scapeId: string): string | undefined {
+  if (pendingFocus?.scapeId !== scapeId) return;
+  const id = pendingFocus.objectId;
+  pendingFocus = null;
+  return id;
+}

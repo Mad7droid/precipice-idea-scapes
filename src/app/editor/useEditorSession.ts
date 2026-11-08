@@ -11,6 +11,7 @@ import { scapeRepository } from "@/persistence/scapeRepository";
 import { settingsRepository } from "@/persistence/settings";
 import { registerQuitFlush } from "@/desktop/quit";
 import { navigate } from "../router";
+import { WORKSPACE_KEYS } from "@/persistence/workspace";
 
 /**
  * The editor's session with one scape: the cross-tab write lease, autosave, the initial load,
@@ -89,6 +90,7 @@ export function useEditorSession(
       }
       useScapeStore.getState().loadScape(loaded);
       await settingsRepository.set(SETTING_KEYS.lastScapeId, scapeId);
+      void settingsRepository.set(WORKSPACE_KEYS.opened + scapeId, Date.now()).catch(() => {});
       setBooted(true);
     })();
 

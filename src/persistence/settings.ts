@@ -1,6 +1,7 @@
 import { db, type PrecipiceDb } from "./db";
 import type { SettingsRepository, ThemePreference } from "@/core/types";
 import { SETTING_KEYS } from "@/core/types";
+import { INTERFACE_STYLE_MIRROR, interfaceStyle } from "@/design/interfaceStyle";
 
 /**
  * Key/value settings.
@@ -20,8 +21,12 @@ export class DexieSettingsRepository implements SettingsRepository {
     // The theme is mirrored into localStorage purely so the inline script in index.html can
     // read it synchronously before first paint. IndexedDB is async; a flash of the wrong
     // theme is a bug, not a nitpick.
-    if (key === SETTING_KEYS.theme && typeof localStorage !== "undefined") {
-      localStorage.setItem("precipice.theme", String(value));
+    try {
+      if (key === SETTING_KEYS.theme) localStorage.setItem("precipice.theme", String(value));
+      if (key === SETTING_KEYS.interfaceStyle)
+        localStorage.setItem(INTERFACE_STYLE_MIRROR, interfaceStyle(value));
+    } catch {
+      // A denied synchronous mirror must not turn a successful IndexedDB write into a failure.
     }
   }
 

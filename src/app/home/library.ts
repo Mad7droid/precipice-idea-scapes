@@ -2,7 +2,7 @@ import type { PublicationRecord, ScapeSummary } from "@/core/types";
 import { acquireScapeLease } from "@/persistence/lease";
 
 export type LibraryPreferences = {
-  filter: "all" | "pinned" | "published";
+  filter: "all" | "pinned" | "published" | "active" | "parked" | "done";
   sort: "edited" | "name";
   view: "gallery" | "list";
 };
@@ -19,7 +19,14 @@ export const HOME_KEYS = {
 export function readPreferences(value: unknown): LibraryPreferences {
   const v = value as Partial<LibraryPreferences> | null;
   return {
-    filter: v?.filter === "pinned" || v?.filter === "published" ? v.filter : "all",
+    filter:
+      v?.filter === "pinned" ||
+      v?.filter === "published" ||
+      v?.filter === "active" ||
+      v?.filter === "parked" ||
+      v?.filter === "done"
+        ? v.filter
+        : "all",
     sort: v?.sort === "name" ? "name" : "edited",
     view: v?.view === "list" ? "list" : "gallery",
   };
@@ -30,6 +37,7 @@ export function selectScapes(
   prefs: LibraryPreferences,
   pins: Set<string>,
   publications: Map<string, PublicationRecord>,
+  workStates: Record<string, string> = {},
 ) {
   const term = query.trim().toLocaleLowerCase();
   return scapes
@@ -38,6 +46,10 @@ export function selectScapes(
         s.name.toLocaleLowerCase().includes(term) &&
         (prefs.filter !== "pinned" || pins.has(s.id)) &&
         (prefs.filter !== "published" || publications.get(s.id)?.status === "published"),
+    )
+    .filter(
+      (s) =>
+        !["active", "parked", "done"].includes(prefs.filter) || workStates[s.id] === prefs.filter,
     )
     .sort(
       (a, b) =>

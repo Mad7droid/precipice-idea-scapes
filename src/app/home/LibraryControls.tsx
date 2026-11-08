@@ -6,6 +6,9 @@ const FILTERS: { id: LibraryPreferences["filter"]; label: string; hint: string }
   { id: "all", label: "All", hint: "Every scape in this library" },
   { id: "pinned", label: "Pinned", hint: "Scapes you pinned to the top" },
   { id: "published", label: "Published", hint: "Scapes with a live read-only link" },
+  { id: "active", label: "Active", hint: "Work in progress" },
+  { id: "parked", label: "Parked", hint: "Work set aside" },
+  { id: "done", label: "Done", hint: "Completed work" },
 ];
 
 export function LibraryControls({
@@ -21,19 +24,22 @@ export function LibraryControls({
   searchRef?: RefObject<HTMLInputElement | null>;
   preferences: LibraryPreferences;
   onPreferences: (value: LibraryPreferences) => void;
-  counts: Record<LibraryPreferences["filter"], number>;
+  counts: Partial<Record<LibraryPreferences["filter"], number>> & { all: number };
 }) {
   // A filter with nothing in it is a promise of content that is not there. Show one only once
   // it can return something — or while it is the active one, so it can always be switched off.
   const filters = FILTERS.filter(
-    (f) => f.id === "all" || counts[f.id] > 0 || preferences.filter === f.id,
+    (f) => f.id === "all" || (counts[f.id] ?? 0) > 0 || preferences.filter === f.id,
   );
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
       <div className="flex min-w-0 items-baseline gap-2">
         <h2 className="text-lg font-medium text-fg">Scapes</h2>
         {filters.length === 1 && (
-          <span className="text-sm text-fg-tertiary" aria-label={`${counts.all} scapes`}>
+          <span
+            className="text-sm text-fg-tertiary"
+            aria-label={`${counts.all} ${counts.all === 1 ? "scape" : "scapes"}`}
+          >
             {counts.all}
           </span>
         )}

@@ -197,7 +197,7 @@
 
   --bg-hover: rgba(30, 27, 23, 0.04);
   --bg-active: rgba(30, 27, 23, 0.07);
-  --bg-selected: var(--signal-50);
+  --bg-selected: #f6d3bf;
 
   --text-primary: var(--ash-900);
   --text-secondary: var(--ash-600);

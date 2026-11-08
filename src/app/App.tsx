@@ -23,6 +23,10 @@ import { ConnectConsent } from "./agents/ConnectConsent";
 import { useAgentRuntime } from "@/mcp/host/runtime";
 import { ToastHost } from "./ToastHost";
 import { AppSettingsProvider } from "./useAppSettings";
+import { useInitializeInterfaceStyle } from "./useInterfaceStyle";
+const WorkspaceTools = lazy(() =>
+  import("./WorkspaceTools").then((module) => ({ default: module.WorkspaceTools })),
+);
 
 const DevAi = lazy(() => import("@/routes/dev/ai").then(({ DevAi }) => ({ default: DevAi })));
 const DevPublish = lazy(() =>
@@ -37,8 +41,12 @@ const DevObjects = lazy(() =>
 const DevPersistence = lazy(() =>
   import("@/routes/dev/persistence").then(({ DevPersistence }) => ({ default: DevPersistence })),
 );
+const DevAppearance = lazy(() =>
+  import("@/routes/dev/appearance").then(({ DevAppearance }) => ({ default: DevAppearance })),
+);
 
 const DEV_ROUTES: Array<[string, string]> = [
+  ["/dev/appearance", "Interface styles — shared components, original artwork, light and dark"],
   ["/dev/objects", "Object plugins — all types, both themes, 1× and 0.4×"],
   ["/dev/canvas", "Canvas — drag, connect, delete, layout, undo, live action log"],
   ["/dev/persistence", "Persistence — autosave, action log, export and import"],
@@ -47,6 +55,7 @@ const DEV_ROUTES: Array<[string, string]> = [
 ];
 
 export function App() {
+  useInitializeInterfaceStyle();
   const signIn = useSignInReturn();
   const copying = usePublicCopyImport();
 
@@ -65,6 +74,9 @@ export function App() {
     <AppSettingsProvider>
       <AgentRuntime />
       <Routes />
+      <Suspense fallback={null}>
+        <WorkspaceTools />
+      </Suspense>
       <AgentDock />
       <ToastHost />
       {signIn.error && <AuthErrorModal error={signIn.error} onClose={signIn.dismissError} />}
@@ -188,6 +200,12 @@ function DevRoutes({ route }: { route: string }) {
     return (
       <DevRoute>
         <DevObjects />
+      </DevRoute>
+    );
+  if (route === "/dev/appearance")
+    return (
+      <DevRoute>
+        <DevAppearance />
       </DevRoute>
     );
   if (route === "/dev/canvas")

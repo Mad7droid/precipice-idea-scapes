@@ -4,6 +4,7 @@ import { Brand } from "../Brand";
 import { navigate } from "../router";
 import { ThemeControl } from "../ThemeControl";
 import { PAGE_ROUTE, type HomePage } from "./routes";
+import { openWorkspaceTool } from "../workspaceEvents";
 import {
   AgentIcon,
   BackupIcon,
@@ -19,6 +20,7 @@ import {
 
 const PAGES: { id: HomePage; label: string; icon: ReactNode }[] = [
   { id: "home", label: "Home", icon: <HomeIcon /> },
+  { id: "inbox", label: "Inbox", icon: <ImportIcon /> },
   { id: "templates", label: "Templates", icon: <TemplatesIcon /> },
   { id: "published", label: "Published", icon: <GlobeIcon /> },
   { id: "agents", label: "Agents", icon: <AgentIcon /> },
@@ -58,6 +60,20 @@ export function Sidebar(props: SidebarProps) {
         <Brand />
       </div>
       <div className="px-3">
+        <button
+          type="button"
+          onClick={() => openWorkspaceTool("search")}
+          className={`${ROW} mb-2 text-fg-secondary hover:bg-hover`}
+        >
+          Search content <span className="ml-auto text-xs text-fg-tertiary">⌘⇧F</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => openWorkspaceTool("capture")}
+          className={`${ROW} mb-2 text-fg-secondary hover:bg-hover`}
+        >
+          Capture a note
+        </button>
         <button
           type="button"
           onClick={props.onNewScape}
@@ -138,7 +154,9 @@ function PageLink({
       className={
         ROW +
         " " +
-        (active ? "bg-selected text-fg" : "text-fg-secondary hover:bg-hover hover:text-fg")
+        (active
+          ? "workspace-selected bg-selected text-fg"
+          : "text-fg-secondary hover:bg-hover hover:text-fg")
       }
     >
       {item.icon}
@@ -174,6 +192,14 @@ export function MobileNav({
       <div className="flex items-center justify-between px-4 py-2.5">
         <Brand />
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Capture a note"
+            onClick={() => openWorkspaceTool("capture")}
+            className={icon}
+          >
+            <PlusIcon />
+          </button>
           <button type="button" aria-label="Import" onClick={onImport} className={icon}>
             <ImportIcon />
           </button>

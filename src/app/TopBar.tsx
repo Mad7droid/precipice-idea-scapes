@@ -7,6 +7,7 @@ import { starterFor } from "@/starters";
 import { describeState, type PublicationState } from "@/publish/usePublication";
 import { Brand } from "./Brand";
 import { buttonClass } from "@/design/Button";
+import { openWorkspaceTool } from "./workspaceEvents";
 
 export type ExportFormat = "scape" | "pdf";
 
@@ -123,6 +124,24 @@ export function TopBar({
       </span>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        <button
+          type="button"
+          onClick={() => openWorkspaceTool("search")}
+          aria-label="Search library content"
+          title="Search library content (⌘⇧F)"
+          className={buttonClass({ variant: "ghost", size: "sm" })}
+        >
+          Find
+        </button>
+        <button
+          type="button"
+          onClick={() => openWorkspaceTool("capture")}
+          aria-label="Capture a note"
+          title="Capture a note (⌘⌥N)"
+          className={buttonClass({ variant: "ghost", size: "sm" })}
+        >
+          Capture
+        </button>
         {onOpenScapi && (
           <button
             type="button"

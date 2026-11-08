@@ -8,6 +8,9 @@ import { Button } from "@/design/Button";
 import { Select } from "@/design/Select";
 import { InstructionsField } from "@/ai/Instructions";
 import { ThemeControl } from "./ThemeControl";
+import { useInterfaceStyle } from "./useInterfaceStyle";
+import { INTERFACE_STYLES } from "@/design/interfaceStyle";
+import type { InterfaceStyle } from "@/core/types";
 import { useDialogFocus } from "./home/Dialog";
 import { isDesktop } from "@/desktop/runtime";
 import { McpBridgePanel } from "./McpBridgePanel";
@@ -48,6 +51,7 @@ export function SettingsModal({
   const dialogRef = useDialogFocus(onClose);
   const [section, setSection] = useState<SectionId>(initialSection);
   const [dictationLanguage, setDictationLanguage] = useState<DictationLanguage>("en");
+  const [style, setStyle] = useInterfaceStyle();
 
   useEffect(() => {
     void settingsRepository
@@ -100,8 +104,25 @@ export function SettingsModal({
             {section === "general" && (
               <>
                 <div>
-                  <span className="mb-1 block text-xs text-fg-secondary">Theme</span>
+                  <span className="mb-1 block text-xs text-fg-secondary">Appearance</span>
                   <ThemeControl value={theme} onChange={onThemeChange} />
+                </div>
+
+                <div className="mt-5">
+                  <span className="mb-1 block text-xs text-fg-secondary">Interface style</span>
+                  <Select
+                    label="Interface style"
+                    value={style}
+                    onChange={(next) => void setStyle(next as InterfaceStyle)}
+                    options={[...INTERFACE_STYLES]}
+                    className="w-full"
+                  />
+                  <p className="mt-2 text-xs text-fg-secondary" aria-live="polite">
+                    {INTERFACE_STYLES.find((option) => option.value === style)?.description}
+                  </p>
+                  <p className="mt-1 text-xs text-fg-tertiary">
+                    Applies to this library. Logo, Scapi artwork and fonts stay the same.
+                  </p>
                 </div>
 
                 {credentials?.desktop && (

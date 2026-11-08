@@ -30,6 +30,13 @@
         } catch (e) {
           /* private mode / storage disabled — fall through to light */
         }
+        try {
+          var style = localStorage.getItem("precipice.interfaceStyle");
+          document.documentElement.dataset.interfaceStyle =
+            style === "graphite" || style === "field" ? style : "current";
+        } catch (e) {
+          document.documentElement.dataset.interfaceStyle = "current";
+        }
       })();
     </script>
   </head>

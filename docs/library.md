@@ -1,6 +1,8 @@
 # Library and templates
 
-Home stores your library on this device. The sidebar opens **Home**, **Templates**,
+Home stores your library on this device. Returning users see Continue working first; New scape
+reveals the existing composer and templates. Last opened is separate from last edited.
+The sidebar opens **Home**, **Inbox**, **Templates**,
 **Published**, **Agents**, and **Instructions**; compact navigation serves smaller screens.
 Import, Back up library, Settings, and Help remain available in the shell.
 
@@ -19,6 +21,27 @@ or its edited time. A card’s menu groups open, rename, duplicate, export, publ
 Rename and delete respect the same single-writer protection as the editor. Deleting a scape that
 has ever been published first removes its server copy (sign-in required), then deletes the local
 document, its history, its publication record, and its pin.
+
+## Inbox, work state and content search
+
+Capture a note from navigation, the editor or commands without connecting AI or choosing a
+template. Save to Inbox confirms only after local persistence. Edit, archive and restore notes;
+Add to scape creates a note in a new or closed existing scape. Promoted originals remain archived.
+Open destinations are refused rather than overwritten. Cmd/Ctrl+Alt+N opens capture; dictation
+keeps Cmd/Ctrl+Shift+Space.
+
+Scape menus offer optional Active, Parked and Done states, independent of pins and edit time.
+Filter by a state once it is in use. Search content (Cmd/Ctrl+Shift+F) searches titles, object
+text, tags and flows locally, and opens the matched block. Home Cmd/Ctrl+K opens content search;
+editor Cmd/Ctrl+K retains its command palette with search/capture/navigation entries.
+
+Settings → General separates Interface style (Current, Graphite, Field) from Light/Dark/System.
+Styles preserve the logo, orange Scapi artwork, fonts and all controls. Session restoration keeps
+panel choices and selection; unsent drafts stay tab-session only and are never automatically sent.
+
+Library backups include Inbox and archived originals as compatible note scapes. This build imports
+them back into Inbox; older builds open them as ordinary scapes. Backups still exclude credentials,
+preferences, publication ownership and action history. Work-state organization remains local.
 
 ## Published links
 

@@ -12,7 +12,6 @@ export default {
     extend: {
       colors: {
         canvas: "var(--bg-canvas)",
-        base: "var(--bg-base)",
         surface: "var(--bg-surface)",
         raised: "var(--bg-raised)",
         inset: "var(--bg-inset)",
@@ -57,6 +56,12 @@ export default {
           metric: "var(--obj-metric)",
           risk: "var(--obj-risk)",
         },
+      },
+
+      // Keep bg-base out of the general colour namespace: `text-base` is the
+      // established font-size utility and must never paint text like the background.
+      backgroundColor: {
+        base: "var(--bg-base)",
       },
 
       borderColor: {

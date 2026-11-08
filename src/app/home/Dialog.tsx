@@ -78,7 +78,7 @@ export function Dialog({
         aria-label={title}
         tabIndex={-1}
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-xl border border-subtle bg-surface p-6 shadow-lg"
+        className="w-full max-w-md rounded-xl border border-subtle bg-surface p-6 text-fg shadow-lg"
       >
         <h2 className="text-lg text-fg">{title}</h2>
         {children}

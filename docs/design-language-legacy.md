@@ -1,0 +1,317 @@
+# Historical design proposal (superseded)
+
+Use [design-language.md](design-language.md) for current contracts.
+
+# Precipice — Design Language
+
+Reference direction: **Mistral / Le Chat.** The goal is that a designer who knows their
+work would look at Precipice and assume the same studio made it — then notice it's a
+canvas tool, not a chat app, and see that the system was extended rather than copied.
+
+This document is the _why_. `src/design/tokens.css` is the _what_. Components consume
+tokens; nobody writes a raw value.
+
+## Current implementation notes
+
+`src/design/Button.tsx` defines primary, secondary, ghost, and destructive roles. Filled primary
+actions use `--action-primary`; the brighter signal accent identifies selection, focus, and
+connections. Keep one primary action per surface. The visual references below explain the
+direction; the current tokens and components define exact values.
+
+Scapi shares its Ask/Edit composer and transcript across canvas and panel. Agent review cards
+and connection activity should remain readable without taking over the canvas. Settings uses
+General, AI, and Agents sections. Public share links must be usable hosted URLs, even on desktop.
+The library shell has a persistent sidebar on larger screens and compact navigation on mobile.
+Home leads with one composer and a short template row. Templates, Published, Agents, and
+Instructions each have their own page. The chat preview uses warm project tokens, a connected
+map, keyboard-accessible block inspection, one creation action, and a separate disclosure step
+for sharing. Browsing is local. Press feedback uses `--dur-fast` (130ms) and is removed under
+reduced motion. Cancellation, expiry, and withdrawn shares must be reflected in disabled
+actions and current status text.
+
+Use [sanitized product screenshots](screenshots/README.md) when documenting these surfaces.
+
+---
+
+## What actually makes Mistral's work read the way it does
+
+Five observations, in order of how much they matter. Miss the first two and nothing else
+saves it.
+
+**1. The neutrals are warm, and they're the whole design.**
+There is almost no colour in the interface. What carries it is a neutral ramp shifted to
+roughly 35–40° hue at very low chroma — paper, not paper-white; charcoal, not slate. Most
+teams reach for a cool grey (Tailwind's `slate`, `zinc`) and the result feels clinical.
+Warm neutrals feel like an object you own. That single hue shift does more work than any
+other decision here.
+
+**2. The accent is a signal orange, not a clay terracotta.**
+This is a trap worth naming. The obvious move — warm cream background, muted terracotta
+around `#D97757` — is the current house style of AI-generated design, and it will read as
+a tell. Mistral's orange is genuinely _vivid_: high chroma, near-fluorescent, closer to a
+safety marking than to pottery. It's used at maybe 2% coverage, which is exactly why it can
+be that loud. Our `--signal-500` is `#FA500F`. Keep the coverage low and the chroma high.
+Inverting that — lots of a muted orange — is how this palette dies.
+
+**3. Elevation is lightness. Always, in both modes.**
+Panels, popovers and menus get _lighter_ as they come forward, in dark mode as well as
+light. No mode inverts the rule. Shadows are barely present; a hairline border and a step
+in surface lightness do the work. Users learn one mental model and it holds everywhere.
+
+**4. Type is small, tight, and entirely sans.**
+No editorial serif, no display face. Default UI text is 13px with slightly negative
+tracking on anything above 18px. The personality comes from density and restraint, not
+from a characterful face. This is what makes it feel engineered rather than published.
+
+**5. Chrome is quiet so one element can be loud.**
+In Le Chat that element is the composer — big radius, inset well, everything else recedes
+around it. The whole layout is arranged so your eye has exactly one place to go.
+
+---
+
+## Where Precipice extends the system rather than copying it
+
+Two deliberate additions. Both are ours, both are justified by the fact that this is a
+builder's canvas and not a chat window.
+
+### Monospace as a semantic tier
+
+The `.mono` **treatment** is reserved, strictly, for **machine truth**: object ids, action
+names, model and provider names, timestamps, type labels, keybindings. Never prose, never
+decoration.
+
+The reservation is on the treatment, not the typeface. Uppercase, 11px, `+0.04em`, tertiary
+colour — that combination means "this is a real, nameable thing the system knows about," and
+it must never appear on anything else. Geist Pixel set in normal case at heading size is a
+different signal entirely, and is allowed on the wordmark and on page and section headings
+via `.font-pixel`. A reader is never asked to tell an id from a headline; size and case do
+that work long before the family does.
+
+The payoff is that the interface becomes self-documenting. When a user sees
+`CreateObject` in mono next to a node, they learn that actions are real, nameable,
+inspectable things — which is precisely the mental model the Action Protocol depends on.
+The type system teaches the architecture. That's structure encoding something true rather
+than decorating.
+
+### The generation ribbon — the signature element
+
+When AI generates, Precipice does not show a spinner and then a finished canvas.
+
+A thin ribbon docks above the composer. Each action appears in it as it lands — mono,
+one line, `CreateObject · journey · "Verify identity"` — while the corresponding node
+scales in on the canvas from `0.96` with a single soft spring, and its edges draw in
+after a 60ms beat. The ribbon fills left to right as the transaction completes.
+
+When it's done the ribbon collapses to one line: `18 actions · claude-sonnet-4-6 · undo`.
+That undo reverses the whole transaction, because every action carries the same `txId`.
+
+This is the moment the product is remembered by, and it's the moment the architecture is
+visible: reasoning arrives as discrete, named, reversible operations. Spend the animation
+budget here. Everything else in the app stays still.
+
+---
+
+## Colour
+
+### Neutrals — "Ash"
+
+A warm ramp at ~35° hue, low chroma. This is 90% of every screen.
+
+`#FCFBF9` · `#F7F5F1` · `#F0EDE7` · `#E7E3DB` · `#DCD7CD` · `#C4BDB0` · `#9E958A`
+· `#786F63` · `#5A5248` · `#423C34` · `#2B2721` · `#1E1B17` · `#141210`
+
+### Accent — "Signal"
+
+`#FA500F` at rest in light mode; `#FF7033` in dark mode.
+
+The accent **shifts lighter and slightly less saturated in dark mode**. A colour tuned for
+contrast against paper will vibrate against near-black. This is the same adjustment
+Mistral makes and it is not optional.
+
+Accent is for: focus rings, the active generation state, selection outlines on canvas,
+canvas connectors, small state indicators, and the Risk object type. That's the complete
+list — and note that **filled buttons are not on it**.
+
+**The action accent is a separate, deeper rust.** `#B02F06` (`--action-primary`) in light
+mode, `#FF7033` in dark. A colour tuned to catch the eye as a 2px selection ring becomes an
+assault as a filled rectangle you are meant to read white text off; at `#FA500F` the only
+label that clears contrast is near-black, and black on neon orange is the pairing that made
+this split necessary. Filled actions get the deeper rust and a white label (6.45:1); the
+bright accent stays for the thin, small, stateful things.
+
+The practical consequence: **a surface gets at most one filled action**. Everything else is
+a bordered secondary, a ghost, or — if it is a toggle rather than an action — `--bg-selected`
+with ordinary text. Toggles outnumber actions in this app, so filling them accent turns the
+accent into wallpaper and the real action disappears into it.
+
+### Brand gradient
+
+A five-step gold → red ramp, an homage to Mistral's stepped logo treatment. Permitted in
+exactly two places: the empty-canvas mark, and the app icon. Never on buttons, never as a
+text fill, never as a card background. When Precipice has its own identity, replace the
+steps — the _structure_ (discrete steps, not a smooth blend) is the borrowed idea, and
+that's the part worth keeping.
+
+### Object type hues
+
+Muted enough to sit together on one canvas without turning it into a highlighter accident.
+Every one is warm-compatible.
+
+| Type                 | Light                  | Dark              |
+| -------------------- | ---------------------- | ----------------- |
+| Note                 | neutral                | neutral           |
+| Journey              | `#4E8C86` dusty teal   | `#6FB3AC`         |
+| Wireframe            | `#5B6BAE` dusty indigo | `#8794D4`         |
+| _Persona_ (reserved) | `#A85F5A` clay rose    | `#C98A85`         |
+| _Metric_ (reserved)  | `#6E8C3F` olive        | `#96B368`         |
+| _Risk_ (reserved)    | shares `--signal`      | shares `--signal` |
+
+Risk sharing the accent is intentional. Risk _is_ the thing that should catch your eye.
+
+### Status
+
+Success, danger and info are desaturated to sit in the warm palette. Danger is pushed
+toward crimson (`#C33A2E`) specifically so it is not confusable with the orange accent at
+small sizes.
+
+**Warning is a problem.** In a palette where the accent is orange, an amber warning state
+is nearly invisible. A token exists, but prefer resolving warnings through copy and an
+icon rather than colour. If you find yourself reaching for it often, the interface is
+probably warning too much.
+
+---
+
+## Type
+
+- **UI and prose:** Inter Variable. Enable `cv05`, `cv11`, `ss03`, and optical sizing.
+- **Machine truth:** Geist Pixel, 500 weight, uppercase with `+0.04em` tracking for
+  labels. Use the `.mono` class, which applies all of it.
+- **Display:** Geist Pixel again, via `.font-pixel` — normal case, 400, `-0.015em`. The
+  wordmark and page/section headings.
+- Two faces, not three. Geist Pixel does double duty; the treatment is what separates the
+  two jobs. The restraint is the point.
+
+Geist Pixel ships a single weight (400) and is loaded from Google Fonts in `index.html`.
+`.font-pixel` therefore owns weight and tracking: pair it with a `text-*` size utility and
+nothing else. Tailwind's utility layer loads after `tokens.css`, so a `font-medium` or
+`tracking-tight` sitting beside it silently wins and breaks the face.
+
+| Token  | Size / line | Tracking | Use                            |
+| ------ | ----------- | -------- | ------------------------------ |
+| `2xs`  | 11 / 16     | +0.04em  | mono labels, uppercase         |
+| `xs`   | 12 / 18     | 0        | metadata, timestamps, captions |
+| `sm`   | **13 / 20** | 0        | **default UI text**            |
+| `base` | 15 / 24     | 0        | prose inside objects           |
+| `lg`   | 17 / 26     | −0.008em | panel titles                   |
+| `xl`   | 20 / 28     | −0.014em | section headings               |
+| `2xl`  | 26 / 32     | −0.020em | scape titles                   |
+| `3xl`  | 34 / 40     | −0.024em | empty states                   |
+
+Weights: 400 body, 500 UI default, 600 emphasis. 700 appears nowhere.
+
+---
+
+## Light and dark
+
+Three settings — System, Light, Dark — matching how Mistral handles it. Applied as a
+`dark` class on `<html>` plus `color-scheme`, set by an inline script in `index.html`
+before first paint. A flash of the wrong theme is a bug, not a nitpick.
+
+### The rules that make dark mode not look like an inversion
+
+1. **Elevation is lighter in both modes.** Canvas → base → surface → raised, always
+   ascending in lightness.
+2. **The canvas is deeper than the panels sitting on it.** In light mode the canvas is
+   `#F0EDE7` while cards are `#FCFBF9`. The canvas is the table; nodes are paper on it.
+   This is the one place lightness _descends_, and it's what makes nodes read as objects.
+3. **Borders are alpha, never hex.** `rgba(30,27,23,0.10)` in light,
+   `rgba(237,233,225,0.12)` in dark. Alpha borders composite correctly over any surface;
+   hex borders break the moment something moves to a different elevation.
+4. **Never pure black, never pure white.** `#1E1B17` and `#EDE9E1`. Pure white on near-black
+   haloes badly at 13px.
+5. **Text contrast drops in dark mode.** Secondary text moves further from primary than it
+   does in light. Dark interfaces read as higher-contrast than they measure.
+6. **Shadows nearly vanish in dark mode.** Depth comes from the surface step and the
+   hairline. A heavy shadow on a dark surface just looks like dirt.
+7. **The accent lightens.** `#FA500F` → `#FF7033`.
+
+---
+
+## Geometry and motion
+
+**Radii:** 4 / 6 / 8 / 12 / 16 / 20 / full.
+Buttons 8. Node cards 12. Composer 20. Chips full. Inspector flush to the viewport edge,
+no radius on the outer corner.
+
+**Spacing:** 4pt base. Panel padding 16. Canvas node padding 12/14. Composer padding 12/16.
+
+**Motion:**
+
+| Token     | Duration | Use                               |
+| --------- | -------- | --------------------------------- |
+| `instant` | 80ms     | hover, press                      |
+| `fast`    | 130ms    | chips, toggles, tooltips          |
+| `base`    | 190ms    | panels, menus, toasts             |
+| `slow`    | 280ms    | inspector slide, sidebar collapse |
+| `canvas`  | 420ms    | fly-to, auto-layout reflow        |
+
+Easing is `--ease-out` — `cubic-bezier(0.16, 1, 0.3, 1)` — quick departure, gentle
+settle. No bounce anywhere in chrome. The single permitted spring is node entry during
+generation, and it's subtle.
+
+Under `prefers-reduced-motion`, durations collapse to `1ms` and the node entry becomes a
+plain opacity fade. The generation ribbon still updates — it's information, not decoration.
+
+---
+
+## Component notes
+
+**Button.** One primitive, `src/design/Button.tsx`, and every action goes through it —
+either as `<Button>` or as `buttonClass()` for a control that needs its own element. Five
+variants: `primary` (the filled `--action-primary`, one per surface), `neutral` (a filled
+`--bg-surface` control that holds a primary's footprint without its weight — Stop), `secondary`
+(hairline `--border-default`, secondary text), `ghost` (no border), `destructive` (filled
+`--danger` with `--text-inverse`). Two sizes, `sm` and `md`; three shapes, `rounded` (radius 8, the
+default), `pill`, and `icon` (a square of the size's height). Labels on a fill come from
+that fill's own token — never `--text-on-accent`, which is tuned for the bright accent and
+inverts to near-black in dark mode.
+
+**Composer.** Docked bottom-centre, floating over the canvas, `max-width: 720px`. Inset
+well background, 20px radius, hairline border that shifts to `--border-focus` on focus.
+Icon row along the bottom inside the well: scope selector, model picker, attach. Send is a
+primary icon button, disabled to `--bg-inset` when empty. This is the loudest element on
+screen and everything else is arranged to make that true — which is why Stop, the Ask/Edit
+toggle and the scope pills are all quiet.
+
+**Sidebar.** Collapsible, `--bg-base`, no border on the canvas side — the surface step
+alone separates it. Scape rows are 32px tall, 13px text, radius 6, hover to `--bg-hover`.
+Active row gets `--bg-selected` and a 2px `--accent` bar inset on the left.
+
+**Node card.** `--bg-surface`, radius 12, `--shadow-sm`. A 2px type-coloured bar along the
+top edge is the only colour. Title 13/500, body 12/400 `--text-secondary`, id in mono
+`2xs` `--text-tertiary` at the bottom. Selected state is a 2px `--accent` ring at
+`--r-lg`, no shadow change.
+
+**Inspector.** Slides from the right at `--dur-slow`, 320px, `--bg-surface`, hairline on
+the leading edge only. Section headers are mono `2xs` uppercase `--text-tertiary`.
+Fields are `--bg-inset`, radius 8, focus ring `--accent` at 40%.
+
+**Empty scape.** The brand mark, one line at `3xl`, and three suggestion chips —
+_User journey_, _Personas_, _Architecture_. Chips are `--bg-surface`, full radius, 13px,
+hover lifts to `--bg-raised`. An empty screen is an invitation to act, so the copy is an
+instruction, not a greeting.
+
+---
+
+## Quality floor
+
+Non-negotiable, and not worth announcing in the UI:
+
+- Every interactive element has a visible keyboard focus ring — 2px `--accent` at 45%
+  plus a 1px inner ring in `--bg-base` so it reads on any surface.
+- Body text meets 4.5:1, large text 3:1, in both modes. The token pairs are chosen to
+  pass; if you compose your own pair, check it.
+- `prefers-reduced-motion` respected.
+- The canvas is keyboard-navigable: tab between nodes, enter to open the inspector,
+  arrow keys to move the selection.
+- Nothing conveys meaning through colour alone. Object type has a hue _and_ a label.

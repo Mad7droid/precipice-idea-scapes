@@ -27,13 +27,13 @@ export function TemplatesPage({
           return (
             <li
               key={starter.id}
-              className="group flex flex-col rounded-xl border border-subtle bg-surface transition-colors duration-instant ease-out hover:border-default"
+              className="group flex flex-col rounded-xl border border-default bg-surface transition-colors duration-instant ease-out hover:border-strong"
             >
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => onUse(starter)}
-                className="grid h-28 place-items-center rounded-t-xl bg-inset [&_svg]:h-10 [&_svg]:w-14"
+                className="grid h-24 place-items-center rounded-t-xl border-b border-subtle bg-base [&_svg]:h-10 [&_svg]:w-14"
                 aria-label={`Use ${starter.label} with AI`}
               >
                 <StarterMark starter={starter} active={false} />
