@@ -3,6 +3,10 @@
 All notable user-visible changes to Precipice are recorded here. Releases are
 numbered (see `docs/releases/`); entries are grouped by date and version.
 
+## 2026-11-09 — 0.1.19
+
+- Security dependency update. No user-visible behavior change.
+
 ## 2026-11-09 — 0.1.18
 
 - Light-mode selected navigation and Inbox view tabs replace the left accent stroke with a

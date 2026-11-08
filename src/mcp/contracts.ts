@@ -52,7 +52,7 @@ export const changeSchema = z.union([
     .object({
       type: z.literal("UpdateObject"),
       id,
-      patch: z.object({ title: title.optional(), data: z.record(z.unknown()).optional() }).strict(),
+      patch: z.object({ title: title.optional(), data: z.record(z.string(), z.unknown()).optional() }).strict(),
     })
     .strict(),
   z.object({ type: z.literal("DeleteObject"), id }).strict(),

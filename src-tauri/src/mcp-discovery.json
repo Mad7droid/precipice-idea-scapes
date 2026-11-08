@@ -82,25 +82,25 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "offset": {
+              "default": 0,
               "type": "integer",
               "minimum": 0,
-              "default": 0
+              "maximum": 9007199254740991
             },
             "limit": {
+              "default": 20,
               "type": "integer",
               "minimum": 1,
-              "maximum": 20,
-              "default": 20
+              "maximum": 20
             },
             "include_objects": {
-              "type": "boolean",
-              "default": false
+              "default": false,
+              "type": "boolean"
             }
           },
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -128,19 +128,21 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "ids": {
+              "minItems": 1,
+              "maxItems": 20,
               "type": "array",
               "items": {
-                "$ref": "#/properties/scape_id"
-              },
-              "minItems": 1,
-              "maxItems": 20
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[a-zA-Z0-9_-]+$"
+              }
             }
           },
           "required": [
             "scape_id",
             "ids"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -171,7 +173,6 @@
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -204,22 +205,22 @@
               "maxLength": 200
             },
             "offset": {
+              "default": 0,
               "type": "integer",
               "minimum": 0,
-              "default": 0
+              "maximum": 9007199254740991
             },
             "limit": {
+              "default": 20,
               "type": "integer",
               "minimum": 1,
-              "maximum": 20,
-              "default": 20
+              "maximum": 20
             }
           },
           "required": [
             "scape_id",
             "query"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -249,7 +250,6 @@
           "required": [
             "id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -280,7 +280,6 @@
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -308,7 +307,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -324,7 +326,6 @@
             "scape_id",
             "body"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -352,6 +353,8 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "actions": {
+              "minItems": 1,
+              "maxItems": 100,
               "type": "array",
               "items": {
                 "anyOf": [
@@ -365,7 +368,10 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
@@ -384,8 +390,7 @@
                             },
                             "required": [
                               "body"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -405,14 +410,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "journey"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -436,15 +445,13 @@
                                   "required": [
                                     "id",
                                     "label"
-                                  ],
-                                  "additionalProperties": false
+                                  ]
                                 }
                               }
                             },
                             "required": [
                               "steps"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -464,14 +471,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "wireframe"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -532,26 +543,32 @@
                                     "id",
                                     "kind",
                                     "span"
-                                  ],
-                                  "additionalProperties": false
+                                  ]
                                 }
                               },
                               "width": {
                                 "not": {}
                               },
                               "columns": {
-                                "type": "number",
-                                "enum": [
-                                  4,
-                                  6,
-                                  12
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "const": 4
+                                  },
+                                  {
+                                    "type": "number",
+                                    "const": 6
+                                  },
+                                  {
+                                    "type": "number",
+                                    "const": 12
+                                  }
                                 ]
                               }
                             },
                             "required": [
                               "primitives"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -571,14 +588,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "scape"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -589,8 +610,7 @@
                             },
                             "required": [
                               "body"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -612,16 +632,23 @@
                         "const": "UpdateObject"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "patch": {
                         "type": "object",
                         "properties": {
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
                             "additionalProperties": {}
                           }
                         },
@@ -643,7 +670,10 @@
                         "const": "DeleteObject"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       }
                     },
                     "required": [
@@ -660,13 +690,22 @@
                         "const": "ConnectObjects"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "from": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "to": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "label": {
                         "type": "string",
@@ -689,7 +728,10 @@
                         "const": "DisconnectObjects"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       }
                     },
                     "required": [
@@ -718,16 +760,13 @@
                     "additionalProperties": false
                   }
                 ]
-              },
-              "minItems": 1,
-              "maxItems": 100
+              }
             }
           },
           "required": [
             "scape_id",
             "actions"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -755,12 +794,14 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "name": {
+              "default": "Untitled flow",
               "type": "string",
               "minLength": 1,
-              "maxLength": 200,
-              "default": "Untitled flow"
+              "maxLength": 200
             },
             "actions": {
+              "minItems": 1,
+              "maxItems": 100,
               "type": "array",
               "items": {
                 "anyOf": [
@@ -774,7 +815,10 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
@@ -793,8 +837,7 @@
                             },
                             "required": [
                               "body"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -814,14 +857,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "journey"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -845,15 +892,13 @@
                                   "required": [
                                     "id",
                                     "label"
-                                  ],
-                                  "additionalProperties": false
+                                  ]
                                 }
                               }
                             },
                             "required": [
                               "steps"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -873,14 +918,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "wireframe"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -941,26 +990,32 @@
                                     "id",
                                     "kind",
                                     "span"
-                                  ],
-                                  "additionalProperties": false
+                                  ]
                                 }
                               },
                               "width": {
                                 "not": {}
                               },
                               "columns": {
-                                "type": "number",
-                                "enum": [
-                                  4,
-                                  6,
-                                  12
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "const": 4
+                                  },
+                                  {
+                                    "type": "number",
+                                    "const": 6
+                                  },
+                                  {
+                                    "type": "number",
+                                    "const": 12
+                                  }
                                 ]
                               }
                             },
                             "required": [
                               "primitives"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -980,14 +1035,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "scape"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -998,8 +1057,7 @@
                             },
                             "required": [
                               "body"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -1021,16 +1079,23 @@
                         "const": "UpdateObject"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "patch": {
                         "type": "object",
                         "properties": {
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
                             "additionalProperties": {}
                           }
                         },
@@ -1052,7 +1117,10 @@
                         "const": "DeleteObject"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       }
                     },
                     "required": [
@@ -1069,13 +1137,22 @@
                         "const": "ConnectObjects"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "from": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "to": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "label": {
                         "type": "string",
@@ -1098,7 +1175,10 @@
                         "const": "DisconnectObjects"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       }
                     },
                     "required": [
@@ -1127,15 +1207,12 @@
                     "additionalProperties": false
                   }
                 ]
-              },
-              "minItems": 1,
-              "maxItems": 100
+              }
             }
           },
           "required": [
             "actions"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1177,7 +1254,10 @@
               "pattern": "^[a-zA-Z0-9_:-]+$"
             },
             "confirmation_token": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "approve": {
               "type": "boolean"
@@ -1189,7 +1269,6 @@
             "confirmation_token",
             "approve"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1232,11 +1311,14 @@
               "pattern": "^[a-zA-Z0-9_:-]+$"
             },
             "confirmation_token": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "withdraw": {
-              "type": "boolean",
-              "default": false
+              "default": false,
+              "type": "boolean"
             }
           },
           "required": [
@@ -1244,7 +1326,6 @@
             "preview_id",
             "confirmation_token"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1281,7 +1362,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -1289,6 +1373,8 @@
               "maxLength": 128
             },
             "actions": {
+              "minItems": 1,
+              "maxItems": 100,
               "type": "array",
               "items": {
                 "anyOf": [
@@ -1302,7 +1388,10 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
@@ -1321,8 +1410,7 @@
                             },
                             "required": [
                               "body"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -1342,14 +1430,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "journey"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -1373,15 +1465,13 @@
                                   "required": [
                                     "id",
                                     "label"
-                                  ],
-                                  "additionalProperties": false
+                                  ]
                                 }
                               }
                             },
                             "required": [
                               "steps"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -1401,14 +1491,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "wireframe"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -1469,26 +1563,32 @@
                                     "id",
                                     "kind",
                                     "span"
-                                  ],
-                                  "additionalProperties": false
+                                  ]
                                 }
                               },
                               "width": {
                                 "not": {}
                               },
                               "columns": {
-                                "type": "number",
-                                "enum": [
-                                  4,
-                                  6,
-                                  12
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "const": 4
+                                  },
+                                  {
+                                    "type": "number",
+                                    "const": 6
+                                  },
+                                  {
+                                    "type": "number",
+                                    "const": 12
+                                  }
                                 ]
                               }
                             },
                             "required": [
                               "primitives"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -1508,14 +1608,18 @@
                             "const": "CreateObject"
                           },
                           "id": {
-                            "$ref": "#/properties/scape_id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_-]+$"
                           },
                           "objectType": {
                             "type": "string",
                             "const": "scape"
                           },
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
@@ -1526,8 +1630,7 @@
                             },
                             "required": [
                               "body"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         },
                         "required": [
@@ -1549,16 +1652,23 @@
                         "const": "UpdateObject"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "patch": {
                         "type": "object",
                         "properties": {
                           "title": {
-                            "$ref": "#/properties/actions/items/anyOf/0/anyOf/0/properties/title"
+                            "type": "string",
+                            "maxLength": 1000
                           },
                           "data": {
                             "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
                             "additionalProperties": {}
                           }
                         },
@@ -1580,7 +1690,10 @@
                         "const": "DeleteObject"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       }
                     },
                     "required": [
@@ -1597,13 +1710,22 @@
                         "const": "ConnectObjects"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "from": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "to": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       },
                       "label": {
                         "type": "string",
@@ -1626,7 +1748,10 @@
                         "const": "DisconnectObjects"
                       },
                       "id": {
-                        "$ref": "#/properties/scape_id"
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[a-zA-Z0-9_-]+$"
                       }
                     },
                     "required": [
@@ -1655,16 +1780,13 @@
                     "additionalProperties": false
                   }
                 ]
-              },
-              "minItems": 1,
-              "maxItems": 100
+              }
             }
           },
           "required": [
             "scape_id",
             "actions"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1692,7 +1814,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -1713,7 +1838,6 @@
             "scape_id",
             "mode"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1741,19 +1865,21 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "ids": {
+              "minItems": 1,
+              "maxItems": 20,
               "type": "array",
               "items": {
-                "$ref": "#/properties/scape_id"
-              },
-              "minItems": 1,
-              "maxItems": 20
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[a-zA-Z0-9_-]+$"
+              }
             }
           },
           "required": [
             "scape_id",
             "ids"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1789,7 +1915,6 @@
           "required": [
             "name"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1817,7 +1942,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -1828,7 +1956,6 @@
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1856,7 +1983,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -1867,7 +1997,6 @@
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1895,7 +2024,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -1906,7 +2038,6 @@
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1934,7 +2065,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -1945,7 +2079,6 @@
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -1984,7 +2117,6 @@
             "scape_id",
             "format"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -2015,7 +2147,6 @@
           "required": [
             "operation_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -2055,7 +2186,6 @@
           "required": [
             "operation_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -2083,21 +2213,21 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "offset": {
+              "default": 0,
               "type": "integer",
               "minimum": 0,
-              "default": 0
+              "maximum": 9007199254740991
             },
             "limit": {
+              "default": 20,
               "type": "integer",
               "minimum": 1,
-              "maximum": 20,
-              "default": 20
+              "maximum": 20
             }
           },
           "required": [
             "scape_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
@@ -2125,7 +2255,10 @@
               "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "idempotency_key": {
-              "$ref": "#/properties/scape_id"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-zA-Z0-9_-]+$"
             },
             "expected_revision": {
               "type": "string",
@@ -2143,7 +2276,6 @@
             "scape_id",
             "operation_id"
           ],
-          "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "annotations": {
