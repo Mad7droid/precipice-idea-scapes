@@ -22,6 +22,10 @@ numbered (see `docs/releases/`); entries are grouped by date and version.
 - On tablets (640–1023px wide) the outline, inspector and Scapi slide over the canvas
   instead of narrowing it, one at a time; tapping the canvas closes the outline. Opening the
   inspector on a touch screen no longer raises the keyboard on its own.
+- Published scapes open as a readable list on phones, in the order the layout reads, with
+  each block's connections as links that jump to the connected block. Canvas and List can be
+  switched on any screen; embeds stay a canvas. Where the device supports it, Share opens the
+  system share sheet with the public link.
 - Precipice can be installed to the home screen and opens as a standalone app.
 - Typing in the inspector and then leaving the tab, or switching apps on a phone, no
   longer risks losing the last words typed.
