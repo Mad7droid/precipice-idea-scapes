@@ -11,6 +11,10 @@ import type { EdgeMode } from "@/starters";
  * override it for a scape that turned out to be a different shape than it started as.
  */
 export interface ToolbarProps {
+  /** Phone layout: the shell's action bar owns Add, Undo and Redo. */
+  compact?: boolean;
+  /** Touch screen: pinch replaces the zoom buttons. */
+  coarse?: boolean;
   edgeMode: EdgeMode;
   onEdgeModeChange: (mode: EdgeMode) => void;
   hiddenTypes: Set<string>;
@@ -60,11 +64,20 @@ export function Toolbar({
   onAdd,
   onHelp,
   readOnly = false,
+  compact = false,
+  coarse = false,
 }: ToolbarProps) {
   const [viewOpen, setViewOpen] = useState(false);
 
   return (
-    <div className="absolute bottom-4 right-4 z-panel flex flex-col items-end gap-1.5">
+    // On a phone the shell's action bar owns Add, Undo and Redo, and the composer owns the
+    // bottom edge, so the toolbar moves to the top corner. Pinch replaces the zoom buttons
+    // on any touch screen.
+    <div
+      className={`absolute z-panel flex flex-col items-end gap-1.5 ${
+        compact ? "right-3 top-3 flex-col-reverse" : "bottom-4 right-4"
+      }`}
+    >
       {viewOpen && (
         <Menu onClose={() => setViewOpen(false)}>
           <p className="mono px-2 py-1">Lines</p>
@@ -96,7 +109,7 @@ export function Toolbar({
       )}
 
       <div className="flex flex-col overflow-hidden rounded-md border border-subtle bg-surface shadow-sm">
-        {!readOnly && (
+        {!readOnly && !compact && (
           <ToolButton
             label="Add block (N, J, W, S)"
             onClick={(event) => {
@@ -127,7 +140,7 @@ export function Toolbar({
 
         <Divider />
 
-        {!readOnly && (
+        {!readOnly && !compact && (
           <>
             <ToolButton label="Undo (⌘Z)" onClick={onUndo} disabled={!canUndo}>
               <path d="M3 6.5h5.2a2.8 2.8 0 0 1 0 5.6H5.5" strokeLinecap="round" />
@@ -142,22 +155,26 @@ export function Toolbar({
           </>
         )}
 
-        <ToolButton label="Zoom in" onClick={onZoomIn}>
-          <path d="M7 3.5v7M3.5 7h7" strokeLinecap="round" />
-        </ToolButton>
-        <button
-          type="button"
-          title="Reset zoom to 100% (0)"
-          onClick={onZoomReset}
-          className="mono px-1 py-1 text-center transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-        >
-          <ZoomPercent />
-        </button>
-        <ToolButton label="Zoom out" onClick={onZoomOut}>
-          <path d="M3.5 7h7" strokeLinecap="round" />
-        </ToolButton>
+        {!coarse && (
+          <>
+            <ToolButton label="Zoom in" onClick={onZoomIn}>
+              <path d="M7 3.5v7M3.5 7h7" strokeLinecap="round" />
+            </ToolButton>
+            <button
+              type="button"
+              title="Reset zoom to 100% (0)"
+              onClick={onZoomReset}
+              className="mono px-1 py-1 text-center transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            >
+              <ZoomPercent />
+            </button>
+            <ToolButton label="Zoom out" onClick={onZoomOut}>
+              <path d="M3.5 7h7" strokeLinecap="round" />
+            </ToolButton>
 
-        <Divider />
+            <Divider />
+          </>
+        )}
 
         <ToolButton label="Fit view (⇧1)" onClick={onFit}>
           <path d="M1.5 5V1.5h3.5M12.5 5V1.5H9M1.5 9v3.5h3.5M12.5 9v3.5H9" />
@@ -227,7 +244,7 @@ function ToolButton({
       disabled={disabled}
       {...(expanded !== undefined ? { "aria-expanded": expanded, "aria-haspopup": true } : {})}
       className={
-        "grid h-8 w-8 place-items-center transition-colors duration-instant ease-out " +
+        "grid h-8 min-h-hit w-8 min-w-hit place-items-center transition-colors duration-instant ease-out " +
         "disabled:pointer-events-none disabled:opacity-30 " +
         "text-fg-secondary hover:bg-hover hover:text-fg"
       }
