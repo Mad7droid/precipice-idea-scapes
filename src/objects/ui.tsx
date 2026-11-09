@@ -58,6 +58,22 @@ export function useDebouncedText(
     [delay],
   );
 
+  // A phone backgrounds or kills the tab without warning, often mid-word. Commit the draft
+  // the moment the page is hidden, ahead of autosave's own hidden-page write: these are
+  // capture listeners on window, which run before autosave's listeners on document, so the
+  // write that follows includes the words just typed.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("visibilitychange", onHidden, { capture: true });
+    window.addEventListener("pagehide", flush, { capture: true });
+    return () => {
+      window.removeEventListener("visibilitychange", onHidden, { capture: true });
+      window.removeEventListener("pagehide", flush, { capture: true });
+    };
+  }, [flush]);
+
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
