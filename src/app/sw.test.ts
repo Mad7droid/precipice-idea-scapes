@@ -121,6 +121,20 @@ describe("service worker", () => {
     await expect(event.responsePromise!.then((r) => r.text())).resolves.toBe("shell");
   });
 
+  it("serves the install manifest from cache but refreshes it behind the response", async () => {
+    sw.cache.set("/manifest.webmanifest", new Response("old", { status: 200 }));
+    const event = sw.fetchEvent("https://precipice.pages.dev/manifest.webmanifest", { mode: "no-cors" });
+    await expect(event.responsePromise!.then((r) => r.text())).resolves.toBe("old");
+    expect(sw.network.calls).toContain("https://precipice.pages.dev/manifest.webmanifest");
+  });
+
+  it("never answers a missing icon with the editor shell when offline", async () => {
+    sw.cache.set("/index.html", new Response("shell", { status: 200 }));
+    sw.network.fail = true;
+    const event = sw.fetchEvent("https://precipice.pages.dev/icons/icon-192.png", { mode: "no-cors" });
+    await expect(event.responsePromise!).rejects.toThrow();
+  });
+
   it("never serves the editor shell in place of a published scape", () => {
     sw.cache.set("/index.html", new Response("shell", { status: 200 }));
     sw.network.fail = true;
