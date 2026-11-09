@@ -168,7 +168,38 @@
   --z-composer: 20;
   --z-popover: 30;
   --z-toast: 40;
+  --z-sheet: 25;
   --z-modal: 50;
+
+  /* ---------- Small screens and touch ----------
+     See src/core/viewport.ts for the matching breakpoints, timings and gesture table.
+     Safe-area insets only resolve to non-zero with `viewport-fit=cover` in the viewport meta. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Hit area, not visual size. Chrome stays tight; on a coarse pointer the tappable box grows. */
+  --hit-min: 32px;
+
+  /* Sheets reuse the existing radius scale rather than inventing one. */
+  --sheet-radius: var(--r-xl);
+  --scrim: rgba(13, 12, 10, 0.32);
+
+  /* `100vh` on mobile includes the collapsing browser chrome; `dvh` tracks it. */
+  --vh-dynamic: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --vh-dynamic: 100dvh;
+  }
+}
+
+@media (pointer: coarse) {
+  :root {
+    --hit-min: 44px;
+  }
 }
 
 /* ==========================================================================
@@ -349,6 +380,52 @@ body {
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   font-weight: var(--weight-body);
+}
+
+/* Never let the browser rescale text on rotation; it breaks the 13px rhythm. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/*
+ * Touch. These only apply on a coarse pointer, so desktop is untouched.
+ *
+ * - `touch-action: manipulation` removes the 300ms double-tap-zoom wait on controls.
+ * - The tap highlight is replaced by our own :active states.
+ * - Inputs are 16px: anything smaller makes iOS Safari zoom the page on focus. This is the one
+ *   sanctioned exception to the 13px default (docs/design-language.md, "Touch and small
+ *   screens").
+ * - Long-press on chrome must open our menu, not the system text-selection callout.
+ */
+@media (pointer: coarse) {
+  :where(button, a, [role="button"], [role="menuitem"], [role="tab"], label, summary) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* `!important` because component text-* utilities load after this file and would win. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+  .touch-callout-none {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* The canvas owns every gesture inside it: no pull-to-refresh, no overscroll bounce. */
+.touch-canvas {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* Scrolling regions inside sheets must not chain to the page behind them. */
+.scroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Machine truth only: ids, action names, model names, timestamps, keybindings. */

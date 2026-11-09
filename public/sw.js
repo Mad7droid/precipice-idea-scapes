@@ -30,6 +30,15 @@ function isPublic(pathname) {
   return pathname === "/p" || pathname === "/embed" || /^\/(p|embed)\//.test(pathname);
 }
 
+/**
+ * Files from `public/` that keep the same name across deploys: the install manifest and its
+ * icons. Cache-first would pin the first copy forever (an installed app could never get a new
+ * name or icon), so these are served from cache for speed and refreshed behind the response.
+ */
+function isUnversioned(pathname) {
+  return pathname === "/manifest.webmanifest" || pathname.startsWith("/icons/");
+}
+
 self.addEventListener("install", (event) => {
   // The shell is cached on first fetch rather than precached from a manifest: a hand-written
   // list of hashed filenames would be wrong the moment Vite rebuilt.
@@ -59,6 +68,11 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (isUnversioned(url.pathname)) {
+    event.respondWith(staleWhileRevalidate(request));
     return;
   }
 
@@ -97,6 +111,20 @@ async function cacheFirst(request) {
   const response = await fetch(request);
   if (response.ok) void put(request, response.clone());
   return response;
+}
+
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  const refresh = fetch(request)
+    .then((response) => {
+      if (response.ok) void put(request, response.clone());
+      return response;
+    })
+    .catch(() => undefined);
+  if (cached) return cached;
+  const response = await refresh;
+  if (response) return response;
+  throw new Error("offline and not cached");
 }
 
 async function put(request, response) {

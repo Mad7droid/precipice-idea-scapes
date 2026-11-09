@@ -70,6 +70,23 @@ Scapi keeps its original artwork and functional status feedback. Decorative clic
 are disabled on Home and assistant working surfaces. Preserve reduced-motion behavior, explicit
 cancellation and a steady viewport while reading streamed answers.
 
+## Touch and small screens
+
+Phones get full editing. The contract is code: `src/core/viewport.ts` (breakpoints, touch
+timings, sheet snaps, the complete `GESTURES` table), `src/design/Sheet.tsx` and
+`src/design/useLongPress.ts`. Layout follows width (compact < 640, medium 640–1023, expanded
+≥ 1024); touch affordances follow `(pointer: coarse)` via the `coarse:` variant, never width,
+so an iPad with a trackpad keeps hover and shortcuts.
+
+Grow hit areas, not chrome: `--hit-min` is 44px on coarse pointers (`min-h-hit`, `min-w-hit`).
+Inputs are 16px on touch, the one exception to the 13px default, because iOS zooms on smaller
+fields; this is global in tokens.css. Every gesture has a visible twin (long-press ↔ `⋯`,
+two-finger tap ↔ Undo). No screen-edge swipes, swipe-to-delete or three-finger gestures.
+Sheets replace modals and side panels on compact: scrim, focus trap, swipe-down/Escape/Close
+to dismiss, `--dur-base` + `--ease-out`, above the keyboard and `--safe-bottom`. The inspector
+is the one non-modal sheet; it rests at peek and never takes focus from the canvas. On touch a
+selection pill (Edit · Connect · Ask AI · Duplicate · More) replaces hover toolbars.
+
 ## Preview and acceptance
 
 Compare the actual app in all six style/appearance combinations, including System/reload, Home,
