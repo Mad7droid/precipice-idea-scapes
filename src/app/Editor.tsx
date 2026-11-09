@@ -70,6 +70,10 @@ import {
   visibleObjectIds,
 } from "./editor/layout";
 import { PanelResizer } from "./editor/PanelResizer";
+import { AddBlockList, MobileActionBar } from "./editor/MobileChrome";
+import { Sheet } from "@/design/Sheet";
+import type { SheetSnap } from "@/core/viewport";
+import { useLayoutClass } from "@/shared/useLayout";
 import { useEditorSession } from "./editor/useEditorSession";
 import { useEditorShortcuts } from "./editor/useEditorShortcuts";
 
@@ -134,6 +138,17 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   /** Whether the canvas bar is showing its full controls. The bar itself is always present. */
   const [canvasComposerOpen, setCanvasComposerOpen] = useState(false);
+  // Compact (phone) layout: the side columns become sheets and an action bar reaches them.
+  const compact = useLayoutClass() === "compact";
+  const [outlineSheetOpen, setOutlineSheetOpen] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [inspectorSnap, setInspectorSnap] = useState<SheetSnap>("peek");
+  // Asking while something is selected keeps the selection as scope but steps the inspector
+  // aside, so the composer and the sheet never stack on a phone.
+  const [inspectorAside, setInspectorAside] = useState(false);
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+  const undoDepth = useScapeStore((s) => s.undoStack.length);
+  const redoDepth = useScapeStore((s) => s.redoStack.length);
   const [exporting, setExporting] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState<number>(
     savedSession.leftWidth ?? PANEL.left,
@@ -319,6 +334,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   /** Creation, Enter, and double-click focus block content, not shared tag controls. */
   const focusInspector = useCallback((id: ObjectId) => {
     setRightPanelCollapsed(false);
+    setInspectorSnap("half");
     setScapiOpen(false);
     window.requestAnimationFrame(() => {
       // Selection may have changed while the inspector was opening. An older request
@@ -332,6 +348,26 @@ export function Editor({ scapeId }: { scapeId: string }) {
     });
   }, []);
   const openHelp = useCallback(() => setShortcutsOpen(true), []);
+
+  // The inspector sheet sits on top of the action bar, never over it: Undo stays reachable.
+  // A callback ref, because the bar mounts after the editor's loading state, not with it.
+  const barObserver = useRef<ResizeObserver | null>(null);
+  const actionBar = useCallback((el: HTMLDivElement | null) => {
+    barObserver.current?.disconnect();
+    barObserver.current = null;
+    if (!el) return;
+    const measure = () => setActionBarHeight(el.getBoundingClientRect().height);
+    measure();
+    barObserver.current = new ResizeObserver(measure);
+    barObserver.current.observe(el);
+  }, []);
+
+  // A new selection opens the inspector at peek, so the thing just tapped stays visible.
+  const inspectedKey = selectedEdgeId ?? selection.join(",");
+  useEffect(() => {
+    setInspectorSnap("peek");
+    setInspectorAside(false);
+  }, [inspectedKey]);
 
   // Whatever the home page set up: a brief to run, or a starter's seed object to place. Taken
   // once, so a refresh neither re-runs a generation the user has paid for nor re-seeds a
@@ -696,6 +732,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
 
   /** Opens the canvas bar in place. It is the composer now, not a button that summons one. */
   const focusComposer = () => {
+    setInspectorAside(true);
     setCanvasComposerOpen(true);
     window.requestAnimationFrame(() => composerInput.current?.focus());
   };
@@ -727,6 +764,8 @@ export function Editor({ scapeId }: { scapeId: string }) {
   );
   const plugin = selectedObject ? getPlugin(selectedObject.type) : undefined;
   const selectedEdge = selectedEdgeId && scape ? scape.relationships[selectedEdgeId] : undefined;
+  const inspectorSheetOpen =
+    compact && !scapiOpen && !inspectorAside && Boolean(selectedEdge || (selectedObject && plugin));
   // A palette that lists what you cannot do is a palette you stop trusting. In a follower tab
   // the commands that change the document are absent, not present-and-inert.
   // The Mac app is one window, so "move editing to this tab" has nowhere to point.
@@ -851,6 +890,212 @@ export function Editor({ scapeId }: { scapeId: string }) {
 
   if (!booted || !ready || !scape) return null;
 
+  const scapiPanel = (
+    <aside className="z-panel flex h-full w-full min-w-0 flex-col border-l border-subtle bg-surface">
+      <div className="flex shrink-0 items-center justify-between border-b border-subtle px-4 py-2.5">
+        <h2 className="flex items-center gap-2 text-sm font-[var(--weight-emph)] text-fg">
+          <Scapi size={28} animated={false} effects={false} />
+          Scapi
+        </h2>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setScapiWide((wide) => !wide)}
+            aria-pressed={scapiWide}
+            className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
+          >
+            {scapiWide ? "Narrower panel" : "Wider panel"}
+          </button>
+          <button
+            type="button"
+            onClick={scapi.clear}
+            disabled={scapi.turns.length === 0}
+            className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg disabled:opacity-40"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={() => setScapiOpen(false)}
+            aria-label="Close Scapi"
+            title="Close Scapi (⌘J). Anything running keeps running."
+            className="text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      {proposedEdit && (
+        <div
+          className="border-b border-subtle bg-inset p-4"
+          role="region"
+          aria-label="Review proposed edit"
+        >
+          <p className="text-sm text-fg">Review before editing</p>
+          <div className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-fg-secondary">
+            {proposedEdit.replace(/^.*?Scapi's proposal:\n/s, "")}
+          </div>
+          <p className="mt-1 text-xs text-fg-secondary">
+            {scope === "selection"
+              ? `Only the ${selection.length} selected block(s) can be changed.`
+              : "This edit can change the whole scape."}{" "}
+            The generator will interpret the proposal above. You can undo the result.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button
+              variant="primary"
+              disabled={busy || scapi.streaming || readOnly}
+              onClick={() => {
+                const request = proposedEdit;
+                if (!requireLease() || !requireKey()) return;
+                setProposedEdit(null);
+                void handleSend(request, "panel");
+              }}
+            >
+              Apply proposed edit
+            </Button>
+            <Button variant="ghost" onClick={() => setProposedEdit(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="min-h-0 flex-1">
+        <Suspense fallback={<div className="flex-1 bg-surface" />}>
+          <ScapiPanel
+            turns={scapi.turns}
+            streaming={scapi.streaming}
+            onSend={(question) => handleAsk(question, "panel")}
+            onCancel={scapi.cancel}
+            onRetry={() => {
+              if (!busy && requireKey()) scapi.retry();
+            }}
+            onObjectClick={selectFromOutline}
+            onTurnIntoEdit={(turn) => {
+              setProposedEdit(
+                `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
+              );
+            }}
+            objects={scape.objects}
+            webSearch={scapi.webSearch}
+            onWebSearchChange={scapi.setWebSearch}
+            searchAvailability={scapi.searchAvailability}
+            restored={scapi.restored}
+            suggestions={scapiSuggestions}
+            actions={SCAPI_ACTIONS.map((action) => ({
+              label: action.label,
+              run: () => {
+                setScapiMode("ask");
+                setDraft(action.prompt);
+              },
+            }))}
+            mood={scapiMood}
+            disabled={!appSettings.aiReady || busy}
+            value={draft}
+            onValueChange={setDraft}
+            {...(generation.state.status === "idle"
+              ? {}
+              : {
+                  activity: (
+                    <div role="status">
+                      <Ribbon
+                        state={generation.state}
+                        onCancel={generation.cancel}
+                        onUndo={() => {
+                          if (requireLease()) generation.undo();
+                        }}
+                        onDismiss={generation.dismiss}
+                        {...(canDeepen
+                          ? {
+                              onDeepen: deepen,
+                              deepenLabel: "Deepen with Opus",
+                            }
+                          : {})}
+                      />
+                    </div>
+                  ),
+                })}
+            composer={
+              <div className="shrink-0 border-t border-subtle p-3">
+                <Composer {...composerProps("panel")} />
+              </div>
+            }
+          />
+        </Suspense>
+      </div>
+    </aside>
+  );
+
+  const inspectorPanel = (
+    <aside
+      ref={inspector}
+      // Escape in a field hands the keyboard back to the canvas, so the next N/J/W/S
+      // creates a block instead of typing into the title.
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+        const target = e.target as HTMLElement;
+        if (target.matches("input, textarea, select")) {
+          e.preventDefault();
+          target.blur();
+          document.querySelector<HTMLElement>("[data-canvas-surface]")?.focus();
+        }
+      }}
+      className={
+        compact
+          ? "pt-1"
+          : "z-panel h-full w-full overflow-auto border-l border-subtle bg-surface p-4"
+      }
+    >
+      {selectedEdge ? (
+        // `display: contents` so this changes what the controls do and nothing about
+        // where they sit; a disabled fieldset disables every control inside it
+        // regardless of how it is laid out.
+        <fieldset disabled={readOnly} className="contents">
+          <RelationshipInspector
+            scape={scape}
+            relationship={selectedEdge}
+            onClose={() => setSelectedEdgeId(null)}
+            onFocusObject={selectFromOutline}
+          />
+        </fieldset>
+      ) : (
+        selectedObject &&
+        plugin && (
+          <>
+            <div className={compact ? "hidden" : "mb-2 flex items-center justify-between"}>
+              <span className="text-fg-secondary">{plugin.label}</span>
+              <button
+                type="button"
+                aria-label="Close inspector"
+                onClick={() => commands.current?.clearSelection()}
+                className="grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+              >
+                ✕
+              </button>
+            </div>
+            <fieldset disabled={readOnly} className="contents">
+              <BlockMarkers
+                key={selectedObject.id}
+                object={selectedObject}
+                dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+                suggestions={tagSuggestions}
+              />
+              <div data-block-inspector className="contents">
+                {/* Keyed by block: a field's local draft must never commit to the
+                              next block when the selection changes under it. */}
+                <plugin.Inspector
+                  key={selectedObject.id}
+                  object={selectedObject}
+                  dispatch={(payload: ActionPayload) => dispatchTx([payload])}
+                />
+              </div>
+            </fieldset>
+          </>
+        )
+      )}
+    </aside>
+  );
+
   return (
     <div className="flex h-full flex-col bg-base">
       <TopBar
@@ -870,37 +1115,39 @@ export function Editor({ scapeId }: { scapeId: string }) {
       />
 
       <div className="flex min-h-0 flex-1">
-        <div
-          className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
-          style={{
-            width: leftPanelCollapsed ? "var(--panel-rail)" : `min(${leftPanelWidth}px, 78vw)`,
-          }}
-        >
-          <div className="flex h-full">
-            <Outline
-              scape={scape}
-              selection={selection}
-              onSelect={selectFromOutline}
-              onConnectLoose={(ids) => void handleConnect(ids)}
-              onSelectMany={selectMany}
-              busy={busy}
-              readOnly={readOnly}
-              isCollapsed={leftPanelCollapsed}
-              onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
-            />
-            {!leftPanelCollapsed && !readOnly && (
-              <BlockNav onAdd={(type) => commands.current?.addObject(type)} />
+        {!compact && (
+          <div
+            className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
+            style={{
+              width: leftPanelCollapsed ? "var(--panel-rail)" : `min(${leftPanelWidth}px, 78vw)`,
+            }}
+          >
+            <div className="flex h-full">
+              <Outline
+                scape={scape}
+                selection={selection}
+                onSelect={selectFromOutline}
+                onConnectLoose={(ids) => void handleConnect(ids)}
+                onSelectMany={selectMany}
+                busy={busy}
+                readOnly={readOnly}
+                isCollapsed={leftPanelCollapsed}
+                onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
+              />
+              {!leftPanelCollapsed && !readOnly && (
+                <BlockNav onAdd={(type) => commands.current?.addObject(type)} />
+              )}
+            </div>
+            {!leftPanelCollapsed && (
+              <PanelResizer
+                side="left"
+                label="Resize outline"
+                width={leftPanelWidth}
+                onResize={setLeftPanelWidth}
+              />
             )}
           </div>
-          {!leftPanelCollapsed && (
-            <PanelResizer
-              side="left"
-              label="Resize outline"
-              width={leftPanelWidth}
-              onResize={setLeftPanelWidth}
-            />
-          )}
-        </div>
+        )}
 
         <div ref={canvasArea} className="relative min-w-0 flex-1">
           <Canvas
@@ -938,7 +1185,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
           <div
             className={
               "pointer-events-none absolute inset-x-0 bottom-4 z-composer flex flex-col items-center gap-2 px-4" +
-              (scapiOpen ? " hidden" : "")
+              (scapiOpen || inspectorSheetOpen ? " hidden" : "")
             }
           >
             <div className="pointer-events-auto w-full max-w-[var(--composer-max)]">
@@ -1068,252 +1315,143 @@ export function Editor({ scapeId }: { scapeId: string }) {
           </div>
         </div>
 
-        <div
-          className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
-          style={{
-            width: scapiOpen
-              ? scapiWide
-                ? "min(var(--panel-scapi-wide), 92vw)"
-                : "min(var(--panel-scapi), 65vw)"
-              : rightPanelCollapsed
-                ? "var(--panel-rail)"
-                : selectedEdge || (selectedObject && plugin)
-                  ? `min(${rightPanelWidth}px, 78vw)`
-                  : 0,
-          }}
-        >
-          {scapiOpen ? (
-            <aside className="z-panel flex h-full w-full min-w-0 flex-col border-l border-subtle bg-surface">
-              <div className="flex shrink-0 items-center justify-between border-b border-subtle px-4 py-2.5">
-                <h2 className="flex items-center gap-2 text-sm font-[var(--weight-emph)] text-fg">
-                  <Scapi size={28} animated={false} effects={false} />
-                  Scapi
-                </h2>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setScapiWide((wide) => !wide)}
-                    aria-pressed={scapiWide}
-                    className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg"
-                  >
-                    {scapiWide ? "Narrower panel" : "Wider panel"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={scapi.clear}
-                    disabled={scapi.turns.length === 0}
-                    className="text-xs text-fg-secondary transition-colors duration-instant ease-out hover:text-fg disabled:opacity-40"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScapiOpen(false)}
-                    aria-label="Close Scapi"
-                    title="Close Scapi (⌘J). Anything running keeps running."
-                    className="text-fg-tertiary transition-colors duration-instant ease-out hover:text-fg"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-              {proposedEdit && (
-                <div
-                  className="border-b border-subtle bg-inset p-4"
-                  role="region"
-                  aria-label="Review proposed edit"
-                >
-                  <p className="text-sm text-fg">Review before editing</p>
-                  <div className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-fg-secondary">
-                    {proposedEdit.replace(/^.*?Scapi's proposal:\n/s, "")}
-                  </div>
-                  <p className="mt-1 text-xs text-fg-secondary">
-                    {scope === "selection"
-                      ? `Only the ${selection.length} selected block(s) can be changed.`
-                      : "This edit can change the whole scape."}{" "}
-                    The generator will interpret the proposal above. You can undo the result.
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      variant="primary"
-                      disabled={busy || scapi.streaming || readOnly}
-                      onClick={() => {
-                        const request = proposedEdit;
-                        if (!requireLease() || !requireKey()) return;
-                        setProposedEdit(null);
-                        void handleSend(request, "panel");
-                      }}
-                    >
-                      Apply proposed edit
-                    </Button>
-                    <Button variant="ghost" onClick={() => setProposedEdit(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <div className="min-h-0 flex-1">
-                <Suspense fallback={<div className="flex-1 bg-surface" />}>
-                  <ScapiPanel
-                    turns={scapi.turns}
-                    streaming={scapi.streaming}
-                    onSend={(question) => handleAsk(question, "panel")}
-                    onCancel={scapi.cancel}
-                    onRetry={() => {
-                      if (!busy && requireKey()) scapi.retry();
-                    }}
-                    onObjectClick={selectFromOutline}
-                    onTurnIntoEdit={(turn) => {
-                      setProposedEdit(
-                        `Apply this proposed change to the scape. User request: ${turn.question}\n\nScapi's proposal:\n${turn.body}`,
-                      );
-                    }}
-                    objects={scape.objects}
-                    webSearch={scapi.webSearch}
-                    onWebSearchChange={scapi.setWebSearch}
-                    searchAvailability={scapi.searchAvailability}
-                    restored={scapi.restored}
-                    suggestions={scapiSuggestions}
-                    actions={SCAPI_ACTIONS.map((action) => ({
-                      label: action.label,
-                      run: () => {
-                        setScapiMode("ask");
-                        setDraft(action.prompt);
-                      },
-                    }))}
-                    mood={scapiMood}
-                    disabled={!appSettings.aiReady || busy}
-                    value={draft}
-                    onValueChange={setDraft}
-                    {...(generation.state.status === "idle"
-                      ? {}
-                      : {
-                          activity: (
-                            <div role="status">
-                              <Ribbon
-                                state={generation.state}
-                                onCancel={generation.cancel}
-                                onUndo={() => {
-                                  if (requireLease()) generation.undo();
-                                }}
-                                onDismiss={generation.dismiss}
-                                {...(canDeepen
-                                  ? {
-                                      onDeepen: deepen,
-                                      deepenLabel: "Deepen with Opus",
-                                    }
-                                  : {})}
-                              />
-                            </div>
-                          ),
-                        })}
-                    composer={
-                      <div className="shrink-0 border-t border-subtle p-3">
-                        <Composer {...composerProps("panel")} />
-                      </div>
-                    }
-                  />
-                </Suspense>
-              </div>
-            </aside>
-          ) : rightPanelCollapsed ? (
-            <button
-              type="button"
-              onClick={() => setRightPanelCollapsed(false)}
-              aria-label="Expand inspector"
-              title="Expand inspector (⌘/)"
-              className="grid h-full w-full place-items-start pt-2 text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-            >
-              ‹
-            </button>
-          ) : (
-            (selectedEdge || (selectedObject && plugin)) && (
-              <aside
-                ref={inspector}
-                // Escape in a field hands the keyboard back to the canvas, so the next N/J/W/S
-                // creates a block instead of typing into the title.
-                onKeyDown={(e) => {
-                  if (e.key !== "Escape" || e.defaultPrevented) return;
-                  const target = e.target as HTMLElement;
-                  if (target.matches("input, textarea, select")) {
-                    e.preventDefault();
-                    target.blur();
-                    document.querySelector<HTMLElement>("[data-canvas-surface]")?.focus();
-                  }
-                }}
-                className="z-panel h-full w-full overflow-auto border-l border-subtle bg-surface p-4"
+        {!compact && (
+          <div
+            className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
+            style={{
+              width: scapiOpen
+                ? scapiWide
+                  ? "min(var(--panel-scapi-wide), 92vw)"
+                  : "min(var(--panel-scapi), 65vw)"
+                : rightPanelCollapsed
+                  ? "var(--panel-rail)"
+                  : selectedEdge || (selectedObject && plugin)
+                    ? `min(${rightPanelWidth}px, 78vw)`
+                    : 0,
+            }}
+          >
+            {scapiOpen ? (
+              scapiPanel
+            ) : rightPanelCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setRightPanelCollapsed(false)}
+                aria-label="Expand inspector"
+                title="Expand inspector (⌘/)"
+                className="grid h-full w-full place-items-start pt-2 text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
               >
-                {selectedEdge ? (
-                  // `display: contents` so this changes what the controls do and nothing about
-                  // where they sit; a disabled fieldset disables every control inside it
-                  // regardless of how it is laid out.
-                  <fieldset disabled={readOnly} className="contents">
-                    <RelationshipInspector
-                      scape={scape}
-                      relationship={selectedEdge}
-                      onClose={() => setSelectedEdgeId(null)}
-                      onFocusObject={selectFromOutline}
-                    />
-                  </fieldset>
-                ) : (
-                  selectedObject &&
-                  plugin && (
-                    <>
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-fg-secondary">{plugin.label}</span>
-                        <button
-                          type="button"
-                          aria-label="Close inspector"
-                          onClick={() => commands.current?.clearSelection()}
-                          className="grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <fieldset disabled={readOnly} className="contents">
-                        <BlockMarkers
-                          key={selectedObject.id}
-                          object={selectedObject}
-                          dispatch={(payload: ActionPayload) => dispatchTx([payload])}
-                          suggestions={tagSuggestions}
-                        />
-                        <div data-block-inspector className="contents">
-                          {/* Keyed by block: a field's local draft must never commit to the
-                              next block when the selection changes under it. */}
-                          <plugin.Inspector
-                            key={selectedObject.id}
-                            object={selectedObject}
-                            dispatch={(payload: ActionPayload) => dispatchTx([payload])}
-                          />
-                        </div>
-                      </fieldset>
-                    </>
-                  )
-                )}
-              </aside>
-            )
-          )}
-          {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
-            <button
-              type="button"
-              onClick={() => setRightPanelCollapsed(true)}
-              aria-label="Collapse inspector"
-              title="Collapse inspector (⌘/)"
-              className="absolute right-1 top-10 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-            >
-              ›
-            </button>
-          )}
-          {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
-            <PanelResizer
-              side="right"
-              label="Resize inspector"
-              width={rightPanelWidth}
-              onResize={setRightPanelWidth}
-            />
-          )}
-        </div>
+                ‹
+              </button>
+            ) : (
+              (selectedEdge || (selectedObject && plugin)) && inspectorPanel
+            )}
+            {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
+              <button
+                type="button"
+                onClick={() => setRightPanelCollapsed(true)}
+                aria-label="Collapse inspector"
+                title="Collapse inspector (⌘/)"
+                className="absolute right-1 top-10 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+              >
+                ›
+              </button>
+            )}
+            {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
+              <PanelResizer
+                side="right"
+                label="Resize inspector"
+                width={rightPanelWidth}
+                onResize={setRightPanelWidth}
+              />
+            )}
+          </div>
+        )}
       </div>
+
+      {compact && (
+        <div ref={actionBar}>
+          <MobileActionBar
+            onOutline={() => setOutlineSheetOpen(true)}
+            onAdd={() => setAddSheetOpen(true)}
+            onAsk={focusComposer}
+            onUndo={() => useScapeStore.getState().undo()}
+            onRedo={() => useScapeStore.getState().redo()}
+            canUndo={undoDepth > 0 && !busy}
+            canRedo={redoDepth > 0 && !busy}
+            readOnly={readOnly}
+          />
+        </div>
+      )}
+
+      {compact && (
+        <>
+          <Sheet
+            open={outlineSheetOpen}
+            onClose={() => setOutlineSheetOpen(false)}
+            title="Outline"
+            snaps={["closed", "half", "full"]}
+            snap="half"
+          >
+            <Outline
+              scape={scape}
+              selection={selection}
+              onSelect={(id) => {
+                setOutlineSheetOpen(false);
+                selectFromOutline(id);
+              }}
+              onConnectLoose={(ids) => void handleConnect(ids)}
+              onSelectMany={(ids) => {
+                setOutlineSheetOpen(false);
+                selectMany(ids);
+              }}
+              busy={busy}
+              readOnly={readOnly}
+            />
+          </Sheet>
+
+          <Sheet
+            open={addSheetOpen && !readOnly}
+            onClose={() => setAddSheetOpen(false)}
+            title="Add a block"
+            snaps={["closed", "half"]}
+            snap="half"
+          >
+            <AddBlockList
+              onAdd={(type) => {
+                setAddSheetOpen(false);
+                commands.current?.addObject(type);
+              }}
+            />
+          </Sheet>
+
+          <Sheet
+            open={inspectorSheetOpen}
+            onClose={() => {
+              if (selectedEdge) setSelectedEdgeId(null);
+              else commands.current?.clearSelection();
+            }}
+            title={selectedEdge ? "Relationship" : (plugin?.label ?? "Inspector")}
+            modal={false}
+            snaps={["closed", "peek", "half", "full"]}
+            snap={inspectorSnap}
+            onSnapChange={setInspectorSnap}
+            bottomOffset={actionBarHeight}
+          >
+            {inspectorPanel}
+          </Sheet>
+
+          <Sheet
+            open={scapiOpen}
+            onClose={() => setScapiOpen(false)}
+            title="Scapi"
+            snaps={["closed", "full"]}
+            snap="full"
+            header={false}
+          >
+            <div className="-mx-4 -mb-4 flex h-full flex-col">{scapiPanel}</div>
+          </Sheet>
+        </>
+      )}
 
       {settingsOpen && (
         <SettingsModal
