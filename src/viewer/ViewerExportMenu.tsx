@@ -52,7 +52,7 @@ export function ViewerExportMenu({ scape }: { scape: PublishedScape }) {
         aria-busy={busy}
         disabled={busy}
         onClick={() => setOpen((was) => !was)}
-        className="flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-2 text-xs font-medium text-fg-secondary shadow-md transition-colors hover:bg-hover hover:text-fg disabled:opacity-60 disabled:hover:bg-surface"
+        className="flex min-h-hit items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-2 text-xs font-medium text-fg-secondary shadow-md transition-colors hover:bg-hover hover:text-fg disabled:opacity-60 disabled:hover:bg-surface"
       >
         {busy ? "Exporting…" : "Export"}
         {!busy && (
