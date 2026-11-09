@@ -36,7 +36,7 @@ function useDismiss(onClose: () => void) {
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const click = (e: MouseEvent) => {
+    const click = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) onClose();
     };
     const key = (e: KeyboardEvent) => {
@@ -46,11 +46,13 @@ function useDismiss(onClose: () => void) {
       }
     };
     // Deferred: the same click that opened the menu is still propagating.
-    const timer = setTimeout(() => document.addEventListener("mousedown", click), 0);
+    // `pointerdown`, not `mousedown`: lifting a finger after a long-press fires a compatibility
+    // mousedown, which would close the menu the long-press just opened.
+    const timer = setTimeout(() => document.addEventListener("pointerdown", click), 0);
     document.addEventListener("keydown", key);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener("mousedown", click);
+      document.removeEventListener("pointerdown", click);
       document.removeEventListener("keydown", key);
     };
   }, [onClose]);

@@ -1158,6 +1158,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
             isGenerating={busy}
             colorMode={resolvedTheme}
             readOnly={readOnly}
+            onAskAbout={focusComposer}
           />
 
           {readOnly && !isDesktop() && (

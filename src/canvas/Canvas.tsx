@@ -27,6 +27,9 @@ import { ObjectNode } from "./ObjectNode";
 import { AddPalette, ConnectMenu } from "./pickers";
 import { ReadOnlyContext } from "./readOnly";
 import { Toolbar } from "./Toolbar";
+import { SelectionPill } from "./SelectionPill";
+import { useCanvasTouch } from "./touch";
+import { useInputMode, useLayoutClass } from "@/shared/useLayout";
 
 /** Stable identity — a fresh object here remounts every node on every render. */
 const NODE_TYPES = { [OBJECT_NODE_TYPE]: ObjectNode };
@@ -191,6 +194,8 @@ export interface CanvasProps {
    * that dispatch an action are closed.
    */
   readOnly?: boolean;
+  /** "Ask" in the touch selection pill: the shell opens its composer scoped to the selection. */
+  onAskAbout?: () => void;
 }
 
 export function Canvas(props: CanvasProps) {
@@ -211,6 +216,7 @@ function CanvasSurface({
   onEdgeSelect,
   onOpenHelp,
   readOnly = false,
+  onAskAbout,
 }: CanvasProps) {
   const scape = useScapeStore((s) => s.scape);
   const selection = useScapeStore((s) => s.selection);
@@ -224,6 +230,15 @@ function CanvasSurface({
   const redoDepth = useScapeStore((s) => s.redoStack.length);
   const surface = useRef<HTMLDivElement>(null);
   const lastNodeDoubleClick = useRef(Number.NEGATIVE_INFINITY);
+  // Touch: interaction follows the pointer, layout follows the width (src/core/viewport.ts).
+  const coarse = useInputMode() === "coarse";
+  const compact = useLayoutClass() === "compact";
+  // What was selected when the finger went down. Tapping a node that was already the
+  // selection opens the inspector further, the touch stand-in for double-click.
+  const selectedAtPress = useRef<readonly ObjectId[]>([]);
+  // Lifting the finger after a long-press also produces a click on the pane, which would
+  // close the add menu the long-press just opened.
+  const lastPaneLongPress = useRef(Number.NEGATIVE_INFINITY);
 
   // The scape's starter decides the arrangement and whether relationships are drawn.
   const starter = starterFor(scape);
@@ -781,6 +796,24 @@ function CanvasSurface({
     ],
   );
 
+  useCanvasTouch(
+    surface,
+    {
+      onTwoFingerTap: () => {
+        if (!readOnly && !isGenerating) useScapeStore.getState().undo();
+      },
+      onPaneDoubleTap: fit,
+      onPaneLongPress: ({ x, y }) => {
+        if (readOnly) return;
+        lastPaneLongPress.current = performance.now();
+        setConnectMenu(null);
+        setPendingConnection(null);
+        setAddMenu(anchorFrom(x, y));
+      },
+    },
+    coarse && Boolean(scape),
+  );
+
   if (!scape) return <div className="h-full bg-canvas" />;
 
   return (
@@ -789,9 +822,12 @@ function CanvasSurface({
       tabIndex={0}
       data-canvas-surface
       onKeyDown={onKeyDown}
+      onPointerDownCapture={() => {
+        selectedAtPress.current = useScapeStore.getState().selection;
+      }}
       // A focus ring around the entire viewport reads as a rendering fault, and selection is
       // what actually communicates focus here.
-      className="focus-self relative h-full w-full bg-canvas"
+      className="focus-self touch-canvas relative h-full w-full bg-canvas"
     >
       <ReactFlow
         nodes={visibleNodes}
@@ -807,6 +843,11 @@ function CanvasSurface({
           setPendingConnection({ startX: point.x, startY: point.y, endX: point.x, endY: point.y });
         }}
         onConnectEnd={onConnectEnd}
+        onNodeClick={(_, node) => {
+          if (!coarse) return;
+          const before = selectedAtPress.current;
+          if (before.length === 1 && before[0] === node.id) onOpenInspector?.(node.id);
+        }}
         onNodeDoubleClick={(_, node) => {
           lastNodeDoubleClick.current = performance.now();
           onOpenInspector?.(node.id);
@@ -824,6 +865,7 @@ function CanvasSurface({
           selectEdge(edge.id);
         }}
         onPaneClick={() => {
+          if (performance.now() - lastPaneLongPress.current < 800) return;
           setConnectMenu(null);
           setAddMenu(null);
           setPendingConnection(null);
@@ -852,7 +894,11 @@ function CanvasSurface({
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         // Two-finger trackpad scroll pans; pinch and Cmd/Ctrl+scroll still zoom.
-        panOnScroll
+        panOnScroll={!coarse}
+        // On touch, double-tap on empty canvas fits (useCanvasTouch); it must not also zoom.
+        zoomOnDoubleClick={!coarse}
+        // A finger is less precise than a mouse: a few px of jitter on tap is not a drag.
+        nodeDragThreshold={coarse ? 6 : 1}
         // React Flow's default (0.5) moves half as far as the fingers; 1 tracks them one-to-one.
         panOnScrollSpeed={1}
         // Fit only when the scape has no camera of its own yet; once the user has panned,
@@ -863,7 +909,19 @@ function CanvasSurface({
         // stay `visibility: hidden`, and every edge is silently dropped because its
         // endpoints have no handle geometry. Spread so exactly one of the two is passed.
         {...(isUntouchedViewport(scape.viewState)
-          ? { fitView: true, fitViewOptions: { padding: 0.15, maxZoom: 1 } }
+          ? {
+              fitView: true,
+              // A whole scape fitted into a portrait phone is unreadably small. Start on the
+              // first few blocks at a legible zoom instead; Fit view still shows everything.
+              fitViewOptions: compact
+                ? {
+                    padding: 0.1,
+                    maxZoom: 1,
+                    minZoom: 0.45,
+                    nodes: scape.objectOrder.slice(0, 2).map((id) => ({ id })),
+                  }
+                : { padding: 0.15, maxZoom: 1 },
+            }
           : { defaultViewport: scape.viewState })}
         proOptions={{ hideAttribution: true }}
       >
@@ -873,6 +931,28 @@ function CanvasSurface({
           size={1.5}
           color="var(--canvas-dot)"
         />
+        {coarse &&
+          !readOnly &&
+          !isGenerating &&
+          selection.length === 1 &&
+          scape.objects[selection[0]] && (
+            <SelectionPill
+              nodeId={selection[0]}
+              onEdit={() => onOpenInspector?.(selection[0])}
+              onConnect={(point) => {
+                setAddMenu(null);
+                setConnectMenu(anchorFrom(point.x, point.y, selection[0]));
+              }}
+              {...(onAskAbout ? { onAsk: onAskAbout } : {})}
+              onDuplicate={() =>
+                dispatchTx([{ type: "DuplicateObject", id: selection[0], newId: newObjectId() }])
+              }
+              onDelete={() => {
+                dispatchTx([{ type: "DeleteObject", id: selection[0] }]);
+                setSelection([]);
+              }}
+            />
+          )}
       </ReactFlow>
 
       {pendingConnection && addMenu?.from && (
@@ -909,6 +989,8 @@ function CanvasSurface({
         onAdd={openAddMenuAt}
         onHelp={() => onOpenHelp?.()}
         readOnly={readOnly}
+        compact={compact}
+        coarse={coarse}
       />
 
       {addMenu && (
