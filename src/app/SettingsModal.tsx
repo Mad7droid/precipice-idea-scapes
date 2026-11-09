@@ -61,7 +61,7 @@ export function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-modal grid place-items-center bg-black/40 p-4"
+      className="fixed inset-0 z-modal grid place-items-center bg-black/40 p-4 compact:place-items-end compact:p-0 compact:pt-safe-top"
       onClick={onClose}
       role="presentation"
     >
@@ -69,7 +69,9 @@ export function SettingsModal({
         // Sectioned rather than one long column: the list had grown past the viewport, and a
         // dialog you have to scroll to reach Done in is a dialog that has outgrown its shape.
         // Each section is short enough to need no scrolling of its own.
-        className="flex h-[min(440px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[620px] overflow-hidden rounded-xl border border-subtle bg-surface shadow-lg"
+        // On a phone it becomes a bottom sheet: sections stack as tabs across the top, and the
+        // footer clears the home indicator.
+        className="flex h-[min(440px,calc(100vh-32px))] w-[calc(100vw-32px)] max-w-[620px] overflow-hidden rounded-xl border border-subtle bg-surface shadow-lg compact:h-[calc(var(--vh-dynamic)-var(--safe-top)-var(--space-6))] compact:w-full compact:max-w-none compact:animate-sheet-enter compact:flex-col compact:rounded-b-none compact:rounded-t-[var(--sheet-radius)]"
         onClick={(e) => e.stopPropagation()}
         ref={dialogRef}
         role="dialog"
@@ -78,9 +80,9 @@ export function SettingsModal({
       >
         <nav
           aria-label="Settings sections"
-          className="flex w-[150px] shrink-0 flex-col gap-0.5 border-r border-subtle bg-inset p-3"
+          className="flex w-[150px] shrink-0 flex-col gap-0.5 border-r border-subtle bg-inset p-3 compact:w-auto compact:flex-row compact:items-center compact:overflow-x-auto compact:border-b compact:border-r-0"
         >
-          <h2 className="mono mb-1 px-2">Settings</h2>
+          <h2 className="mono mb-1 px-2 compact:mb-0">Settings</h2>
           {SECTIONS.map((entry) => (
             <button
               key={entry.id}
@@ -88,7 +90,7 @@ export function SettingsModal({
               aria-current={section === entry.id}
               onClick={() => setSection(entry.id)}
               className={
-                "rounded-md px-2 py-1.5 text-left transition-colors duration-instant ease-out " +
+                "rounded-md px-2 py-1.5 text-left transition-colors duration-instant ease-out compact:min-h-hit compact:shrink-0 " +
                 (section === entry.id
                   ? "bg-raised text-fg"
                   : "text-fg-secondary hover:bg-hover hover:text-fg")
@@ -202,7 +204,7 @@ export function SettingsModal({
             )}
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-subtle px-5 py-3">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-subtle px-5 py-3 compact:pb-[calc(var(--space-3)+var(--safe-bottom))]">
             {onOpenHelp ? (
               <Button variant="secondary" shape="pill" onClick={onOpenHelp}>
                 Help & keyboard shortcuts
