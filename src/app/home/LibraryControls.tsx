@@ -72,7 +72,7 @@ export function LibraryControls({
         </div>
       )}
       <div className="ml-auto flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <label className="relative flex min-w-0 flex-1 items-center sm:w-64 sm:flex-none">
+        <label className="relative flex min-w-0 flex-1 items-center compact:basis-full sm:w-64 sm:flex-none">
           <SearchIcon className="pointer-events-none absolute left-2.5 text-fg-tertiary" />
           <input
             ref={searchRef}
@@ -93,7 +93,7 @@ export function LibraryControls({
             <kbd
               aria-hidden
               title="Press / to search"
-              className="mono pointer-events-none absolute right-2 rounded-xs border border-subtle px-1 text-fg-tertiary"
+              className="mono pointer-events-none absolute right-2 rounded-xs border border-subtle px-1 text-fg-tertiary coarse:hidden"
             >
               /
             </kbd>

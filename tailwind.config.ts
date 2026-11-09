@@ -19,6 +19,9 @@ export default {
       screens: {
         medium: "640px",
         expanded: "1024px",
+        // Tailwind's own `max-*` variants switch off once any screen is a raw media query, so
+        // the phone layout gets an explicit variant: below BREAKPOINTS.medium.
+        compact: { raw: "(max-width: 639.98px)" },
         coarse: { raw: "(pointer: coarse)" },
         hoverable: { raw: "(hover: hover)" },
       },
