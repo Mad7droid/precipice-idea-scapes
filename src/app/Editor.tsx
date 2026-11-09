@@ -72,7 +72,7 @@ import {
 import { PanelResizer } from "./editor/PanelResizer";
 import { AddBlockList, MobileActionBar } from "./editor/MobileChrome";
 import { Sheet } from "@/design/Sheet";
-import type { SheetSnap } from "@/core/viewport";
+import { BREAKPOINTS, MEDIA, type SheetSnap } from "@/core/viewport";
 import { useLayoutClass } from "@/shared/useLayout";
 import { useEditorSession } from "./editor/useEditorSession";
 import { useEditorShortcuts } from "./editor/useEditorShortcuts";
@@ -139,7 +139,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
   /** Whether the canvas bar is showing its full controls. The bar itself is always present. */
   const [canvasComposerOpen, setCanvasComposerOpen] = useState(false);
   // Compact (phone) layout: the side columns become sheets and an action bar reaches them.
-  const compact = useLayoutClass() === "compact";
+  const layoutClass = useLayoutClass();
+  const compact = layoutClass === "compact";
+  // Tablet (medium): side panels slide over the canvas instead of squeezing it, one at a time.
+  const medium = layoutClass === "medium";
   const [outlineSheetOpen, setOutlineSheetOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [inspectorSnap, setInspectorSnap] = useState<SheetSnap>("peek");
@@ -335,7 +338,14 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const focusInspector = useCallback((id: ObjectId) => {
     setRightPanelCollapsed(false);
     setInspectorSnap("half");
+    // On a tablet the outline and the inspector overlay the same canvas; show one.
+    if (window.innerWidth >= BREAKPOINTS.medium && window.innerWidth < BREAKPOINTS.expanded) {
+      setLeftPanelCollapsed(true);
+    }
     setScapiOpen(false);
+    // On a touch screen, focusing a field raises the on-screen keyboard over the very panel
+    // that just opened. Let the user tap the field they mean.
+    if (window.matchMedia?.(MEDIA.coarse).matches) return;
     window.requestAnimationFrame(() => {
       // Selection may have changed while the inspector was opening. An older request
       // must not steal focus into another block's fields.
@@ -764,6 +774,18 @@ export function Editor({ scapeId }: { scapeId: string }) {
   );
   const plugin = selectedObject ? getPlugin(selectedObject.type) : undefined;
   const selectedEdge = selectedEdgeId && scape ? scape.relationships[selectedEdgeId] : undefined;
+  const rightWidth = scapiOpen
+    ? scapiWide
+      ? "min(var(--panel-scapi-wide), 92vw)"
+      : "min(var(--panel-scapi), 65vw)"
+    : rightPanelCollapsed
+      ? "var(--panel-rail)"
+      : selectedEdge || (selectedObject && plugin)
+        ? `min(${rightPanelWidth}px, 78vw)`
+        : 0;
+  const rightOverlay =
+    medium &&
+    (scapiOpen || (!rightPanelCollapsed && Boolean(selectedEdge || (selectedObject && plugin))));
   const inspectorSheetOpen =
     compact && !scapiOpen && !inspectorAside && Boolean(selectedEdge || (selectedObject && plugin));
   // A palette that lists what you cannot do is a palette you stop trusting. In a follower tab
@@ -1119,10 +1141,24 @@ export function Editor({ scapeId }: { scapeId: string }) {
           <div
             className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
             style={{
-              width: leftPanelCollapsed ? "var(--panel-rail)" : `min(${leftPanelWidth}px, 78vw)`,
+              width:
+                leftPanelCollapsed || medium
+                  ? "var(--panel-rail)"
+                  : `min(${leftPanelWidth}px, 78vw)`,
             }}
           >
-            <div className="flex h-full">
+            <div
+              className={
+                medium && !leftPanelCollapsed
+                  ? "absolute inset-y-0 left-0 z-sheet flex border-r border-subtle shadow-lg"
+                  : "flex h-full"
+              }
+              style={
+                medium && !leftPanelCollapsed
+                  ? { width: `min(${leftPanelWidth}px, 78vw)` }
+                  : undefined
+              }
+            >
               <Outline
                 scape={scape}
                 selection={selection}
@@ -1132,13 +1168,20 @@ export function Editor({ scapeId }: { scapeId: string }) {
                 busy={busy}
                 readOnly={readOnly}
                 isCollapsed={leftPanelCollapsed}
-                onToggleCollapse={() => setLeftPanelCollapsed((open) => !open)}
+                onToggleCollapse={() => {
+                  // One overlay at a time on a tablet.
+                  if (medium && leftPanelCollapsed && rightOverlay) {
+                    if (scapiOpen) setScapiOpen(false);
+                    else setRightPanelCollapsed(true);
+                  }
+                  setLeftPanelCollapsed((open) => !open);
+                }}
               />
               {!leftPanelCollapsed && !readOnly && (
                 <BlockNav onAdd={(type) => commands.current?.addObject(type)} />
               )}
             </div>
-            {!leftPanelCollapsed && (
+            {!leftPanelCollapsed && !medium && (
               <PanelResizer
                 side="left"
                 label="Resize outline"
@@ -1149,7 +1192,13 @@ export function Editor({ scapeId }: { scapeId: string }) {
           </div>
         )}
 
-        <div ref={canvasArea} className="relative min-w-0 flex-1">
+        <div
+          ref={canvasArea}
+          className="relative min-w-0 flex-1"
+          onPointerDownCapture={() => {
+            if (medium && !leftPanelCollapsed) setLeftPanelCollapsed(true);
+          }}
+        >
           <Canvas
             onReady={onCanvasReady}
             onOpenInspector={focusInspector}
@@ -1319,52 +1368,53 @@ export function Editor({ scapeId }: { scapeId: string }) {
         {!compact && (
           <div
             className="relative h-full shrink-0 transition-[width] duration-fast ease-out"
-            style={{
-              width: scapiOpen
-                ? scapiWide
-                  ? "min(var(--panel-scapi-wide), 92vw)"
-                  : "min(var(--panel-scapi), 65vw)"
-                : rightPanelCollapsed
-                  ? "var(--panel-rail)"
-                  : selectedEdge || (selectedObject && plugin)
-                    ? `min(${rightPanelWidth}px, 78vw)`
-                    : 0,
-            }}
+            style={{ width: rightOverlay ? 0 : rightWidth }}
           >
-            {scapiOpen ? (
-              scapiPanel
-            ) : rightPanelCollapsed ? (
-              <button
-                type="button"
-                onClick={() => setRightPanelCollapsed(false)}
-                aria-label="Expand inspector"
-                title="Expand inspector (⌘/)"
-                className="grid h-full w-full place-items-start pt-2 text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-              >
-                ‹
-              </button>
-            ) : (
-              (selectedEdge || (selectedObject && plugin)) && inspectorPanel
-            )}
-            {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
-              <button
-                type="button"
-                onClick={() => setRightPanelCollapsed(true)}
-                aria-label="Collapse inspector"
-                title="Collapse inspector (⌘/)"
-                className="absolute right-1 top-10 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-              >
-                ›
-              </button>
-            )}
-            {!scapiOpen && !rightPanelCollapsed && (selectedEdge || (selectedObject && plugin)) && (
-              <PanelResizer
-                side="right"
-                label="Resize inspector"
-                width={rightPanelWidth}
-                onResize={setRightPanelWidth}
-              />
-            )}
+            <div
+              className={
+                rightOverlay ? "absolute inset-y-0 right-0 z-sheet flex shadow-lg" : "contents"
+              }
+              style={rightOverlay ? { width: rightWidth } : undefined}
+            >
+              {scapiOpen ? (
+                scapiPanel
+              ) : rightPanelCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setRightPanelCollapsed(false)}
+                  aria-label="Expand inspector"
+                  title="Expand inspector (⌘/)"
+                  className="grid h-full w-full place-items-start pt-2 text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                >
+                  ‹
+                </button>
+              ) : (
+                (selectedEdge || (selectedObject && plugin)) && inspectorPanel
+              )}
+              {!scapiOpen &&
+                !rightPanelCollapsed &&
+                (selectedEdge || (selectedObject && plugin)) && (
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelCollapsed(true)}
+                    aria-label="Collapse inspector"
+                    title="Collapse inspector (⌘/)"
+                    className="absolute right-1 top-10 z-panel grid h-6 w-6 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+                  >
+                    ›
+                  </button>
+                )}
+              {!scapiOpen &&
+                !rightPanelCollapsed &&
+                (selectedEdge || (selectedObject && plugin)) && (
+                  <PanelResizer
+                    side="right"
+                    label="Resize inspector"
+                    width={rightPanelWidth}
+                    onResize={setRightPanelWidth}
+                  />
+                )}
+            </div>
           </div>
         )}
       </div>
