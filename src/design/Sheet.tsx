@@ -31,8 +31,13 @@ export interface SheetProps {
   /** Snaps the user can drag between. Include `closed` to allow swipe-to-dismiss. */
   snaps?: readonly SheetSnap[];
   modal?: boolean;
-  /** Replaces the default title row. Stays draggable. */
+  /** Replaces the default title row. Stays draggable. `false` hides it (the body has its own). */
   header?: React.ReactNode;
+  /**
+   * Px reserved below the sheet, e.g. for a bottom action bar a non-modal sheet must not
+   * cover. The keyboard still wins when it is taller.
+   */
+  bottomOffset?: number;
   /** Pinned under the scrolling body, above the safe area — primary actions go here. */
   footer?: React.ReactNode;
   children: React.ReactNode;
@@ -48,6 +53,7 @@ export function Sheet({
   modal = true,
   header,
   footer,
+  bottomOffset = 0,
   children,
 }: SheetProps) {
   const titleId = useId();
@@ -57,11 +63,16 @@ export function Sheet({
   const vh = viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 800);
 
   const [dragHeight, setDragHeight] = useState<number | null>(null);
-  const drag = useRef<{ startY: number; startHeight: number; lastY: number; lastT: number; v: number } | null>(
-    null,
-  );
+  const drag = useRef<{
+    startY: number;
+    startHeight: number;
+    lastY: number;
+    lastT: number;
+    v: number;
+  } | null>(null);
 
-  const restingHeight = sheetHeightFor(snap === "closed" ? "half" : snap, vh);
+  const available = Math.max(0, vh - bottomOffset);
+  const restingHeight = sheetHeightFor(snap === "closed" ? "half" : snap, available);
   const height = dragHeight ?? restingHeight;
 
   // Focus in on open, back to the opener on close. Modal only: a non-modal sheet must not
@@ -116,7 +127,7 @@ export function Sheet({
     d.lastY = event.clientY;
     d.lastT = event.timeStamp;
     const next = d.startHeight - (event.clientY - d.startY);
-    setDragHeight(Math.max(0, Math.min(vh, next)));
+    setDragHeight(Math.max(0, Math.min(available, next)));
   };
 
   const onPointerUp = () => {
@@ -130,7 +141,7 @@ export function Sheet({
       settle(order[(index + 1) % order.length] ?? snap);
       return;
     }
-    settle(resolveSheetSnap(dragHeight, d.v, vh, snaps));
+    settle(resolveSheetSnap(dragHeight, d.v, available, snaps));
   };
 
   const dragHandlers = {
@@ -161,7 +172,7 @@ export function Sheet({
         className={`fixed inset-x-0 z-sheet flex animate-sheet-enter flex-col rounded-t-[var(--sheet-radius)] border-t border-subtle bg-raised shadow-lg focus-self ${
           dragHeight === null ? "transition-[height,bottom] duration-base ease-out" : ""
         }`}
-        style={{ height, bottom: keyboardInset }}
+        style={{ height, bottom: Math.max(keyboardInset, bottomOffset) }}
       >
         <div {...dragHandlers} className="touch-callout-none shrink-0 cursor-grab touch-none">
           <div className="flex justify-center pb-1 pt-2">
@@ -169,7 +180,10 @@ export function Sheet({
           </div>
           {header ?? (
             <div className="flex min-h-hit items-center gap-2 px-4">
-              <h2 id={titleId} className="min-w-0 flex-1 truncate text-base font-[var(--weight-emph)]">
+              <h2
+                id={titleId}
+                className="min-w-0 flex-1 truncate text-base font-[var(--weight-emph)]"
+              >
                 {title}
               </h2>
               <button
@@ -179,12 +193,17 @@ export function Sheet({
                 className="grid min-h-hit min-w-hit place-items-center rounded-full text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
               >
                 <svg aria-hidden width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path
+                    d="M3 3l8 8M11 3l-8 8"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </button>
             </div>
           )}
-          {header && (
+          {header !== undefined && (
             <span id={titleId} className="sr-only">
               {title}
             </span>

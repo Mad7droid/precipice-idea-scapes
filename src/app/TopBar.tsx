@@ -8,6 +8,8 @@ import { describeState, type PublicationState } from "@/publish/usePublication";
 import { Brand } from "./Brand";
 import { buttonClass } from "@/design/Button";
 import { openWorkspaceTool } from "./workspaceEvents";
+import { Sheet } from "@/design/Sheet";
+import { useLayoutClass } from "@/shared/useLayout";
 
 export type ExportFormat = "scape" | "pdf";
 
@@ -43,6 +45,13 @@ export function TopBar({
   publicationState?: PublicationState;
 }) {
   const [editing, setEditing] = useState(false);
+  // On a phone the right-hand cluster does not fit: Scapi stays, the rest folds into More.
+  const compact = useLayoutClass() === "compact";
+  const [moreOpen, setMoreOpen] = useState(false);
+  const fromMore = (run: () => void) => () => {
+    setMoreOpen(false);
+    run();
+  };
   const [draft, setDraft] = useState(scape.name);
   const starter = starterFor(scape);
 
@@ -58,13 +67,13 @@ export function TopBar({
   };
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-1 border-b border-subtle bg-surface px-3 sm:gap-2">
+    <header className="flex min-h-11 shrink-0 items-center gap-1 border-b border-subtle bg-surface pl-[max(var(--space-3),var(--safe-left))] pr-[max(var(--space-3),var(--safe-right))] pt-safe-top sm:gap-2">
       <button
         type="button"
         onClick={onBack}
         aria-label="All scapes"
         title="All scapes"
-        className="flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+        className="flex min-h-hit min-w-hit items-center justify-center gap-1.5 rounded-sm px-1.5 py-1 text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
           <path
@@ -75,12 +84,14 @@ export function TopBar({
             strokeLinejoin="round"
           />
         </svg>
-        <Brand compact />
+        {!compact && <Brand compact />}
       </button>
 
-      <span aria-hidden className="text-fg-tertiary">
-        /
-      </span>
+      {!compact && (
+        <span aria-hidden className="text-fg-tertiary">
+          /
+        </span>
+      )}
 
       {editing ? (
         <input
@@ -104,7 +115,7 @@ export function TopBar({
           onClick={() => setEditing(true)}
           title="Rename"
           aria-label={`Rename ${scape.name}`}
-          className="min-w-0 max-w-[140px] truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover sm:max-w-[420px]"
+          className="min-w-0 truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover max-sm:flex-1 sm:max-w-[420px]"
         >
           {scape.name}
         </button>
@@ -124,24 +135,28 @@ export function TopBar({
       </span>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-        <button
-          type="button"
-          onClick={() => openWorkspaceTool("search")}
-          aria-label="Search library content"
-          title="Search library content (⌘⇧F)"
-          className={buttonClass({ variant: "ghost", size: "sm" })}
-        >
-          Find
-        </button>
-        <button
-          type="button"
-          onClick={() => openWorkspaceTool("capture")}
-          aria-label="Capture a note"
-          title="Capture a note (⌘⌥N)"
-          className={buttonClass({ variant: "ghost", size: "sm" })}
-        >
-          Capture
-        </button>
+        {!compact && (
+          <>
+            <button
+              type="button"
+              onClick={() => openWorkspaceTool("search")}
+              aria-label="Search library content"
+              title="Search library content (⌘⇧F)"
+              className={buttonClass({ variant: "ghost", size: "sm" })}
+            >
+              Find
+            </button>
+            <button
+              type="button"
+              onClick={() => openWorkspaceTool("capture")}
+              aria-label="Capture a note"
+              title="Capture a note (⌘⌥N)"
+              className={buttonClass({ variant: "ghost", size: "sm" })}
+            >
+              Capture
+            </button>
+          </>
+        )}
         {onOpenScapi && (
           <button
             type="button"
@@ -149,32 +164,88 @@ export function TopBar({
             aria-label="Ask Scapi"
             aria-pressed={scapiOpen}
             title="Ask Scapi (⌘J)"
-            className="grid h-9 w-9 place-items-center rounded-md border border-default text-fg transition-colors duration-instant ease-out hover:bg-hover active:scale-[0.98] aria-pressed:bg-selected motion-reduce:active:scale-100"
+            className="grid h-9 w-9 min-h-hit min-w-hit place-items-center rounded-md border border-default text-fg transition-colors duration-instant ease-out hover:bg-hover active:scale-[0.98] aria-pressed:bg-selected motion-reduce:active:scale-100"
           >
             <Scapi size={24} animated={false} effects={false} />
           </button>
         )}
-        {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
-        <ExportMenu onExport={onExport} busy={exporting ?? false} />
-        {/* Theme lives in Settings → General: the top bar has to fit an 800px window. */}
-        <button
-          type="button"
-          aria-label="Open settings"
-          title="Settings"
-          onClick={onOpenSettings}
-          className="grid h-9 w-9 place-items-center rounded-md text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <path
-              d="M6.38 2.2h3.24l.34 1.35c.38.14.73.34 1.05.6l1.32-.4 1.62 2.8-.98.96c.04.2.06.4.06.6s-.02.4-.06.6l.98.96-1.62 2.8-1.32-.4c-.32.26-.67.46-1.05.6l-.34 1.35H6.38l-.34-1.35a4.16 4.16 0 0 1-1.05-.6l-1.32.4-1.62-2.8.98-.96a4.1 4.1 0 0 1 0-1.2l-.98-.96 1.62-2.8 1.32.4c.32-.26.67-.46 1.05-.6l.34-1.35Z"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinejoin="round"
-            />
-            <circle cx="8" cy="8" r="2.05" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-        </button>
+        {compact && (
+          <button
+            type="button"
+            aria-label="More"
+            aria-haspopup="dialog"
+            onClick={() => setMoreOpen(true)}
+            className="grid min-h-hit min-w-hit place-items-center rounded-md text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+              <circle cx="3.5" cy="8" r="1.3" />
+              <circle cx="8" cy="8" r="1.3" />
+              <circle cx="12.5" cy="8" r="1.3" />
+            </svg>
+          </button>
+        )}
+        {!compact && (
+          <>
+            {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
+            <ExportMenu onExport={onExport} busy={exporting ?? false} />
+            {/* Theme lives in Settings → General: the top bar has to fit an 800px window. */}
+            <button
+              type="button"
+              aria-label="Open settings"
+              title="Settings"
+              onClick={onOpenSettings}
+              className="grid h-9 w-9 place-items-center rounded-md text-fg-secondary transition-colors duration-instant ease-out hover:bg-hover hover:text-fg"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M6.38 2.2h3.24l.34 1.35c.38.14.73.34 1.05.6l1.32-.4 1.62 2.8-.98.96c.04.2.06.4.06.6s-.02.4-.06.6l.98.96-1.62 2.8-1.32-.4c-.32.26-.67.46-1.05.6l-.34 1.35H6.38l-.34-1.35a4.16 4.16 0 0 1-1.05-.6l-1.32.4-1.62-2.8.98-.96a4.1 4.1 0 0 1 0-1.2l-.98-.96 1.62-2.8 1.32.4c.32-.26.67-.46 1.05-.6l.34-1.35Z"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                />
+                <circle cx="8" cy="8" r="2.05" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
+
+      {compact && (
+        <Sheet
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          title={scape.name}
+          snaps={["closed", "half", "full"]}
+        >
+          <ul className="flex flex-col gap-0.5 pt-1">
+            <MoreRow onClick={fromMore(() => openWorkspaceTool("search"))}>Find in library</MoreRow>
+            <MoreRow onClick={fromMore(() => openWorkspaceTool("capture"))}>Capture a note</MoreRow>
+            {onPublish && (
+              <MoreRow
+                onClick={fromMore(onPublish)}
+                caption={publicationState ? describeState(publicationState) : undefined}
+              >
+                Publish
+              </MoreRow>
+            )}
+            <MoreRow
+              onClick={fromMore(() => onExport("scape"))}
+              caption="Re-opens in Precipice"
+              disabled={exporting}
+            >
+              Export scape file
+            </MoreRow>
+            <MoreRow
+              onClick={fromMore(() => onExport("pdf"))}
+              caption="Diagram and written outline"
+              disabled={exporting}
+            >
+              Export PDF
+            </MoreRow>
+            <MoreRow onClick={fromMore(onOpenSettings)}>Settings</MoreRow>
+          </ul>
+        </Sheet>
+      )}
     </header>
   );
 }
@@ -277,5 +348,31 @@ function ExportMenu({
         </Menu>
       </div>
     </div>
+  );
+}
+
+function MoreRow({
+  onClick,
+  caption,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  caption?: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="flex min-h-hit w-full flex-col justify-center rounded-md px-2 py-1.5 text-left text-base text-fg transition-colors duration-instant ease-out active:bg-active disabled:opacity-40"
+      >
+        {children}
+        {caption && <span className="text-xs text-fg-secondary">{caption}</span>}
+      </button>
+    </li>
   );
 }
