@@ -3,6 +3,13 @@
 All notable user-visible changes to Precipice are recorded here. Releases are
 numbered (see `docs/releases/`); entries are grouped by date and version.
 
+## Unreleased
+
+- Home always opens on Scapi and "What are you working on?", so starting a new scape is
+  the first thing on the page every time. The large "Continue working" card is now a single
+  "Continue <scape> →" link under the templates, and the duplicate Search, Capture and
+  New scape buttons are gone (they stay in the sidebar).
+
 ## 2026-11-10 — 0.1.20
 
 ### Phones and tablets
