@@ -3,6 +3,33 @@
 All notable user-visible changes to Precipice are recorded here. Releases are
 numbered (see `docs/releases/`); entries are grouped by date and version.
 
+## 2026-11-10 — 0.1.20
+
+### Phones and tablets
+
+- The editor is fully usable on a phone. Below 640px the canvas fills the screen and a
+  bottom bar holds Outline, Add, Ask, Undo and Redo; the outline, inspector, Scapi and the
+  add menu open as bottom sheets. The top bar folds Find, Capture, Publish, Export and
+  Settings into More.
+- Touch: selecting a block shows Edit, Connect, Ask, Duplicate and Delete above it; tapping
+  it again opens the inspector further. Two-finger tap undoes, double-tap on empty canvas
+  fits the view, and press-and-hold on empty canvas adds a block there.
+- Phones open a scape on its first blocks at a readable size instead of shrinking the
+  whole scape to fit.
+- Text fields are 16px on touch screens so iOS no longer zooms in when one takes focus.
+- Settings and Help open as bottom sheets on a phone. Help lists the touch gestures on
+  touch screens. Home's header buttons are easier to tap and its search uses the full width.
+- On tablets (640–1023px wide) the outline, inspector and Scapi slide over the canvas
+  instead of narrowing it, one at a time; tapping the canvas closes the outline. Opening the
+  inspector on a touch screen no longer raises the keyboard on its own.
+- Published scapes open as a readable list on phones, in the order the layout reads, with
+  each block's connections as links that jump to the connected block. Canvas and List can be
+  switched on any screen; embeds stay a canvas. Where the device supports it, Share opens the
+  system share sheet with the public link.
+- Precipice can be installed to the home screen and opens as a standalone app.
+- Typing in the inspector and then leaving the tab, or switching apps on a phone, no
+  longer risks losing the last words typed.
+
 ## 2026-11-09 — 0.1.19
 
 - Security dependency update. No user-visible behavior change.
