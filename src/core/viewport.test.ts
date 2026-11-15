@@ -26,6 +26,7 @@ describe("layoutClassFor", () => {
     const screens = tailwind.theme?.extend?.screens as Record<string, unknown>;
     expect(screens.medium).toBe(`${BREAKPOINTS.medium}px`);
     expect(screens.expanded).toBe(`${BREAKPOINTS.expanded}px`);
+    expect(screens.compact).toEqual({ raw: `(max-width: ${BREAKPOINTS.medium - 0.02}px)` });
   });
 });
 

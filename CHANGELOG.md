@@ -17,6 +17,8 @@ numbered (see `docs/releases/`); entries are grouped by date and version.
 - Phones open a scape on its first blocks at a readable size instead of shrinking the
   whole scape to fit.
 - Text fields are 16px on touch screens so iOS no longer zooms in when one takes focus.
+- Settings and Help open as bottom sheets on a phone. Help lists the touch gestures on
+  touch screens. Home's header buttons are easier to tap and its search uses the full width.
 - Precipice can be installed to the home screen and opens as a standalone app.
 - Typing in the inspector and then leaving the tab, or switching apps on a phone, no
   longer risks losing the last words typed.

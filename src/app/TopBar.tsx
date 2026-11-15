@@ -115,7 +115,7 @@ export function TopBar({
           onClick={() => setEditing(true)}
           title="Rename"
           aria-label={`Rename ${scape.name}`}
-          className="min-w-0 truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover max-sm:flex-1 sm:max-w-[420px]"
+          className="min-w-0 truncate rounded-sm px-1.5 py-0.5 text-left text-fg transition-colors duration-instant ease-out hover:bg-hover compact:flex-1 sm:max-w-[420px]"
         >
           {scape.name}
         </button>

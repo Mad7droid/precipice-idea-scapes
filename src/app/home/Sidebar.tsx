@@ -186,9 +186,9 @@ export function MobileNav({
   onHelp: () => void;
 }) {
   const icon =
-    "grid h-8 w-8 place-items-center rounded-md text-fg-secondary hover:bg-hover hover:text-fg";
+    "grid h-8 min-h-hit w-8 min-w-hit place-items-center rounded-md text-fg-secondary hover:bg-hover hover:text-fg";
   return (
-    <div className="border-b border-subtle bg-surface md:hidden">
+    <div className="border-b border-subtle bg-surface pt-safe-top md:hidden">
       <div className="flex items-center justify-between px-4 py-2.5">
         <Brand />
         <div className="flex items-center gap-1">

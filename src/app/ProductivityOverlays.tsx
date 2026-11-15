@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogFocus } from "./home/Dialog";
 import { isDesktop } from "@/desktop/runtime";
+import { useInputMode } from "@/shared/useLayout";
 
 export interface CommandItem {
   id: string;
@@ -145,7 +146,40 @@ const HOW_TO = [
   },
 ];
 
-export type HelpTopic = "how-to" | "shortcuts" | "scapi" | "agent" | "publishing";
+export type HelpTopic = "how-to" | "gestures" | "shortcuts" | "scapi" | "agent" | "publishing";
+
+/**
+ * Touch gestures as the user meets them. Only gestures that ship are listed; the full planned
+ * vocabulary lives in GESTURES (src/core/viewport.ts) and is not user copy.
+ */
+const TOUCH_HELP: { title: string; items: [string, string][] }[] = [
+  {
+    title: "Canvas",
+    items: [
+      ["Drag with one finger", "Move around"],
+      ["Pinch", "Zoom"],
+      ["Double-tap empty space", "Fit the whole scape"],
+      ["Press and hold empty space", "Add a block there"],
+      ["Tap with two fingers", "Undo"],
+    ],
+  },
+  {
+    title: "Blocks",
+    items: [
+      ["Tap", "Select and show its details"],
+      ["Tap again", "Open the details further"],
+      ["Drag", "Move it"],
+    ],
+  },
+  {
+    title: "Panels",
+    items: [
+      ["Drag the handle", "Resize"],
+      ["Tap the handle", "Step through sizes"],
+      ["Swipe down", "Close"],
+    ],
+  },
+];
 const CAPABILITY_HELP = {
   scapi: {
     title: "Think with Scapi",
@@ -169,10 +203,13 @@ export function HelpPanel({
 }) {
   const [section, setSection] = useState<HelpTopic>(initialSection);
   const root = useDialogFocus(onClose);
+  // Touch gestures are listed only where there is a touch screen; keyboard shortcuts stay,
+  // because an iPad may have a keyboard attached.
+  const touch = useInputMode() === "coarse";
 
   return (
     <div
-      className="fixed inset-0 z-modal grid place-items-center bg-black/30 p-4"
+      className="fixed inset-0 z-modal grid place-items-center bg-black/30 p-4 compact:place-items-end compact:p-0"
       onMouseDown={onClose}
     >
       <div
@@ -180,7 +217,7 @@ export function HelpPanel({
         role="dialog"
         aria-modal
         aria-label="Help and keyboard shortcuts"
-        className="w-[min(560px,100%)] overflow-hidden rounded-xl border border-subtle bg-surface shadow-lg"
+        className="w-[min(560px,100%)] overflow-hidden rounded-xl border border-subtle bg-surface shadow-lg compact:w-full compact:animate-sheet-enter compact:rounded-b-none compact:pb-safe-bottom"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 px-5 pb-3 pt-5">
@@ -206,6 +243,7 @@ export function HelpPanel({
         >
           {[
             ["how-to", "Getting started"],
+            ...(touch ? [["gestures", "Touch gestures"]] : []),
             ["shortcuts", "Keyboard shortcuts"],
             ["scapi", "Scapi"],
             ["agent", "Agents"],
@@ -242,6 +280,25 @@ export function HelpPanel({
                 </li>
               ))}
             </ol>
+          ) : section === "gestures" ? (
+            <div className="space-y-5">
+              <p className="text-xs text-fg-tertiary">
+                Every gesture has a button that does the same thing.
+              </p>
+              {TOUCH_HELP.map((group) => (
+                <section key={group.title}>
+                  <h3 className="mono mb-1 text-fg-tertiary">{group.title}</h3>
+                  <dl className="divide-y divide-subtle">
+                    {group.items.map(([gesture, result]) => (
+                      <div key={gesture} className="flex items-center justify-between gap-5 py-2">
+                        <dt className="text-sm text-fg">{gesture}</dt>
+                        <dd className="text-right text-sm text-fg-secondary">{result}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
           ) : section !== "shortcuts" ? (
             <section>
               <h3 className="text-base text-fg">{CAPABILITY_HELP[section].title}</h3>
