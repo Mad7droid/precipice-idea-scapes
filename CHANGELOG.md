@@ -3,7 +3,7 @@
 All notable user-visible changes to Precipice are recorded here. Releases are
 numbered (see `docs/releases/`); entries are grouped by date and version.
 
-## Unreleased
+## 2026-11-10 — 0.1.20
 
 ### Phones and tablets
 
