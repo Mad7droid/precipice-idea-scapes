@@ -2,7 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Browser chrome matches --bg-base (Ash 50 / Ash 925) so the status bar reads as part of the app. -->
+    <meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#191613" media="(prefers-color-scheme: dark)" />
+    <!-- Installable. The public viewer deliberately has no manifest: it is someone's document,
+         not the app. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Precipice" />
     <title>Precipice</title>
     <link rel="icon" type="image/png" href="/precipice-mark.png" />
 

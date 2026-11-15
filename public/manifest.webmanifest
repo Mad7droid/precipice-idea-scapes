@@ -1,0 +1,16 @@
+{
+  "name": "Precipice",
+  "short_name": "Precipice",
+  "description": "A visual workspace for turning product ideas into connected, editable artifacts.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f5f1",
+  "theme_color": "#f7f5f1",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

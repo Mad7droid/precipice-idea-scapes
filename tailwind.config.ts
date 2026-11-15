@@ -10,6 +10,32 @@ export default {
   darkMode: "class",
   theme: {
     extend: {
+      /**
+       * Layout breakpoints come from src/core/viewport.ts (`BREAKPOINTS`); input modes are
+       * media features, not widths. Use `coarse:` for touch affordances (bigger hit areas,
+       * always-visible row actions) and `hoverable:` for anything that only makes sense with
+       * a hovering pointer. Defaults (`sm`, `md`, `lg`…) are kept so nothing existing moves.
+       */
+      screens: {
+        medium: "640px",
+        expanded: "1024px",
+        coarse: { raw: "(pointer: coarse)" },
+        hoverable: { raw: "(hover: hover)" },
+      },
+
+      spacing: {
+        hit: "var(--hit-min)",
+        "safe-top": "var(--safe-top)",
+        "safe-right": "var(--safe-right)",
+        "safe-bottom": "var(--safe-bottom)",
+        "safe-left": "var(--safe-left)",
+      },
+
+      minHeight: { hit: "var(--hit-min)", dvh: "var(--vh-dynamic)" },
+      minWidth: { hit: "var(--hit-min)" },
+      height: { dvh: "var(--vh-dynamic)" },
+      maxHeight: { dvh: "var(--vh-dynamic)" },
+
       colors: {
         canvas: "var(--bg-canvas)",
         surface: "var(--bg-surface)",
@@ -139,6 +165,7 @@ export default {
         composer: "20",
         popover: "30",
         toast: "40",
+        sheet: "25",
         modal: "50",
       },
 
@@ -155,6 +182,14 @@ export default {
           "0%, 70%, 100%": { opacity: "0.18", transform: "scale(0.8)" },
           "35%": { opacity: "1", transform: "scale(1)" },
         },
+        "sheet-enter": {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+        "scrim-enter": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
         "home-enter": {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
@@ -165,6 +200,8 @@ export default {
         "ribbon-line": "ribbon-line var(--dur-fast) var(--ease-out) both",
         "dot-wave": "dot-wave 1400ms var(--ease-in-out) infinite",
         "home-enter": "home-enter var(--dur-slow) var(--ease-out) both",
+        "sheet-enter": "sheet-enter var(--dur-base) var(--ease-out) both",
+        "scrim-enter": "scrim-enter var(--dur-base) var(--ease-out) both",
       },
     },
   },
