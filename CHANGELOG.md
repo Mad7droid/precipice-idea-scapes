@@ -5,6 +5,8 @@ numbered (see `docs/releases/`); entries are grouped by date and version.
 
 ## Unreleased
 
+## 2026-11-17 — 0.1.21
+
 - Scapes now have local version history: automatic checkpoints, named milestones, canvas
   previews, before/after comparisons, and safe restore with a preserved pre-restore version.
   Open History in the toolbar or More on a phone. History includes AI and agent changes;
