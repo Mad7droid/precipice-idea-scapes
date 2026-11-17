@@ -1,3 +1,4 @@
+import { captureCheckpoint } from "./history";
 import { z } from "zod";
 import { newScapeId } from "@/core/ids";
 import { toPlainScape } from "@/core/serialize";
@@ -112,6 +113,7 @@ export async function importLibrary(text: string, database: PrecipiceDb = db): P
   await database.transaction(
     "rw",
     database.scapes,
+    database.checkpoints,
     database.actions,
     database.settings,
     async () => {
@@ -144,6 +146,7 @@ export async function importLibrary(text: string, database: PrecipiceDb = db): P
           snapshot,
           version: CURRENT_DOC_VERSION,
         });
+        await captureCheckpoint(database, snapshot, "baseline");
         if (file.actionLog.length)
           await database.actions.bulkAdd(
             file.actionLog.map((action) => ({

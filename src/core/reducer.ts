@@ -54,6 +54,25 @@ function inv(action: Action, rest: ActionPayload): Action {
 
 function reduce(state: Scape, action: Action): ApplyResult {
   switch (action.type) {
+    case "RestoreScapeContent": {
+      const { name, objects, objectOrder, relationships, meta, instructions } = state;
+      const next = { ...state, ...structuredClone(action.content) };
+      // Omitted optional fields must clear the current value as well.
+      next.meta = action.content.meta;
+      next.instructions = action.content.instructions
+        ? {
+            body: action.content.instructions.body,
+            version: Math.max(instructions?.version ?? 0, action.content.instructions.version) + 1,
+          }
+        : undefined;
+      return {
+        state: next,
+        inverse: inv(action, {
+          type: "RestoreScapeContent",
+          content: { name, objects, objectOrder, relationships, meta, instructions },
+        }),
+      };
+    }
     case "CreateObject": {
       if (state.objects[action.id]) return { state, inverse: null };
       const object: ScapeObject = {

@@ -5,6 +5,11 @@ numbered (see `docs/releases/`); entries are grouped by date and version.
 
 ## Unreleased
 
+- Scapes now have local version history: automatic checkpoints, named milestones, canvas
+  previews, before/after comparisons, and safe restore with a preserved pre-restore version.
+  Open History in the toolbar or More on a phone. History includes AI and agent changes;
+  camera movements do not create versions. See [version history](docs/version-history.md).
+
 - Home always opens on Scapi and "What are you working on?", so starting a new scape is
   the first thing on the page every time. The large "Continue working" card is now a single
   "Continue <scape> →" link under the templates, and the duplicate Search, Capture and

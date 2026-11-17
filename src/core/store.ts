@@ -47,6 +47,8 @@ interface StoreState {
   generating: boolean;
   /** True while `commit` holds the store. Read-only: there is no setter by design. */
   committing: boolean;
+  historyPreview: boolean;
+  setHistoryPreview: (value: boolean) => void;
 
   loadScape: (scape: Scape | null) => void;
   /** Returns false if the action was a no-op and nothing was recorded. */
@@ -83,12 +85,19 @@ export const useScapeStore = create<StoreState>((set, get) => ({
   redoStack: [],
   generating: false,
   committing: false,
+  historyPreview: false,
+  setHistoryPreview: (historyPreview) => set({ historyPreview }),
 
   loadScape: (scape) => set({ scape, selection: [], actionLog: [], undoStack: [], redoStack: [] }),
 
   dispatch: (action, token) => {
     const { scape, undoStack } = get();
-    if (!scape || (get().committing && token !== activeCommit)) return false;
+    if (
+      !scape ||
+      (get().historyPreview && token !== activeCommit) ||
+      (get().committing && token !== activeCommit)
+    )
+      return false;
 
     const { state, inverse } = applyAction(scape, action);
     if (!inverse) return false;
@@ -152,7 +161,14 @@ export const useScapeStore = create<StoreState>((set, get) => ({
     // Undo mid-generation would split the stream's transaction in two: the half already
     // applied would be undone and the rest would land as a fresh step. Blocked here so every
     // path (toolbar, Cmd+Z, menus) gets the same answer.
-    if (get().committing || get().generating || !scape || undoStack.length === 0) return false;
+    if (
+      get().historyPreview ||
+      get().committing ||
+      get().generating ||
+      !scape ||
+      undoStack.length === 0
+    )
+      return false;
     const tx = undoStack[undoStack.length - 1];
 
     let next = scape;
@@ -180,7 +196,14 @@ export const useScapeStore = create<StoreState>((set, get) => ({
 
   redo: () => {
     const { scape, redoStack } = get();
-    if (get().committing || get().generating || !scape || redoStack.length === 0) return false;
+    if (
+      get().historyPreview ||
+      get().committing ||
+      get().generating ||
+      !scape ||
+      redoStack.length === 0
+    )
+      return false;
     const tx = redoStack[redoStack.length - 1];
 
     let next = scape;

@@ -157,6 +157,7 @@ export interface PublicationStore {
  * Two implementations ship: Dexie-backed and in-memory, and the same suite runs against both.
  */
 export interface ScapeRepository {
+  history: import("@/history/model").HistoryRepository;
   list(): Promise<ScapeSummary[]>;
   get(id: ScapeId): Promise<Scape | undefined>;
   create(name?: string, meta?: ScapeMeta): Promise<Scape>;

@@ -43,9 +43,11 @@ const IDLE: GenerationState = {
 export interface UseGenerationOptions {
   /** Wired to the canvas by the app shell so this module never imports src/canvas. */
   requestLayout?: () => void;
+  beforeRun?: () => Promise<void>;
+  afterRun?: (partial: boolean) => Promise<void>;
 }
 
-export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
+export function useGeneration({ requestLayout, beforeRun, afterRun }: UseGenerationOptions = {}) {
   const [state, setState] = useState<GenerationState>(IDLE);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
@@ -118,7 +120,13 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
       spoken?: { recent: string[]; lastChanged?: string[] };
     }) => {
       const scape = useScapeStore.getState().scape;
-      if (!scape || !options.request.trim()) return;
+      if (
+        !scape ||
+        !options.request.trim() ||
+        useScapeStore.getState().historyPreview ||
+        useScapeStore.getState().committing
+      )
+        return;
       const selection = useScapeStore.getState().selection;
       // A selection scope with nothing selected cannot safely mean anything narrower than the
       // whole document. Treat it as whole-scape rather than presenting a false restriction.
@@ -155,8 +163,11 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
         ...(scape.instructions?.body.trim() ? { scape: scape.instructions.body.trim() } : {}),
       };
 
+      let failed = false;
       useScapeStore.getState().setGenerating(true);
       try {
+        await beforeRun?.();
+        if (signal.aborted) return;
         // The provider SDK is large. It stays out of the initial canvas bundle and loads only
         // when the user asks the model to generate something.
         const { generate } = await import("./generate");
@@ -175,15 +186,24 @@ export function useGeneration({ requestLayout }: UseGenerationOptions = {}) {
           ...(Object.keys(instructions).length > 0 ? { instructions } : {}),
           ...(options.spoken ? { spoken: options.spoken } : {}),
           dispatch: (action) => useScapeStore.getState().dispatch(action),
-          onEvent: eventsFor(id),
+          onEvent: (event) => {
+            if (event.kind === "error") failed = true;
+            eventsFor(id)(event);
+          },
           ...(requestLayout ? { requestLayout } : {}),
           signal,
         });
+      } catch (error) {
+        failed = true;
+        throw error;
       } finally {
-        if (runId.current === id) useScapeStore.getState().setGenerating(false);
+        if (runId.current === id) {
+          useScapeStore.getState().setGenerating(false);
+          await afterRun?.(failed || signal.aborted);
+        }
       }
     },
-    [eventsFor, requestLayout],
+    [eventsFor, requestLayout, beforeRun, afterRun],
   );
 
   const start = run;

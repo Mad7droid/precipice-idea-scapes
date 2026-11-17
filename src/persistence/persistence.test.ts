@@ -523,7 +523,7 @@ describe("autosave", () => {
     const autosave = startAutosave(repo);
     try {
       useScapeStore.getState().dispatchTx([{ type: "RenameScape", name: "Unsaved edit" }]);
-      await autosave.flush();
+      await expect(autosave.flush()).rejects.toThrow("Storage unavailable");
       expect(autosave.writes()).toBe(0);
       expect(autosave.lastSavedAt()).toBeNull();
       useScapeStore.getState().dispatchTx([{ type: "RenameScape", name: "Saved edit" }]);
