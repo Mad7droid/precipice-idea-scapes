@@ -85,6 +85,9 @@ function notifyOnce(level: "info" | "danger", message: string, detail: string) {
 }
 
 // Markdown is sizeable and Scapi is optional. Keep it out of the editor's first paint.
+const HistoryWorkspace = lazy(() =>
+  import("@/history/HistoryWorkspace").then((module) => ({ default: module.HistoryWorkspace })),
+);
 const ScapiPanel = lazy(() =>
   import("@/ai/scapi/ScapiPanel").then((module) => ({ default: module.ScapiPanel })),
 );
@@ -120,6 +123,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const settingsOpen = settingsSection !== null;
   const setSettingsOpen = (open: boolean) => setSettingsSection(open ? "general" : null);
   const openAiSettings = () => setSettingsSection("ai");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [scopeOverride, setScopeOverride] = useState<{ selection: string; scope: Scope } | null>(
     null,
@@ -225,7 +229,10 @@ export function Editor({ scapeId }: { scapeId: string }) {
   const inspector = useRef<HTMLElement | null>(null);
   const composerInput = useRef<HTMLTextAreaElement | null>(null);
   const canvasArea = useRef<HTMLDivElement | null>(null);
-  const { booted, readOnly, takingOver, takeOver } = useEditorSession(scapeId, commands);
+  const { booted, readOnly, takingOver, takeOver, flush, canWrite } = useEditorSession(
+    scapeId,
+    commands,
+  );
 
   const sessionToSave = useRef<Parameters<typeof saveEditorPreferences>[1] | null>(null);
   useEffect(() => {
@@ -309,7 +316,23 @@ export function Editor({ scapeId }: { scapeId: string }) {
     setProposedEdit(null);
   }, [selectionKey, scope]);
 
-  const generation = useGeneration({ requestLayout: () => commands.current?.relayout() });
+  const captureAiBoundary = async (reason: "ai" | "ai-partial" = "ai") => {
+    try {
+      await flush();
+      const current = useScapeStore.getState().scape;
+      if (current && canWrite()) await scapeRepository.history.capture(current, reason);
+    } catch (error) {
+      notify.error(
+        "Could not save version history",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  };
+  const generation = useGeneration({
+    requestLayout: () => commands.current?.relayout(),
+    beforeRun: captureAiBoundary,
+    afterRun: (partial) => captureAiBoundary(partial ? "ai-partial" : "ai"),
+  });
   useEffect(() => {
     generation.cancel();
   }, [appSettings.connection.provider, appSettings.connection.connectionId, generation.cancel]);
@@ -425,6 +448,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
    * composer, the quick actions and the title field.
    */
   const requireLease = () => {
+    if (useScapeStore.getState().historyPreview) return false;
     if (!readOnly) return true;
     notifyOnce(
       "info",
@@ -826,7 +850,27 @@ export function Editor({ scapeId }: { scapeId: string }) {
         },
       ];
 
+  const openHistory = async () => {
+    window.dispatchEvent(new Event("precipice:flush-fields"));
+    (document.activeElement as HTMLElement | null)?.blur();
+    if (busy || scapi.streaming || useScapeStore.getState().committing) {
+      notify.info(
+        "Wait for the current edit to finish",
+        "Version history will be available when editing finishes.",
+      );
+      return;
+    }
+    try {
+      await flush();
+      if (useScapeStore.getState().generating || useScapeStore.getState().committing) return;
+      useScapeStore.getState().setHistoryPreview(true);
+      setHistoryOpen(true);
+    } catch {
+      /* Persistence already reports the failed save. */
+    }
+  };
   const commandItems: CommandItem[] = [
+    { id: "history", label: "Version history", run: () => void openHistory() },
     ...SCAPI_ACTIONS.map((action) => ({
       id: `scapi-${action.id}`,
       label: action.label,
@@ -1121,6 +1165,7 @@ export function Editor({ scapeId }: { scapeId: string }) {
   return (
     <div className="flex h-full flex-col bg-base">
       <TopBar
+        onOpenHistory={() => void openHistory()}
         scapiOpen={scapiOpen}
         onOpenScapi={() => setScapiOpen((open) => !open)}
         scape={scape}
@@ -1568,6 +1613,28 @@ export function Editor({ scapeId }: { scapeId: string }) {
           }}
           isAdmin={session?.isAdmin}
         />
+      )}
+      {historyOpen && (
+        <Suspense
+          fallback={
+            <div
+              className="fixed inset-0 z-modal grid place-items-center bg-base text-fg-secondary"
+              role="status"
+            >
+              Opening version history…
+            </div>
+          }
+        >
+          <HistoryWorkspace
+            current={scape}
+            canWrite={canWrite}
+            flush={flush}
+            onClose={() => {
+              useScapeStore.getState().setHistoryPreview(false);
+              setHistoryOpen(false);
+            }}
+          />
+        </Suspense>
       )}
       {commandOpen && <CommandPalette items={commandItems} onClose={() => setCommandOpen(false)} />}
       {shortcutsOpen && <HelpPanel onClose={() => setShortcutsOpen(false)} />}

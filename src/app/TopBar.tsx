@@ -27,6 +27,7 @@ export function TopBar({
   onRename,
   onExport,
   exporting,
+  onOpenHistory,
   onOpenSettings,
   onPublish,
   publicationState,
@@ -39,6 +40,7 @@ export function TopBar({
   onExport: (format: ExportFormat) => void;
   /** A PDF of a large scape takes a beat, and a button that looks idle while it renders lies. */
   exporting?: boolean;
+  onOpenHistory?: () => void;
   onOpenSettings: () => void;
   onPublish?: () => void;
   /** Omitted on surfaces that have no publication context, such as the dev harnesses. */
@@ -186,6 +188,15 @@ export function TopBar({
         )}
         {!compact && (
           <>
+            {onOpenHistory && (
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                className={buttonClass({ variant: "ghost", size: "sm" })}
+              >
+                History
+              </button>
+            )}
             {onPublish && <PublishControl state={publicationState} onClick={onPublish} />}
             <ExportMenu onExport={onExport} busy={exporting ?? false} />
             {/* Theme lives in Settings → General: the top bar has to fit an 800px window. */}
@@ -242,6 +253,7 @@ export function TopBar({
             >
               Export PDF
             </MoreRow>
+            {onOpenHistory && <MoreRow onClick={fromMore(onOpenHistory)}>Version history</MoreRow>}
             <MoreRow onClick={fromMore(onOpenSettings)}>Settings</MoreRow>
           </ul>
         </Sheet>

@@ -35,7 +35,8 @@ export function useEditorSession(
       scapeId,
       liveEditor({
         scapeId,
-        canWrite: () => lease.current?.status() === "holder",
+        canWrite: () =>
+          lease.current?.status() === "holder" && !useScapeStore.getState().historyPreview,
         flush: async () => {
           await autosave.current?.flush();
         },
@@ -96,6 +97,7 @@ export function useEditorSession(
 
     return () => {
       cancelled = true;
+      useScapeStore.getState().setHistoryPreview(false);
       off();
       autosave.current?.stop();
       autosave.current = null;
@@ -111,5 +113,14 @@ export function useEditorSession(
     await lease.current?.takeOver();
   };
 
-  return { booted, readOnly, takingOver, takeOver };
+  return {
+    booted,
+    readOnly,
+    takingOver,
+    takeOver,
+    flush: async () => {
+      await autosave.current?.flush();
+    },
+    canWrite: () => lease.current?.status() === "holder",
+  };
 }

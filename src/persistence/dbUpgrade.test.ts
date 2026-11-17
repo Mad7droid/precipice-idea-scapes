@@ -3,8 +3,8 @@ import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
 import { PrecipiceDb } from "./db";
 
-describe("v2 -> v3 upgrade", () => {
-  it("carries existing rows forward and adds mcpOperations", async () => {
+describe("legacy -> current database upgrade", () => {
+  it("carries existing rows forward and adds MCP receipts and version history", async () => {
     const name = `precipice-upgrade-${Date.now()}`;
     // Exactly the schema shipped to live users today.
     const old = new Dexie(name);
@@ -30,7 +30,7 @@ describe("v2 -> v3 upgrade", () => {
 
     const next = new PrecipiceDb(name);
     await next.open();
-    expect(next.verno).toBe(3);
+    expect(next.verno).toBe(4);
     expect((await next.scapes.get("s1"))?.name).toBe("Live scape");
     expect(await next.settings.get("theme")).toBeTruthy();
     expect(await next.publications.get("s1")).toBeTruthy();
@@ -49,9 +49,10 @@ describe("v2 -> v3 upgrade", () => {
   it("opens cleanly on a brand new browser", async () => {
     const fresh = new PrecipiceDb(`precipice-fresh-${Date.now()}`);
     await fresh.open();
-    expect(fresh.verno).toBe(3);
+    expect(fresh.verno).toBe(4);
     expect(fresh.tables.map((t) => t.name).sort()).toEqual([
       "actions",
+      "checkpoints",
       "mcpOperations",
       "publications",
       "scapes",

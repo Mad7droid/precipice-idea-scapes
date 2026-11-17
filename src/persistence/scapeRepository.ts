@@ -16,6 +16,7 @@ import type {
 import { isDesktop } from "@/desktop/runtime";
 import { db, type PrecipiceDb, type ScapeRow } from "./db";
 import { CURRENT_DOC_VERSION, migrateScape } from "./migrate";
+import { DexieHistoryRepository, captureCheckpoint } from "./history";
 import { summarize } from "./summary";
 
 /**
@@ -34,6 +35,7 @@ export class DexieScapeRepository implements ScapeRepository {
    * and silently roll the document back.
    */
   private lastSeq = new Map<ScapeId, number>();
+  private writeQueues = new Map<ScapeId, Promise<void>>();
 
   /** Appends since this scape's log was last measured. See `trimActionLog`. */
   private appendsSinceTrim = new Map<ScapeId, number>();
@@ -48,6 +50,7 @@ export class DexieScapeRepository implements ScapeRepository {
     this.maxLoggedActions = limits.maxLoggedActions ?? MAX_LOGGED_ACTIONS;
     this.trimCheckEvery = limits.trimCheckEvery ?? TRIM_CHECK_EVERY;
     this.publications = new DexiePublicationStore(this.database);
+    this.history = new DexieHistoryRepository(this.database);
     // Another tab opened a newer schema. Holding our connection open would block its upgrade,
     // and Dexie's default — closing quietly — leaves every later save failing with an opaque
     // error. Close, and tell the person once what to do.
@@ -68,6 +71,7 @@ export class DexieScapeRepository implements ScapeRepository {
     );
   }
 
+  readonly history: DexieHistoryRepository;
   readonly publications: PublicationStore;
 
   async list(): Promise<ScapeSummary[]> {
@@ -154,12 +158,15 @@ export class DexieScapeRepository implements ScapeRepository {
    * public URL serving a document its author believes they deleted.
    */
   async remove(id: ScapeId): Promise<void> {
+    await this.writeQueues.get(id)?.catch(() => {});
     await this.database.transaction(
       "rw",
       this.database.scapes,
       this.database.actions,
       this.database.publications,
+      this.database.checkpoints,
       async () => {
+        await this.database.checkpoints.where("scapeId").equals(id).delete();
         await this.database.scapes.delete(id);
         await this.database.actions.where("scapeId").equals(id).delete();
         await this.database.publications.delete(id);
@@ -171,10 +178,7 @@ export class DexieScapeRepository implements ScapeRepository {
 
   /** `seq` comes from `nextSnapshotSeq()`; see sequence.ts. Rejects if the write fails. */
   async saveSnapshot(scape: Scape, seq: number): Promise<void> {
-    const last = this.lastSeq.get(scape.id) ?? -1;
-    if (seq <= last) return; // stale write, a newer snapshot already landed
-    this.lastSeq.set(scape.id, seq);
-    await this.write(scape);
+    await this.write(scape, seq);
   }
 
   async appendActions(scapeId: ScapeId, actions: Action[]): Promise<void> {
@@ -229,21 +233,70 @@ export class DexieScapeRepository implements ScapeRepository {
   }
 
   /** Throws after notifying: a caller must never report a snapshot saved that was not. */
-  private async write(scape: Scape): Promise<void> {
-    // Serialize through the core schema so a stray non-cloneable field can never reach disk.
+  private write(scape: Scape, seq?: number): Promise<void> {
+    const previous = this.writeQueues.get(scape.id);
+    const run = async () => {
+      if (seq !== undefined && seq <= (this.lastSeq.get(scape.id) ?? -1)) return;
+      await this.persist(scape);
+      if (seq !== undefined) this.lastSeq.set(scape.id, seq);
+    };
+    const next = previous ? previous.catch(() => {}).then(run) : run();
+    this.writeQueues.set(scape.id, next);
+    void next
+      .finally(() => {
+        if (this.writeQueues.get(scape.id) === next) this.writeQueues.delete(scape.id);
+      })
+      .catch(() => {});
+    return next;
+  }
+
+  private async persist(scape: Scape): Promise<void> {
     const snapshot = toPlainScape(scape);
-    await this.guard(
-      () =>
-        this.database.scapes.put({
-          id: snapshot.id,
-          name: snapshot.name,
-          updatedAt: snapshot.updatedAt,
-          objectCount: snapshot.objectOrder.length,
-          snapshot,
-          version: CURRENT_DOC_VERSION,
-        }),
-      { rethrow: true },
-    );
+    const row = {
+      id: snapshot.id,
+      name: snapshot.name,
+      updatedAt: snapshot.updatedAt,
+      objectCount: snapshot.objectOrder.length,
+      snapshot,
+      version: CURRENT_DOC_VERSION,
+    };
+    let historyFailed = false;
+    const capture = async (value: Scape, reason: "baseline" | "automatic") => {
+      try {
+        await captureCheckpoint(this.database, value, reason);
+      } catch (error) {
+        historyFailed = true;
+        throw error;
+      }
+    };
+    try {
+      await this.database.transaction(
+        "rw",
+        this.database.scapes,
+        this.database.checkpoints,
+        async () => {
+          const old = await this.database.scapes.get(scape.id);
+          if (old && !(await this.database.checkpoints.where("scapeId").equals(scape.id).count())) {
+            const baseline = this.upgrade(old);
+            if (baseline) await capture(baseline, "baseline");
+          }
+          await this.database.scapes.put(row);
+          await capture(snapshot, "automatic");
+        },
+      );
+    } catch (error) {
+      if (!historyFailed) {
+        await this.guard(() => Promise.reject(error), { rethrow: true });
+        return;
+      }
+      // A checkpoint is secondary to the live document. If history exhausted storage,
+      // retry only the current snapshot after the entire failed transaction rolls back.
+      notify.error(
+        "Could not save version history",
+        error instanceof Error ? error.message : String(error),
+      );
+      await this.guard(() => this.database.scapes.put(row), { rethrow: true });
+    }
   }
 
   /**

@@ -49,6 +49,7 @@ export interface SettingRow {
 export type PublicationRow = PublicationRecord;
 
 export class PrecipiceDb extends Dexie {
+  checkpoints!: EntityTable<import("@/history/model").Checkpoint, "id">;
   mcpOperations!: EntityTable<McpOperation, "key">;
   scapes!: EntityTable<ScapeRow, "id">;
   actions!: EntityTable<ActionRow, "id">;
@@ -81,6 +82,7 @@ export class PrecipiceDb extends Dexie {
     // opens a real version 2 database and asserts exactly that, because the failure mode here
     // is only visible on a disk that already has data on it.
     this.version(3).stores({ mcpOperations: "key, scapeId, expiresAt" });
+    this.version(4).stores({ checkpoints: "id, scapeId, &[scapeId+ordinal]" });
   }
 }
 

@@ -68,9 +68,11 @@ export function useDebouncedText(
     };
     window.addEventListener("visibilitychange", onHidden, { capture: true });
     window.addEventListener("pagehide", flush, { capture: true });
+    window.addEventListener("precipice:flush-fields", flush);
     return () => {
       window.removeEventListener("visibilitychange", onHidden, { capture: true });
       window.removeEventListener("pagehide", flush, { capture: true });
+      window.removeEventListener("precipice:flush-fields", flush);
     };
   }, [flush]);
 

@@ -1,3 +1,4 @@
+import { captureCheckpoint } from "../persistence/history";
 import type { Action } from "../core/actions";
 import type { Scape } from "../core/types";
 import type { McpOperation } from "./contracts";
@@ -24,12 +25,15 @@ export async function saveOperation(
   await database.transaction(
     "rw",
     database.scapes,
+    database.checkpoints,
     database.actions,
     database.mcpOperations,
     async () => {
       if (!canWrite()) throw new Error("read_only");
       if (scape) {
         const snapshot = toPlainScape(scape);
+        const previous = await database.scapes.get(scape.id);
+        if (previous) await captureCheckpoint(database, previous.snapshot, "agent");
         await database.scapes.put({
           id: scape.id,
           name: scape.name,
@@ -38,6 +42,7 @@ export async function saveOperation(
           snapshot,
           version: CURRENT_DOC_VERSION,
         });
+        await captureCheckpoint(database, snapshot, "agent");
         if (actions.length)
           await database.actions.bulkAdd(
             actions.map((action) => ({

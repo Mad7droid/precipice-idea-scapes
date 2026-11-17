@@ -208,7 +208,21 @@ export const restoreObjectSchema = z.object({
   index: z.number().int().min(0),
 });
 
+export const restoreScapeContentSchema = z.object({
+  ...envelope,
+  type: z.literal("RestoreScapeContent"),
+  content: z.object({
+    name: z.string(),
+    objects: z.record(z.string(), scapeObjectSchema),
+    objectOrder: z.array(z.string()),
+    relationships: z.record(z.string(), relationshipSchema),
+    meta: z.record(z.string(), z.unknown()).optional(),
+    instructions: z.object({ body: z.string(), version: z.number() }).optional(),
+  }),
+});
+
 export const actionSchema = z.discriminatedUnion("type", [
+  restoreScapeContentSchema,
   createObjectSchema,
   updateObjectSchema,
   deleteObjectSchema,
@@ -274,6 +288,8 @@ export const NON_UNDOABLE_ACTIONS: ReadonlySet<ActionType> = new Set<ActionType>
 /** One-line summary for the generation ribbon and the action log. */
 export function describeAction(action: Action): string {
   switch (action.type) {
+    case "RestoreScapeContent":
+      return "Restored scape version";
     case "CreateObject":
       return `${action.objectType} · "${action.title}"`;
     case "UpdateObject":

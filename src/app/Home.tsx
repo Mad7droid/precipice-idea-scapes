@@ -37,7 +37,6 @@ import {
   type WorkState,
 } from "@/persistence/workspace";
 import { openWorkspaceTool } from "./workspaceEvents";
-import { ScapeThumbnail } from "./ScapeThumbnail";
 import type { HomePage } from "./home/routes";
 import { LibraryControls } from "./home/LibraryControls";
 import { ScapeCard, type CardAction } from "./home/ScapeCard";
@@ -60,7 +59,6 @@ export function Home({ page = "home" }: { page?: HomePage }) {
   const [workStates, setWorkStates] = useState<Record<string, WorkState>>({});
   const [opened, setOpened] = useState<Record<string, number>>({});
   const [captureCount, setCaptureCount] = useState(0);
-  const [showCreation, setShowCreation] = useState(false);
   const [query, setQuery] = useState("");
   const [starterId, setStarterId] = useState("blank");
   const [draft, setDraft] = useState("");
@@ -402,7 +400,6 @@ export function Home({ page = "home" }: { page?: HomePage }) {
   };
 
   const newScape = () => {
-    setShowCreation(true);
     if (page !== "home") navigate("/");
     window.requestAnimationFrame(() => prompt.current?.focus());
   };
@@ -507,58 +504,33 @@ export function Home({ page = "home" }: { page?: HomePage }) {
             />
           ) : (
             <>
+              <div className={firstUse ? "pt-6 sm:pt-12" : "pt-2 sm:pt-6"}>
+                <CreationPanel
+                  firstUse={firstUse}
+                  starterId={starterId}
+                  onStarterChange={setStarterId}
+                  draft={draft}
+                  onDraftChange={setDraft}
+                  busy={busy.has("creation")}
+                  onCreate={create}
+                  onSettings={() => setSettings("general")}
+                  inputRef={prompt}
+                />
+              </div>
               {!firstUse && resume && (
-                <section aria-label="Continue working" className="mb-8">
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                    <h1 className="font-pixel text-2xl text-fg">Your workspace</h1>
-                    <div className="flex gap-2">
-                      <Button onClick={() => openWorkspaceTool("search")}>Search content</Button>
-                      <Button onClick={() => openWorkspaceTool("capture")}>Capture a note</Button>
-                    </div>
-                  </div>
+                <p className="mt-6 text-center text-sm text-fg-tertiary">
                   <button
                     type="button"
                     onClick={() => open(resume.id)}
-                    className="flex w-full items-center gap-5 rounded-xl border border-subtle bg-surface p-5 text-left focus-self hover:border-default"
+                    className="inline-flex max-w-full items-center gap-1 rounded-md px-1 hover:text-fg"
                   >
-                    <div className="hidden sm:block">
-                      <ScapeThumbnail preview={resume.preview} />
-                    </div>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs text-fg-secondary">Continue working</span>
-                      <span className="mt-1 block truncate text-lg text-fg">{resume.name}</span>
-                      <span className="mt-1 block text-xs text-fg-tertiary">
-                        {resume.objectCount} {resume.objectCount === 1 ? "block" : "blocks"} ·{" "}
-                        {workStates[resume.id]
-                          ? { active: "Active", parked: "Parked", done: "Done" }[
-                              workStates[resume.id]
-                            ]
-                          : "Recently edited"}
-                      </span>
+                    <span className="shrink-0">Continue</span>
+                    <span className="truncate text-fg-secondary">{resume.name}</span>
+                    <span aria-hidden className="shrink-0">
+                      →
                     </span>
-                    <span className="text-sm text-fg-secondary">Open →</span>
                   </button>
-                  {!showCreation && (
-                    <Button className="mt-4" onClick={newScape}>
-                      New scape
-                    </Button>
-                  )}
-                </section>
-              )}
-              {(firstUse || showCreation) && (
-                <div className={firstUse ? "pt-6 sm:pt-12" : "pt-2"}>
-                  <CreationPanel
-                    firstUse={firstUse}
-                    starterId={starterId}
-                    onStarterChange={setStarterId}
-                    draft={draft}
-                    onDraftChange={setDraft}
-                    busy={busy.has("creation")}
-                    onCreate={create}
-                    onSettings={() => setSettings("general")}
-                    inputRef={prompt}
-                  />
-                </div>
+                </p>
               )}
               <section aria-label="Scape library" className={firstUse ? "mt-16" : "mt-14"}>
                 {!firstUse && status !== "error" && (

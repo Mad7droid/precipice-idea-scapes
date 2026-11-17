@@ -1,4 +1,5 @@
 import type { Action } from "@/core/actions";
+import { notify } from "@/core/notify";
 import { emptyScape } from "@/core/fixtures";
 import { newScapeId } from "@/core/ids";
 import type {
@@ -12,6 +13,7 @@ import type {
   ScapeSummary,
   SettingsRepository,
 } from "@/core/types";
+import { MemoryHistoryRepository } from "./history";
 import { summarize } from "./summary";
 
 /**
@@ -25,6 +27,11 @@ export class MemoryScapeRepository implements ScapeRepository {
   private scapes = new Map<ScapeId, Scape>();
   private actions = new Map<ScapeId, LoggedAction[]>();
   private lastSeq = new Map<ScapeId, number>();
+  readonly history = new MemoryHistoryRepository(
+    (id) => this.get(id),
+    (s) => this.put(s),
+    (id, actions) => this.appendActions(id, actions),
+  );
   readonly publications = new MemoryPublicationStore();
 
   async list(): Promise<ScapeSummary[]> {
@@ -41,13 +48,17 @@ export class MemoryScapeRepository implements ScapeRepository {
     scape.createdAt = Date.now();
     scape.updatedAt = scape.createdAt;
     this.scapes.set(scape.id, scape);
+    await this.history.capture(scape, "baseline");
     return structuredClone(scape);
   }
 
   async rename(id: ScapeId, name: string): Promise<void> {
     const scape = this.scapes.get(id);
     if (!scape) return;
-    this.scapes.set(id, { ...scape, name, updatedAt: Date.now() });
+    await this.saveSnapshot(
+      { ...scape, name, updatedAt: Date.now() },
+      (this.lastSeq.get(id) ?? 0) + 1,
+    );
   }
 
   /** The copy is unpublished. See the Dexie implementation for why the row is not carried. */
@@ -62,10 +73,12 @@ export class MemoryScapeRepository implements ScapeRepository {
       updatedAt: Date.now(),
     };
     this.scapes.set(copy.id, copy);
+    await this.history.capture(copy, "baseline");
     return structuredClone(copy);
   }
 
   async remove(id: ScapeId): Promise<void> {
+    this.history.removeScape(id);
     this.scapes.delete(id);
     this.actions.delete(id);
     this.lastSeq.delete(id);
@@ -78,7 +91,13 @@ export class MemoryScapeRepository implements ScapeRepository {
     const last = this.lastSeq.get(scape.id) ?? -1;
     if (seq <= last) return;
     this.lastSeq.set(scape.id, seq);
+    const old = this.scapes.get(scape.id);
+    if (old && !(await this.history.list(scape.id)).length)
+      await this.history.capture(old, "baseline");
     this.scapes.set(scape.id, structuredClone(scape));
+    await this.history
+      .capture(scape, "automatic")
+      .catch((error) => notify.error("Could not save version history", String(error)));
   }
 
   async appendActions(scapeId: ScapeId, actions: Action[]): Promise<void> {

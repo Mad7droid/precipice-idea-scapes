@@ -34,10 +34,12 @@ export function startAutosave(
   { canWrite }: AutosaveOptions = {},
 ): AutosaveHandle {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let historyTimer: ReturnType<typeof setTimeout> | undefined;
   let pending: Scape | null = null;
   let writes = 0;
   let lastSavedAt: number | null = null;
   let stopped = false;
+  let saveError: unknown;
 
   let inflight: Promise<void> = Promise.resolve();
   const write = (): Promise<void> => {
@@ -69,10 +71,14 @@ export function startAutosave(
       () => {
         // Counted only once the write has landed. The repository has already surfaced a
         // failure to the person; reporting "saved" for it would be a lie.
+        saveError = undefined;
         writes += 1;
         lastSavedAt = Date.now();
       },
-      () => undefined,
+      (error) => {
+        saveError = error;
+        if (!pending) pending = scape;
+      },
     );
     const pendingWrites = [snapshot];
     if (actions.length)
@@ -88,6 +94,17 @@ export function startAutosave(
     if (!state.scape) return;
 
     pending = state.scape;
+    if (historyTimer) clearTimeout(historyTimer);
+    if (!state.generating && !state.historyPreview)
+      historyTimer = setTimeout(() => {
+        void write()
+          .then(async () => {
+            const current = useScapeStore.getState();
+            if (current.scape && !current.generating && (!canWrite || canWrite()))
+              await repository.history.capture(current.scape, "automatic");
+          })
+          .catch(() => {});
+      }, 30_000);
     if (timer) clearTimeout(timer);
     // A node drag emits one action, but a generation emits dozens in a burst. Coalescing
     // here is what stops forty IndexedDB transactions from a single gesture.
@@ -108,7 +125,10 @@ export function startAutosave(
   document.addEventListener("visibilitychange", onVisibility);
 
   return {
-    flush: write,
+    flush: async () => {
+      await write();
+      if (saveError) throw saveError;
+    },
     writes: () => writes,
     lastSavedAt: () => lastSavedAt,
     stop: () => {
@@ -116,6 +136,7 @@ export function startAutosave(
       // before it is routinely inside the 300ms debounce window.
       write();
       stopped = true;
+      if (historyTimer) clearTimeout(historyTimer);
       if (timer) clearTimeout(timer);
       unsubscribe();
       window.removeEventListener("pagehide", onPageHide);
